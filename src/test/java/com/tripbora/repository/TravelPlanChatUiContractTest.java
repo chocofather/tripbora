@@ -136,16 +136,20 @@ class TravelPlanChatUiContractTest {
         String css = cssFile();
         String panel = between(css, ".travel-plan-chat-panel {", "}");
 
+        // 버튼 자리는 한곳(:root)에서 정하고 패널과 버튼이 같이 쓴다
+        String root = between(css, ":root {", "}");
+        assertThat(between(root, "--tp-chat-edge:", ";")).contains("28px");
+        assertThat(between(root, "--tp-chat-toggle-size:", ";")).contains("52px");
         assertThat(panel)
                 .contains("position: fixed")
-                // 떠 있는 채팅 버튼과 같은 모서리에서 펼쳐진다
-                .contains("right: 28px")
-                .contains("bottom: 28px")
+                // 오른쪽 아래 토글 버튼 바로 위에서 펼쳐져 버튼을 가리지 않는다
+                .contains("right: var(--tp-chat-edge)")
+                .contains("bottom: calc(var(--tp-chat-edge) + var(--tp-chat-toggle-space))")
                 // PC 에서는 대화를 읽을 만큼 넓게, 좁은 화면에서는 남은 폭 안에서만
-                .contains("width: min(420px, calc(100vw - 56px))");
+                .contains("width: min(420px, calc(100vw - var(--tp-chat-edge) * 2))");
         assertThat(between(css, ".travel-plan-chat {", "}"))
-                .contains("right: 28px")
-                .contains("bottom: 28px");
+                .contains("right: var(--tp-chat-edge)")
+                .contains("bottom: var(--tp-chat-edge)");
         // 옆으로 넘치는 대신 안에서 스크롤한다
         assertThat(between(css, ".travel-plan-chat-body {", "}"))
                 .contains("overflow-y: auto")
@@ -163,7 +167,7 @@ class TravelPlanChatUiContractTest {
                 .doesNotContain("data-travel-plan-chat-toggle");
         // 말풍선 하나뿐인 둥근 버튼이다
         assertThat(detail)
-                .contains("class=\"travel-plan-chat-icon\"")
+                .contains("class=\"travel-plan-chat-icon travel-plan-chat-icon-open\"")
                 .contains("aria-label=\"채팅 열기\"");
         assertThat(between(detail, "data-travel-plan-chat-toggle", "</button>"))
                 .as("글자 '채팅' 은 버튼 안에 두지 않는다")
@@ -178,22 +182,33 @@ class TravelPlanChatUiContractTest {
     }
 
     @Test
-    void theBubbleStepsAsideWhileTheChatIsOpenAndComesBackWhenItCloses() throws IOException {
+    void theBubbleStaysAsAToggleWhileTheChatIsOpen() throws IOException {
         String css = cssFile();
         String chat = chatJs();
 
         /*
-          숨기고 보이는 기준은 채팅 스크립트가 이미 맞춰 두는 aria-expanded 다.
+          열려 있어도 버튼은 사라지지 않고 같은 버튼으로 닫는다.
+          모양을 바꾸는 기준은 채팅 스크립트가 이미 맞춰 두는 aria-expanded 다.
           여닫는 데 쓰는 상태를 새로 만들지 않는다.
         */
-        assertThat(css).contains(".travel-plan-chat-toggle[aria-expanded=\"true\"]");
         assertThat(between(css, ".travel-plan-chat-toggle[aria-expanded=\"true\"] {", "}"))
-                .contains("display: none");
+                .doesNotContain("display: none")
+                .contains("background: var(--tp-plan-accent-soft)");
+        assertThat(css).contains(
+                ".travel-plan-chat-toggle[aria-expanded=\"true\"] .travel-plan-chat-icon-close {\n    display: block;");
         assertThat(chat)
                 .contains("toggle?.setAttribute(\"aria-expanded\", \"true\")")
                 .contains("toggle?.setAttribute(\"aria-expanded\", \"false\")");
-        // 버튼이 패널에 가리지 않도록 한 층 아래에 둔다
-        assertThat(between(css, ".travel-plan-chat {", "}")).contains("z-index: 39");
+        // 버튼 이름도 지금 누르면 일어날 일을 말한다
+        assertThat(between(chat, "function openPanel()", "\n    }"))
+                .contains("toggle?.setAttribute(\"aria-label\", \"채팅 닫기\")");
+        assertThat(between(chat, "function closePanel()", "\n    }"))
+                .contains("toggle?.setAttribute(\"aria-label\", \"채팅 열기\")");
+        assertThat(between(chat, "toggle?.addEventListener(\"click\"", "});"))
+                .contains("openPanel()")
+                .contains("closePanel()");
+        // 패널을 이 모서리로 옮겨 와도 버튼이 가려지지 않도록 한 층 위에 둔다
+        assertThat(between(css, ".travel-plan-chat {", "}")).contains("z-index: 41");
         assertThat(between(css, ".travel-plan-chat-panel {", "}")).contains("z-index: 40");
     }
 
@@ -227,8 +242,8 @@ class TravelPlanChatUiContractTest {
         */
         assertThat(panel)
                 .contains("height: 500px")
-                // 화면이 낮으면 그 안으로 줄어든다
-                .contains("max-height: min(70vh, calc(100vh - 56px))")
+                // 화면이 낮으면 그 안으로 줄어든다(토글 버튼 위로 올라선 만큼 뺀다)
+                .contains("max-height: min(calc(70vh - var(--tp-chat-toggle-space)),")
                 .contains("flex-direction: column");
     }
 
@@ -639,7 +654,7 @@ class TravelPlanChatUiContractTest {
                 .contains("max-width: calc(100vw - 48px)");
         // 많아지면 채팅 패널을 밀지 않고 이 안에서만 넘긴다
         assertThat(panel)
-                .contains("max-height: min(232px, calc(70vh - 96px))")
+                .contains("max-height: min(232px, calc(70vh - 96px - var(--tp-chat-toggle-space)))")
                 .contains("overflow-y: auto");
         assertThat(css).contains(".travel-plan-chat-emoji-panel::-webkit-scrollbar");
     }
@@ -1112,18 +1127,21 @@ class TravelPlanChatUiContractTest {
           낮은 화면에서는 위를 비워 둔다. 끝까지 올라오면 채팅 머리글과 닫기 버튼이
           페이지 헤더(z-index 1000) 밑에 깔려 닫을 길이 없어진다.
         */
-        assertThat(panel).contains("max-height: min(70vh, calc(100vh - 56px))");
+        /*
+          패널은 토글 버튼 위로 올라선 만큼 높이에서 빼므로 윗선은 예전과 같은 자리(화면의 30% 아래)다.
+        */
+        assertThat(panel).contains("max-height: min(calc(70vh - var(--tp-chat-toggle-space)),");
 
         /*
           주소창이 접혔다 펴지는 모바일에서는 vh 가 실제로 보이는 높이보다 크다.
           dvh 로 한 번 더 적어 두되, 모르는 브라우저가 vh 로 읽도록 뒤에 둔다.
         */
-        assertThat(panel).contains("max-height: min(70dvh, calc(100dvh - 56px))");
+        assertThat(panel).contains("max-height: min(calc(70dvh - var(--tp-chat-toggle-space)),");
         assertThat(panel.indexOf("100dvh")).as("dvh 가 vh 뒤에 온다")
                 .isGreaterThan(panel.indexOf("100vh"));
 
-        // 좁은 화면 두 곳도 같은 짝을 갖춘다
-        assertThat(countOf(css, "max-height: min(70dvh")).isEqualTo(3);
+        // 가장 좁은 화면(아래에 붙는 패널)도 같은 짝을 갖춘다. 560px 이하는 :root 값만 바꿔 위 규칙을 그대로 쓴다
+        assertThat(countOf(css, "max-height: min(calc(70dvh - var(--tp-chat-toggle-space)),")).isEqualTo(2);
     }
 
     @Test
@@ -1161,7 +1179,8 @@ class TravelPlanChatUiContractTest {
           패널이 모서리를 다듬느라 overflow 를 잘라 두어서, 높이를 고집하면
           위쪽이 잘려 나간다.
         */
-        assertThat(panel).contains("max-height: min(232px, calc(70dvh - 96px))");
+        // 패널이 토글 버튼 위로 올라선 만큼도 함께 줄어든다
+        assertThat(panel).contains("max-height: min(232px, calc(70dvh - 96px - var(--tp-chat-toggle-space)))");
         assertThat(panel.indexOf("70dvh")).as("dvh 가 vh 뒤에 온다")
                 .isGreaterThan(panel.indexOf("70vh"));
         // 줄어든 만큼은 안에서 넘겨 본다. 격자는 옆으로 밀리지 않는다

@@ -105,11 +105,12 @@ function createDestinationCard(dest, imageSizes = SEASON_CARD_IMAGE_SIZES) {
     const card = document.createElement('div');
     card.className = 'trip-card';
     // 여행지 업로드 사진은 서버가 카드 크기로 줄인 썸네일을 쓴다. 그 밖의 주소는 원래대로 둔다.
+    // 세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
     const thumbnailAttributes = dest.cardImageSrcset
         ? `srcset="${dest.cardImageSrcset}" sizes="${imageSizes}"`
         : '';
     card.innerHTML = `
-        <img src="${dest.cardImageUrl || dest.imageUrl}" ${thumbnailAttributes} alt="${dest.name}" />
+        <img class="card-thumb" src="${dest.cardImageUrl || dest.imageUrl}" ${thumbnailAttributes} alt="${dest.name}" />
         <div class="trip-info">
           <h4>${dest.name}</h4>
           <p>${regionText(dest)}</p>

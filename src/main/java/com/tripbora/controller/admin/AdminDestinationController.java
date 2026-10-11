@@ -572,12 +572,48 @@ public class AdminDestinationController {
                                     @RequestParam(value = "sort", required = false) String sort,
                                     @RequestParam(value = "page", required = false) String page) {
         destinationService.deleteById(id);
+        return listRedirectAfterDelete(scope, destinationType, dataStatus, continentId, countryId, cityId,
+                regionId, districtId, keyword, sort, page);
+    }
+
+    /**
+     * 목록에서 체크한 여행지(지금 쪽, 최대 30건)를 한 번에 지운다. 삭제 규칙은 단건 삭제와 같고,
+     * 하나라도 지울 수 없으면 아무것도 지우지 않는다. 결과·오류는 같은 목록 조건으로 돌아가 한 번만 보여 준다.
+     */
+    @PostMapping("/bulk-delete")
+    public String deleteDestinations(@RequestParam(value = "destinationIds", required = false) List<Long> destinationIds,
+                                     @RequestParam(value = "scope", required = false) String scope,
+                                     @RequestParam(value = "destinationType", required = false) String destinationType,
+                                     @RequestParam(value = "dataStatus", required = false) String dataStatus,
+                                     @RequestParam(value = "continentId", required = false) Long continentId,
+                                     @RequestParam(value = "countryId", required = false) Long countryId,
+                                     @RequestParam(value = "cityId", required = false) Long cityId,
+                                     @RequestParam(value = "regionId", required = false) Long regionId,
+                                     @RequestParam(value = "districtId", required = false) Long districtId,
+                                     @RequestParam(value = "keyword", required = false) String keyword,
+                                     @RequestParam(value = "sort", required = false) String sort,
+                                     @RequestParam(value = "page", required = false) String page,
+                                     RedirectAttributes redirectAttributes) {
+        try {
+            int deleted = destinationService.deleteByIds(destinationIds);
+            redirectAttributes.addFlashAttribute("bulkDeleteResult", "여행지 " + deleted + "건을 삭제했습니다.");
+        } catch (IllegalArgumentException exception) {
+            // 선택이 비었거나, 잘못된 값이거나, 그 사이 지워진 여행지가 섞인 경우(중복 제출 포함). 아무것도 지우지 않았다
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return listRedirectAfterDelete(scope, destinationType, dataStatus, continentId, countryId, cityId,
+                regionId, districtId, keyword, sort, page);
+    }
+
+    private static String listRedirectAfterDelete(String scope, String destinationType, String dataStatus,
+                                                  Long continentId, Long countryId, Long cityId, Long regionId,
+                                                  Long districtId, String keyword, String sort, String page) {
         String type = "domestic".equals(scope) || "overseas".equals(scope) ? scope : null;
         String selectedDestinationType = DESTINATION_TYPE_LABELS.containsKey(destinationType) ? destinationType : null;
         String selectedSort = ADMIN_LIST_SORT_LABELS.containsKey(sort) ? sort : DEFAULT_ADMIN_LIST_SORT;
         String selectedDataStatus = ADMIN_DATA_STATUS_LABELS.containsKey(dataStatus) ? dataStatus : null;
         String searchKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.strip();
-        // 마지막 쪽의 마지막 한 건을 지워도 목록이 남은 마지막 쪽으로 맞춰 보여 준다.
+        // 마지막 쪽을 모두 지워도 목록 조회가 쪽 번호를 남은 마지막 쪽으로 맞춰 보여 준다.
         return "redirect:" + adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId, countryId,
                 cityId, regionId, districtId, searchKeyword, selectedSort, parsePage(page));
     }

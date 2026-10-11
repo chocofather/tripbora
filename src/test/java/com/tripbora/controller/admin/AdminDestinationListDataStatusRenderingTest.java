@@ -66,6 +66,45 @@ class AdminDestinationListDataStatusRenderingTest {
                 .isEqualTo("missing_image");
     }
 
+    /** 선택 삭제: 행마다 체크박스가 선택 삭제 폼에 묶이고, 폼은 지금 목록 조건을 담아 POST 한다. 단건 삭제도 그대로다. */
+    @Test
+    void rowsCanBeSelectedForBulkDeleteWithoutLosingTheSingleDelete() throws IOException {
+        Document page = render(List.of(row(11L, "경복궁"), row(12L, "남산공원")), "missing_image");
+
+        Element form = page.selectFirst("form#destination-bulk-delete-form");
+        assertThat(form).isNotNull();
+        assertThat(form.attr("method")).isEqualTo("post");
+        assertThat(form.attr("action")).isEqualTo("/admin/destinations/bulk-delete?dataStatus=missing_image");
+        Element submit = form.selectFirst("[data-destination-bulk-delete-submit]");
+        assertThat(submit.text()).isEqualTo("선택 삭제");
+        assertThat(submit.hasAttr("disabled")).isTrue();
+        assertThat(submit.hasClass("is-danger")).isTrue();
+
+        assertThat(page.selectFirst("thead [data-destination-select-all]").attr("aria-label"))
+                .isEqualTo("현재 페이지 여행지 전체 선택");
+        List<Element> choices = page.select("tbody input[type=checkbox][data-destination-select]");
+        assertThat(choices).extracting(choice -> choice.attr("value")).containsExactly("11", "12");
+        assertThat(choices).allSatisfy(choice -> {
+            assertThat(choice.attr("name")).isEqualTo("destinationIds");
+            assertThat(choice.attr("form")).isEqualTo("destination-bulk-delete-form");
+        });
+        assertThat(choices.get(0).attr("aria-label")).isEqualTo("경복궁 선택");
+
+        assertThat(page.select("tbody form[action$=/delete?dataStatus=missing_image]"))
+                .extracting(single -> single.attr("action"))
+                .containsExactly("/admin/destinations/11/delete?dataStatus=missing_image",
+                        "/admin/destinations/12/delete?dataStatus=missing_image");
+    }
+
+    @Test
+    void anEmptyListOffersNoBulkDelete() throws IOException {
+        Document page = render(List.of(), "missing_image");
+
+        assertThat(page.selectFirst("#destination-bulk-delete-form")).isNull();
+        assertThat(page.selectFirst("[data-destination-select-all]")).isNull();
+        assertThat(page.selectFirst(".admin-table-empty").attr("colspan")).isEqualTo("5");
+    }
+
     private static AdminDestinationListItemDto row(Long id, String name) {
         AdminDestinationListItemDto row = new AdminDestinationListItemDto();
         row.setId(id);

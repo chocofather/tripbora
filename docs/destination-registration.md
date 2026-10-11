@@ -28,10 +28,11 @@ AI는 다음을 모두 수행해 **바로 붙여넣거나 파일로 올릴 수 �
 1. 대상 여행지 조사 (어떤 실제 장소인지 식별)
 2. 국내/해외 판단, type 판단
 3. 실제 소재 지역 확인
-4. 사실정보 확인 (좌표·운영정보·외부 ID 등)
-5. 5개 언어 데이터 작성
+4. 사실정보 적극 조사 (좌표·외부 ID, 그 type의 `info` 필드 전체, `amenities` 목록 전체)
+5. 5개 언어 데이터 작성 (충분한 분량의 description, `info.translations` 4개 언어 포함)
 6. `destination-import-master.json`과 대조
 7. TripBora JSON 계약에 맞는 JSON 생성
+8. 품질 점검 (문서 끝 체크리스트)
 
 **이미지는 생성 대상이 아니다.** 이미지는 등록 후 운영자가 관리자 화면에서 직접 추가한다.
 
@@ -40,6 +41,19 @@ AI는 다음을 모두 수행해 **바로 붙여넣거나 파일로 올릴 수 �
 - 형식 검사: 모르는 필드, 길이, 지역·카테고리·편의시설 이름, 외부 ID 형식
 - 중복 판별
 - 국내 TourAPI contentId 확인
+
+### 핵심 원칙: 조사 우선, null은 조사 후에만
+
+목표는 형식 검사를 통과하는 JSON이 아니라 **바로 등록해도 되는 품질의 데이터**다.
+여행지 이름만 받아도 각 장소를 실제로 웹 조사해서 가능한 정보를 최대한 채운다.
+
+1. **먼저 충분히 조사한다.** 공식 홈페이지의 이용안내·관람안내·시설안내·접근성 안내·FAQ·visitor information 페이지를 찾아 연다.
+   공식 페이지가 부족하면 정부·관광청·공공기관 → (국내) TourAPI → 신뢰할 수 있는 공식·준공식 자료 순으로 넓힌다.
+2. **조사로 확인한 값은 반드시 채운다.** description은 충분한 분량으로, `info`는 그 type의 모든 필드를, `amenities`는 master 목록 전체를 기준으로 조사한다.
+3. **실제로 조사했는데도 신뢰할 근거가 없는 값만 `null` / `[]`로 둔다.**
+
+`null`과 `[]`은 "조사했지만 확인 불가"의 결과다. 조사를 건너뛰기 위한 기본값으로 쓰는 것은 잘못된 생성이다.
+"확인 못 하면 `null`" 규칙(8·11절)은 그대로 유효하며, 추측으로 값을 채우는 것은 여전히 금지다.
 
 ---
 
@@ -136,9 +150,15 @@ master 파일 다루기:
 
 ### amenities
 
-- master `amenitiesByType.<TYPE>[].code` 값만 쓴다. 예: `PARKING`, `WIFI`, `TOILET`.
-- **실제로 확인된 편의시설만** 넣는다. "관광지니까 화장실이 있겠지", "호텔이니까 와이파이가 있겠지" 같은 추측은 금지한다.
-- 확인되지 않으면 넣지 않는다. 빈 배열 `[]`이나 `null`도 된다.
+- master `amenitiesByType.<TYPE>[].code` 값만 쓴다. code 목록은 기억으로 쓰지 말고 매번 최신 master에서 읽는다.
+- **조사 절차**
+  1. 해당 type의 `amenitiesByType.<TYPE>` 목록 전체(`code`, `name`)를 먼저 확인한다. 이 목록이 조사 체크리스트다.
+  2. 여행지마다 공식 홈페이지의 시설 안내, 이용 안내, 접근성·장애인 편의 안내, FAQ, visitor information, 관람 동선·지도 안내 등을 찾아 연다.
+     공식 자료가 부족하면 정부·관광청·공공기관(국내는 TourAPI의 편의시설 정보 포함) 자료를 확인한다.
+  3. 목록의 각 항목이 출처에서 확인되면 **반드시** `amenities`에 넣는다. 예: 공식 시설안내에 화장실이 있으면 해당 code를 넣는다.
+  4. 확인에 쓴 출처는 `evidence`의 `fields`에 `amenities`로 남긴다.
+- **추측은 금지한다.** "유명 관광지니까 화장실이 있겠지", "호텔이니까 와이파이가 있겠지"처럼 출처 없이 넣지 않는다.
+- **`[]`을 기본값으로 쓰지 않는다.** 위 절차대로 실제로 조사했는데 master 목록 중 신뢰할 수 있게 확인된 항목이 하나도 없을 때만 `[]`이다.
 
 ---
 
@@ -160,17 +180,21 @@ master 파일 다루기:
 
 ### description
 
-- 상세페이지 본문이다. 한두 문장이 아니라 여행자가 장소를 이해할 수 있을 만큼 쓴다. 보통 2~4문단이고, 한도는 65,535바이트다.
-- 담을 내용:
-  - 어떤 장소인지
-  - 대표적인 특징
-  - 무엇을 볼 수 있는지
-  - 역사·문화·자연적 의미
-  - 방문했을 때 경험할 수 있는 것
+- 상세페이지의 실제 본문이다. **2~4문장 요약 수준은 금지한다.** 한도는 65,535바이트다.
+- 분량 기준
+  - 기본 **3~4문단**, 한국어 기준 **약 700~1,300자**를 목표로 한다.
+  - 정보가 충분한 주요 관광지는 필요하면 더 길어도 된다.
+  - 조사해도 정보가 적은 장소는 억지로 분량을 채우지 않는다. 이 경우에도 확인된 내용으로 가능한 한 문단을 구성한다.
+- 문단 구성 (자연스럽게 녹여 쓰고, 소제목·목록 형식으로 쓰지 않는다)
+  1. 어떤 장소인지, 건립·형성 배경, 대표적인 특징
+  2. 실제 주요 볼거리, 건축·자연·전시·시설의 특징
+  3. 역사·문화·자연적 의미, 그 장소만의 특징
+  4. 방문자가 실제로 경험할 수 있는 것: 전망, 산책, 관람 동선, 주변 관광 연계 등
+- 다른 언어(`en`, `ja`, `zh-CN`, `zh-TW`)도 한국어 본문과 같은 내용·문단 구성으로 쓴다. 번역에서 문단을 생략하거나 요약하지 않는다.
 - 금지:
-  - 확인하지 않은 운영시간·요금·휴무일을 사실처럼 쓰기
-  - 출처에 없는 수치
-  - 홍보 문구
+  - 분량을 늘리려고 사실을 만들어내기
+  - 확인하지 않은 수치·연도·시설·운영시간·요금·휴무일을 사실처럼 쓰기
+  - 홍보 문구, 과장 표현
   - 다른 여행지 설명을 복사해 이름만 바꾸기
 
 ---
@@ -180,9 +204,10 @@ master 파일 다루기:
 | 구분 | 항목 | 규칙 |
 |---|---|---|
 | AI가 작성 가능 | `shortDescription`, `description`, 번역, `guide`, `etc`, type·season 후보 | 자연어로 작성. 단 그 안에도 확인 안 된 사실(시간·요금·수치)은 넣지 않는다 |
-| 반드시 외부 확인 | 좌표, 운영시간, 휴무일, 입장료, 전화번호, 홈페이지, 주차·반려동물·예약 등 boolean, 좌석 수·객실 수 등 숫자, 체크인·체크아웃, 주요 메뉴, 가격대, `tourApiContentId`, `wikidataQid`, `googlePlaceId`, 지역 | 확인한 값만 넣는다. **확인 못 하면 `null`** |
+| 반드시 외부 확인 | 좌표, 운영시간, 휴무일, 입장료, 전화번호, 홈페이지, 주차·반려동물·예약 등 boolean, 좌석 수·객실 수 등 숫자, 체크인·체크아웃, 주요 메뉴, 가격대, `tourApiContentId`, `wikidataQid`, `googlePlaceId`, 지역 | **먼저 적극 조사**해서 확인한 값은 채운다. 조사했는데도 **확인 못 하면 `null`** |
 
 master `contract.infoFields`의 `fact: true` 필드는 모두 "반드시 외부 확인" 대상이다.
+"외부 확인 대상"은 "비워 두는 대상"이 아니라 "출처를 찾아 채우는 대상"이다.
 
 - boolean은 `false`도 사실값이다. "모르면 false"가 아니라 **모르면 `null`**이다.
 
@@ -228,18 +253,29 @@ master `contract.infoFields`의 `fact: true` 필드는 모두 "반드시 외부 
 
 `info`는 master `contract.infoFields.<TYPE>`에 있는 필드만 쓴다. 다른 type의 필드를 넣으면 오류다.
 
-```json
-"info": {
-  "openingHours": "...",
-  "parkingAvailable": null,
-  "translations": {
-    "en": { "openingHours": "..." }
-  }
-}
-```
+### 조사 절차
 
-- 확인하지 못한 필드는 `null`로 두거나 아예 생략한다.
+1. 최신 master의 `contract.infoFields.<TYPE>`를 먼저 읽고, **그 type에 정의된 필드 전체**를 조사 대상으로 삼는다.
+   필드 이름을 이 문서나 기억에서 가져오지 말고 매번 master의 실제 필드 목록을 기준으로 한다.
+2. 각 필드를 다음 순서로 적극 조사한다.
+   1. 공식 홈페이지 (이용안내·관람안내·요금안내·오시는 길·FAQ·visitor information)
+   2. 정부·관광청·공공기관
+   3. 국내라면 TourAPI(한국관광공사)
+   4. 신뢰할 수 있는 공식·준공식 자료
+3. 운영시간·휴무일·요금처럼 바뀌기 쉬운 값은 최신 공식 출처를 우선한다. 계절·요일·대상별로 다르면 그 구분을 살려 쓴다.
+4. 실제로 조사했는데도 근거가 없거나 최신성을 신뢰하기 어려운 필드만 `null`로 둔다.
+
+잘못된 생성으로 보는 경우:
+
+- 공식 홈페이지에 운영시간·휴무일·요금이 나와 있는데 조사하지 않고 `null`로 둔 경우
+- 공식 홈페이지가 존재하는데 `homepageUrl`을 `null`로 둔 경우
+- 공식 사이트·관광청에 대표 전화가 공개돼 있는데 `contactNumber`를 `null`로 둔 경우
+- `fact: false` 필드(`guide`, `etc` 등)를 조사 결과를 바탕으로 쓸 수 있는데 비워 둔 경우
+
+기타:
+
 - 한국어 값은 `info` 바로 아래 필드에 쓴다.
+- 확인하지 못한 필드는 `null`로 둔다(생략도 허용되지만 조사 여부를 드러내기 위해 `null`을 권장한다).
 
 필드 규칙은 master의 각 필드 정의를 그대로 따른다.
 
@@ -261,7 +297,31 @@ master `contract.infoFields`의 `fact: true` 필드는 모두 "반드시 외부 
 ### info.translations
 
 - 언어 키는 `en`, `ja`, `zh-CN`, `zh-TW`만 쓴다. `ko`를 넣으면 오류다.
-- `translatable: true`인 필드만 번역한다. `contactNumber`, `homepageUrl`, boolean, 숫자 필드는 번역하지 않는다.
+- **번역은 필수다.** 한국어 `info`에 값을 채운 `translatable: true` 필드는 `en`, `ja`, `zh-CN`, `zh-TW` **4개 언어 모두**에 번역을 넣는다.
+  - 번역 가능 필드를 한국어에는 채웠는데 `info.translations`가 비어 있거나 일부 언어만 있는 상태로 JSON을 만들지 않는다.
+  - 한국어 값이 `null`인 필드는 번역도 넣지 않는다.
+- `translatable: false`인 필드는 번역하지 않는다. 예: `contactNumber`, `homepageUrl`, `BOOLEAN`, `INTEGER`, 기타 master에서 `translatable: false`인 필드.
+- 한국어 원문의 정보를 축약·누락·변경하지 않는다. 계절·요일·대상별 구분, 예외 조건까지 모두 옮긴다.
+
+```json
+{
+  "info": {
+    "openingHours": "<공식 출처에서 확인한 운영시간 (한국어)>",
+    "closedDays": "<공식 출처에서 확인한 휴무일 (한국어)>",
+    "admissionFee": "<공식 출처에서 확인한 요금 (한국어)>",
+    "homepageUrl": "<공식 홈페이지 URL>",
+    "translations": {
+      "en":    { "openingHours": "<영어 번역>", "closedDays": "<영어 번역>", "admissionFee": "<영어 번역>" },
+      "ja":    { "openingHours": "<일본어 번역>", "closedDays": "<일본어 번역>", "admissionFee": "<일본어 번역>" },
+      "zh-CN": { "openingHours": "<간체 번역>", "closedDays": "<간체 번역>", "admissionFee": "<간체 번역>" },
+      "zh-TW": { "openingHours": "<번체 번역>", "closedDays": "<번체 번역>", "admissionFee": "<번체 번역>" }
+    }
+  }
+}
+```
+
+번역 세부 규칙:
+
 - 번역은 표현만 옮긴다. 시간·금액·요일 같은 값의 의미를 바꾸지 않는다. 예: `09:00~18:00` → `9:00 AM–6:00 PM`은 되지만 시간 자체를 바꾸면 안 된다.
 - 번역 길이도 같은 `maxLength`/`maxBytes`를 지킨다.
 
@@ -269,13 +329,19 @@ master `contract.infoFields`의 `fact: true` 필드는 모두 "반드시 외부 
 
 ## 12. 근거 (`evidence`)
 
-사실정보를 채웠다면 가능한 한 근거를 남긴다.
+`info`·`amenities`·좌표·외부 ID를 조사할 때 사용한 출처를 남긴다.
+
+- 여행지마다 가능하면 **1~3개의 신뢰도 높은 출처**를 남긴다. 공식 방문 안내 페이지 하나로 여러 필드를 확인했다면 한 항목에 모은다.
+- 사실값을 채워 놓고 evidence가 없는 상태를 최소화한다.
+- `amenities`를 확인한 출처는 `fields`에 `amenities`로 적는다.
 
 ```json
-"evidence": [
-  { "url": "https://example.org/official-visitor-info", "fields": ["openingHours", "admissionFee", "homepageUrl"] },
-  { "url": "https://example.org/public-data-page", "fields": ["latitude", "longitude"] }
-]
+{
+  "evidence": [
+    { "url": "<공식 방문 안내 페이지 URL>", "fields": ["openingHours", "closedDays", "admissionFee", "homepageUrl", "amenities"] },
+    { "url": "<공공데이터·Wikidata 등 페이지 URL>", "fields": ["latitude", "longitude", "wikidataQid"] }
+  ]
+}
 ```
 
 - `url`은 필수이고 http(s) 주소, 2,000자 이하다.
@@ -313,13 +379,14 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 
 ## 14. JSON 생성 규칙
 
-항상 **하나의 JSON 객체**를 만든다.
+항상 **하나의 JSON 객체**를 만든다. 아래는 최상위 구조만 보여 주려고 `destinations`를 빈 배열로 적었다.
+실제 파일의 `destinations`에는 아래 「한 건 예시」 형태의 여행지 객체를 1~30개 넣는다(빈 배열은 오류).
 
 ```json
 {
   "version": 1,
   "meta": { "generator": "Claude", "generatedAt": "2026-10-08T15:00:00+09:00", "note": "궁궐 2곳, 일본 2곳" },
-  "destinations": [ ... ]
+  "destinations": []
 }
 ```
 
@@ -346,10 +413,17 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 - **파일 안에서 중복되지 않게 한다.** 같은 key가 다시 나오면 뒤 행이 오류(INVALID)가 된다. key가 없는 행끼리는 비교하지 않는다.
 - 시스템에서는 선택값이지만 이 지침에서는 **항상 쓴다.**
 
-### 한 건 예시 (국내, 구조 확인용)
+### 한 건 예시 (국내 ATTRACTION, 조사를 마친 형태)
 
-카테고리·편의시설·지역 이름은 반드시 master 값으로 바꾼다.
-`<...>` 부분은 자리 표시이므로 그대로 쓰면 안 된다.
+이 예시는 **조사를 끝낸 여행지의 모양**을 보여 준다. 가능한 정보는 조사해서 채우고, `info.translations`와 `amenities`도 함께 채운다.
+
+- `<...>` 부분은 자리 표시다. 실제 조사한 값으로 바꾸고, 그대로 쓰면 안 된다.
+- 운영시간·요금 같은 실제 값은 이 문서에 고정하지 않는다. 매번 최신 공식 출처에서 확인한다.
+- `info` 필드 목록과 amenity code는 이 예시가 아니라 최신 master의 `contract.infoFields.<TYPE>`, `amenitiesByType.<TYPE>`을 기준으로 한다.
+- **예제의 `null`은 구조 설명용이며, 실제 자동 생성에서는 반드시 먼저 조사하고 확인되지 않은 경우에만 `null`을 사용한다.**
+  - `latitude`, `longitude`, `tourApiContentId`, `parkingAvailable`은 숫자·ID·boolean 실제값을 문서에 고정하지 않으려고 `null`로 적었다.
+    실제 생성에서는 조사해서 확인한 숫자(따옴표 없음)·ID 문자열·`true`/`false`를 넣고, 그 출처를 `evidence`에 남긴다(아래 evidence 두 번째 항목이 그 형태다).
+  - `wikidataQid`, `googlePlaceId`의 `null`은 국내 여행지라서 넣으면 안 되는 값이다(9절).
 
 ```json
 {
@@ -361,29 +435,42 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
   "longitude": null,
   "external": { "tourApiContentId": null, "wikidataQid": null, "googlePlaceId": null },
   "categories": ["<master ATTRACTION 카테고리명>"],
-  "mainCategory": null,
-  "amenities": [],
+  "mainCategory": "<categories 중 하나>",
+  "amenities": ["<공식 시설안내에서 확인한 master code>", "<확인한 master code>", "<확인한 master code>"],
   "translations": {
-    "ko":    { "name": "경복궁", "shortDescription": "...", "description": "..." },
-    "en":    { "name": "Gyeongbokgung Palace", "shortDescription": "...", "description": "..." },
-    "ja":    { "name": "景福宮", "shortDescription": "...", "description": "..." },
-    "zh-CN": { "name": "景福宫", "shortDescription": "...", "description": "..." },
-    "zh-TW": { "name": "景福宮", "shortDescription": "...", "description": "..." }
+    "ko": {
+      "name": "경복궁",
+      "shortDescription": "<장소의 핵심 특징 1문장, 255자 이내>",
+      "description": "<1문단: 어떤 장소인지·건립 배경·대표 특징>\n\n<2문단: 주요 볼거리·건축 특징>\n\n<3문단: 역사·문화적 의미>\n\n<4문단: 관람 동선·산책·주변 연계 등 방문 경험> (한국어 약 700~1,300자)"
+    },
+    "en":    { "name": "Gyeongbokgung Palace", "shortDescription": "<영어 1문장>", "description": "<한국어 본문과 같은 내용·문단 구성의 영어 본문>" },
+    "ja":    { "name": "景福宮", "shortDescription": "<일본어 1문장>", "description": "<같은 구성의 일본어 본문>" },
+    "zh-CN": { "name": "景福宫", "shortDescription": "<간체 1문장>", "description": "<같은 구성의 간체 본문>" },
+    "zh-TW": { "name": "景福宮", "shortDescription": "<번체 1문장>", "description": "<같은 구성의 번체 본문>" }
   },
   "info": {
-    "openingHours": null,
-    "closedDays": null,
-    "admissionFee": null,
-    "contactNumber": null,
-    "homepageUrl": null,
-    "guide": "...",
-    "translations": { "en": { "guide": "..." } }
+    "openingHours": "<공식 출처에서 확인한 운영시간 (계절·요일 구분 포함)>",
+    "closedDays": "<공식 출처에서 확인한 휴무일>",
+    "admissionFee": "<공식 출처에서 확인한 요금 (대상별 구분·무료 조건 포함)>",
+    "parkingAvailable": null,
+    "contactNumber": "<공식 출처에서 확인한 대표 전화>",
+    "homepageUrl": "<공식 홈페이지 URL>",
+    "guide": "<조사 결과를 바탕으로 쓴 관람 팁·이용 안내>",
+    "translations": {
+      "en":    { "openingHours": "<영어>", "closedDays": "<영어>", "admissionFee": "<영어>", "guide": "<영어>" },
+      "ja":    { "openingHours": "<일본어>", "closedDays": "<일본어>", "admissionFee": "<일본어>", "guide": "<일본어>" },
+      "zh-CN": { "openingHours": "<간체>", "closedDays": "<간체>", "admissionFee": "<간체>", "guide": "<간체>" },
+      "zh-TW": { "openingHours": "<번체>", "closedDays": "<번체>", "admissionFee": "<번체>", "guide": "<번체>" }
+    }
   },
-  "evidence": []
+  "evidence": [
+    { "url": "<공식 관람안내 페이지 URL>", "fields": ["openingHours", "closedDays", "admissionFee", "contactNumber", "homepageUrl", "amenities"] },
+    { "url": "<TourAPI·공공데이터 페이지 URL>", "fields": ["latitude", "longitude", "tourApiContentId"] }
+  ]
 }
 ```
 
-해외는 `region`이 `{ "country": "일본", "city": "후쿠오카", "district": null }`처럼 바뀌고, `external`에는 확인한 `wikidataQid`나 `googlePlaceId`만 넣는다.
+해외는 `region`이 `{ "country": "일본", "city": "후쿠오카", "district": null }`처럼 바뀌고, `external`에는 확인한 `wikidataQid`나 `googlePlaceId`만 넣는다(`tourApiContentId`는 `null`).
 
 ---
 
@@ -397,7 +484,7 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 
 ## 16. 정보가 부족할 때
 
-- 정보가 부족하다는 이유로 여행지 전체를 빼지 않는다. 확인한 범위까지 쓰고, 확인 못 한 사실값은 `null`로 둔다.
+- 정보가 부족하다는 이유로 여행지 전체를 빼지 않는다. 1절의 순서대로 충분히 조사해서 확인한 범위까지 쓰고, 그래도 확인 못 한 사실값만 `null`로 둔다.
 - 다만 등록에 꼭 필요한 값을 정할 수 없으면 억지로 JSON을 만들지 않는다. 그 여행지는 빼고 이유와 함께 보고한다.
   - 어떤 실제 장소인지 식별할 수 없다. 이름이 같은 장소가 여러 곳이면 후보를 제시한다.
   - 국가·지역을 판단할 수 없거나, 그 지역이 master에 없다("지역 마스터 추가 필요").
@@ -411,7 +498,7 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 
 정상 생성이면 짧게 답한다.
 
-> 총 12개 여행지 JSON을 생성했습니다. 사실정보를 확인하지 못한 필드는 null로 두었습니다.
+> 총 12개 여행지 JSON을 생성했습니다.
 
 그리고 JSON 파일 경로나 JSON 내용을 준다. 확인이 필요한 항목이 있으면 JSON과 따로 짧게 목록으로 알린다.
 
@@ -429,6 +516,11 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 - 좌표 추측(도시 중심 좌표 대입 포함)
 - 운영시간·휴무일·입장료·연락처 추측
 - boolean·숫자 운영정보 추측(모르면 `false`가 아니라 `null`)
+- 웹 조사 없이 `info` 필드를 `null`, `amenities`를 `[]`로 두기 (빠른 기본값으로 쓰기)
+- 공식 홈페이지가 있는데 `homepageUrl`을 `null`로 두기
+- 한국어 `info`의 번역 가능 필드를 채우고 `info.translations` 4개 언어를 비워 두기
+- 2~4문장 요약 수준의 `description`
+- 분량을 늘리려고 사실 만들어내기
 - 이미지 관련 값 넣기
 - 존재하지 않는 출처 만들기
 - 등록을 통과시키려고 데이터를 임의로 바꾸기
@@ -438,7 +530,19 @@ JSON에 이미지 관련 값을 넣지 않는다. 계약에 필드가 없으므�
 
 ## 작업 체크리스트
 
-JSON을 내기 전에 확인한다.
+JSON을 내기 전에 확인한다. 스키마 검사 통과만으로 완료로 보지 않는다. **등록 가능한 품질인지**도 여행지마다 점검한다.
+
+### 품질 점검 (여행지마다)
+
+- [ ] `description`이 지나치게 짧지 않다 (기본 3~4문단, 한국어 약 700~1,300자. 정보가 적은 장소만 예외). 다른 언어도 같은 구성이다
+- [ ] master `contract.infoFields.<TYPE>`의 모든 필드를 실제로 조사했다
+- [ ] 공식 홈페이지가 있는데 `homepageUrl`을 `null`로 두지 않았다. 공식 출처에 있는 운영시간·휴무일·요금·연락처를 빠뜨리지 않았다
+- [ ] 한국어 `info`에 값이 있는 `translatable: true` 필드는 `en`·`ja`·`zh-CN`·`zh-TW` 4개 언어 번역이 모두 있다
+- [ ] master `amenitiesByType.<TYPE>` 목록 전체를 확인하고 실제 시설을 조사했다. 조사 없이 `[]`로 두지 않았다
+- [ ] 남아 있는 `null` / `[]`은 모두 "조사했지만 신뢰할 근거를 찾지 못한" 값이다
+- [ ] 채운 사실값에는 근거가 있고, `evidence`에 1~3개 출처(실제로 연 URL)를 남겼다
+
+### 형식 점검
 
 - [ ] 최신 `destination-import-master.json`을 읽었다 (`generatedAt` 확인)
 - [ ] 요청 수 = JSON 건수 + 제외 보고 건수, 파일당 30건 이하
@@ -450,7 +554,7 @@ JSON을 내기 전에 확인한다.
 - [ ] 국내는 `tourApiContentId`만, 해외는 `wikidataQid`·`googlePlaceId`만 넣었고 모두 실제 확인한 값이다
 - [ ] 좌표는 둘 다 있거나 둘 다 `null`이다
 - [ ] `info`에는 그 type 필드만 있고, `maxLength`·`maxBytes`를 지켰다 (RESTAURANTS·CAFE 특히)
-- [ ] `fact: true` 값은 모두 출처에서 확인했고 `evidence`에 남겼다. 모르면 `null`
+- [ ] `fact: true` 값은 모두 출처에서 확인했고 `evidence`에 남겼다. 조사 후에도 모르면 `null`
 - [ ] `info.translations`에는 `translatable: true` 필드만, `ko` 없이 넣었다
 - [ ] 5개 언어 `name`이 있고 `ko.name`이 비어 있지 않다
 - [ ] 이미지 필드와 계약에 없는 필드가 없다. `key`는 파일 안에서 중복되지 않는다

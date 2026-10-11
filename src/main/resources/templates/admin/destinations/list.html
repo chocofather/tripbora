@@ -4,6 +4,7 @@
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/admin-compact-lists.css?v=20261009-1">
   <script src="/js/admin-destination-filter.js?v=20261010-1" defer></script>
+  <script src="/js/admin-destination-bulk-delete.js?v=20261011-1" defer></script>
 </th:block>
 <th:block th:fragment="body">
   <section class="admin-page-section">
@@ -22,6 +23,7 @@
     </header>
 
     <div th:if="${error}" class="admin-alert" role="alert" th:text="${error}"></div>
+    <div th:if="${bulkDeleteResult}" class="admin-alert" role="status" th:text="${bulkDeleteResult}"></div>
 
     <div class="admin-filter-card is-toolbar">
       <form id="admin-destination-filter-form" method="get"
@@ -117,13 +119,33 @@
       </a>
     </nav>
 
-    <p class="admin-list-summary" th:text="|총 ${#numbers.formatInteger(totalCount, 1, 'COMMA')}곳|">총 0곳</p>
+    <!--
+      선택 삭제. 행 체크박스가 form 속성으로 이 폼에 묶여 있어 체크한 여행지 ID만 destinationIds 로 한 번에 보낸다.
+      선택은 지금 쪽에 보이는 행만 대상이다(쪽을 넘기면 선택이 이어지지 않는다).
+      삭제 후에도 지금 목록 조건(쪽 포함)으로 돌아오도록 조건을 주소에 함께 보낸다.
+    -->
+    <div class="admin-list-toolbar">
+      <p class="admin-list-summary" th:text="|총 ${#numbers.formatInteger(totalCount, 1, 'COMMA')}곳|">총 0곳</p>
+      <form th:unless="${#lists.isEmpty(destinationList)}" id="destination-bulk-delete-form"
+            th:action="@{'/admin/destinations/bulk-delete' + ${listQuery}}"
+            method="post" class="admin-destination-bulk-delete" data-destination-bulk-delete>
+        <span class="admin-destination-selection-count" aria-live="polite"
+              data-destination-selection-count>이 페이지에서 선택 없음</span>
+        <button type="submit" class="admin-btn is-small is-danger"
+                data-destination-bulk-delete-submit disabled>선택 삭제</button>
+      </form>
+    </div>
 
     <div class="admin-card is-table-card">
       <div class="admin-table-wrapper">
         <table class="admin-table admin-destination-table">
           <thead>
           <tr>
+            <th class="admin-table-select">
+              <input type="checkbox" th:unless="${#lists.isEmpty(destinationList)}"
+                     aria-label="현재 페이지 여행지 전체 선택" title="현재 페이지 전체 선택"
+                     data-destination-select-all>
+            </th>
             <th>#</th>
             <th>여행지명</th>
             <th>지역</th>
@@ -132,10 +154,15 @@
           </thead>
           <tbody>
           <tr th:if="${#lists.isEmpty(destinationList)}">
-            <td colspan="4" class="admin-table-empty">조건에 맞는 여행지가 없습니다.</td>
+            <td colspan="5" class="admin-table-empty">조건에 맞는 여행지가 없습니다.</td>
           </tr>
           <!-- 번호는 DB ID 가 아니라 지금 조건·정렬에서의 순번이다(쪽을 넘겨도 이어진다). -->
           <tr th:each="dest, stat : ${destinationList}">
+            <td class="admin-table-select">
+              <input type="checkbox" name="destinationIds" form="destination-bulk-delete-form"
+                     th:value="${dest.id}" th:attr="aria-label=|${dest.name} 선택|"
+                     data-destination-select>
+            </td>
             <td class="admin-table-number" th:text="${pageOffset + stat.index + 1}">1</td>
             <td>
               <span th:text="${dest.name}">제주도</span>

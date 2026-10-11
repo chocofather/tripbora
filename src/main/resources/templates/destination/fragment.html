@@ -187,12 +187,13 @@
                        th:attr="data-destination-id=${d.id}">
                         <div class="destination-card-media">
                             <!--
+                              세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
                               여행지 업로드 사진은 카드 크기 썸네일(메인 추천 카드와 같은 규칙)을 쓰고,
                               외부 주소·기본 이미지는 원래 주소 그대로 둔다. 썸네일을 받지 못하면 원본으로 한 번 되돌린다.
                               sizes 는 destination.css 의 카드 격자(4열 → 2열 → 태블릿 3열 → 모바일 2열) 폭에, 4:3 칸을 cover 로 채울 때의
                               사진 폭 배율(가로로 긴 사진일수록 큼)을 곱한 값이다. srcset 의 폭은 실제 픽셀 그대로다.
                             -->
-                            <img th:if="${d.thumbnailPath != null}"
+                            <img th:if="${d.thumbnailPath != null}" class="card-thumb"
                                  th:src="${d.cardImageUrl != null} ? ${d.cardImageUrl} : @{${d.thumbnailPath}}"
                                  th:classappend="${d.imageNoDerivatives} ? 'is-no-derivatives'"
                                  th:with="k=${d.cardImageCoverScale}"

@@ -510,6 +510,38 @@ public class DestinationService {
         destinationCommentService.deleteImageFilesAfterCommit(commentImageUrls);
     }
 
+    /** 관리자 목록에서 한 번에 지울 수 있는 최대 여행지 수. 목록 한 쪽(30건)과 같다. */
+    public static final int ADMIN_BULK_DELETE_LIMIT = 30;
+
+    /**
+     * 관리자 목록에서 고른 여행지 여러 건을 한 번에 지운다.
+     *
+     * <p>하나라도 이미 없는 여행지면 아무것도 지우지 않는다. 실제 삭제는 단건 삭제({@link #deleteById})를 차례로 적용해
+     * 연관 데이터 정리·코스 STOP 재정렬·커밋 후 파일 정리 규칙을 그대로 따른다.
+     * 전체가 한 트랜잭션이라 중간에 실패하면 앞서 지운 여행지까지 되돌아가고, 파일도 커밋된 뒤에만 지워진다.
+     *
+     * @return 지운 여행지 수
+     */
+    @Transactional
+    public int deleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("삭제할 여행지를 선택해 주세요.");
+        }
+        if (ids.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new IllegalArgumentException("잘못된 여행지가 선택되었습니다. 새로고침한 뒤 다시 선택해 주세요.");
+        }
+        Set<Long> targetIds = new LinkedHashSet<>(ids);
+        if (targetIds.size() > ADMIN_BULK_DELETE_LIMIT) {
+            throw new IllegalArgumentException("한 번에 최대 " + ADMIN_BULK_DELETE_LIMIT + "건까지 삭제할 수 있습니다.");
+        }
+        if (targetIds.stream().anyMatch(id -> destinationMapper.findById(id) == null)) {
+            throw new IllegalArgumentException(
+                    "선택한 여행지 중 이미 삭제된 것이 있습니다. 새로고침한 뒤 다시 선택해 주세요.");
+        }
+        targetIds.forEach(this::deleteById);
+        return targetIds.size();
+    }
+
     public List<DestinationDto> convertToDtoWithBookmark(List<Destination> destinations, Long userId) {
         return convertToDtoWithBookmark(destinations, userId, null, Map.of());
     }

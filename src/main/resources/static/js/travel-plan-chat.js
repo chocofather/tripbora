@@ -877,6 +877,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function openPanel() {
         panel.hidden = false;
         toggle?.setAttribute("aria-expanded", "true");
+        // 열려 있는 동안에도 토글 버튼은 남아 있고, 누르면 닫힌다
+        toggle?.setAttribute("aria-label", "채팅 닫기");
         if (!loaded) {
             loadRecent();
         } else {
@@ -895,6 +897,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function closePanel() {
         panel.hidden = true;
         toggle?.setAttribute("aria-expanded", "false");
+        toggle?.setAttribute("aria-label", "채팅 열기");
         closeMenus(null);
     }
 

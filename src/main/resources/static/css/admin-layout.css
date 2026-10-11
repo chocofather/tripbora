@@ -582,7 +582,7 @@
 
 /* 여행지 목록: 많은 항목을 빠르게 훑을 수 있는 컴팩트 테이블 */
 .admin-destination-table {
-    min-width: 760px;
+    min-width: 800px;
 }
 
 .admin-destination-table th {
@@ -694,6 +694,65 @@
     color: #66718a;
     font-size: 0.84rem;
     font-weight: 650;
+}
+
+/* 목록 위 건수와 선택 삭제(여행지 목록) */
+.admin-list-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin: 0 0 10px;
+}
+
+.admin-list-toolbar .admin-list-summary {
+    margin: 0;
+}
+
+.admin-destination-bulk-delete {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.admin-destination-selection-count {
+    color: #66718a;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.admin-destination-bulk-delete .admin-btn.is-small {
+    min-height: 32px;
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.admin-destination-bulk-delete .admin-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.admin-destination-table .admin-table-select {
+    width: 44px;
+    padding-right: 0;
+    text-align: center;
+}
+
+.admin-destination-table .admin-table-select input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.admin-destination-table tbody tr.is-selected td {
+    background: #f3f6ff;
 }
 
 .admin-pagination {

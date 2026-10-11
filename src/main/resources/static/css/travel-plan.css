@@ -40,6 +40,15 @@
     --tp-chat-composer: #eef2f5;
     --tp-chat-line: #e2e8ec;
 
+    /*
+      채팅 토글 버튼 자리. 버튼은 열려 있든 닫혀 있든 늘 화면 오른쪽 아래에 있고,
+      패널은 그 바로 위(버튼 + 간격만큼 띄운 자리)에서 열려 버튼을 가리지 않는다.
+      좁은 화면 값은 아래 채팅 @media 에서 바꾼다.
+    */
+    --tp-chat-edge: 28px;
+    --tp-chat-toggle-size: 52px;
+    --tp-chat-toggle-space: calc(var(--tp-chat-toggle-size) + 12px);
+
     /* 투표: 선택지·강조에만 아주 옅은 lavender */
     --tp-poll-surface: #faf9fd;
     --tp-poll-soft: #f3efff;
@@ -2225,16 +2234,16 @@
 */
 
 /*
-  채팅 진입점. 상단 줄이 아니라 화면 오른쪽 아래에 떠 있다.
-  아래 채팅 패널과 같은 모서리를 기준으로 놓여, 눌렀을 때
-  그 자리에서 패널이 펼쳐지는 것처럼 보인다.
+  채팅 열기/닫기 토글. 상단 줄이 아니라 화면 오른쪽 아래에 늘 떠 있다.
+  패널이 열려 있어도 사라지지 않고, 같은 버튼을 다시 누르면 접힌다.
+  패널은 이 버튼 바로 위에서 열리고, 패널을 다른 자리로 옮겨도 버튼은 여기 남는다.
 */
 .travel-plan-chat {
     position: fixed;
-    right: 28px;
-    bottom: 28px;
-    /* 패널(40) 바로 아래 층. 패널이 열리면 이 버튼은 가려진다 */
-    z-index: 39;
+    right: var(--tp-chat-edge);
+    bottom: var(--tp-chat-edge);
+    /* 패널(40)보다 한 층 위. 패널을 이 모서리로 옮겨 와도 버튼은 가려지지 않는다 */
+    z-index: 41;
 }
 
 /* 말풍선 하나뿐인 둥근 버튼. 진한 색 덩어리로 두지 않는다 */
@@ -2243,8 +2252,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
+    width: var(--tp-chat-toggle-size);
+    height: var(--tp-chat-toggle-size);
     padding: 0;
     border: 1px solid var(--tp-plan-accent-line);
     border-radius: 50%;
@@ -2267,17 +2276,26 @@
 }
 
 /*
-  패널이 열려 있는 동안에는 같은 자리에 겹치므로 내려 둔다.
-  aria-expanded 는 채팅 스크립트가 열고 닫을 때 이미 맞춰 두는 값이라
-  숨기고 보이는 데 따로 상태를 만들지 않는다. 닫으면 그대로 돌아온다.
+  패널이 열려 있는 동안에는 눌린 상태로 보이고, 말풍선 대신 접기(아래 화살표) 표시가 나온다.
+  기준은 채팅 스크립트가 열고 닫을 때 이미 맞춰 두는 aria-expanded 다. 상태를 따로 만들지 않는다.
 */
 .travel-plan-chat-toggle[aria-expanded="true"] {
-    display: none;
+    border-color: var(--tp-plan-accent);
+    background: var(--tp-plan-accent-soft);
 }
 
 .travel-plan-chat-icon {
     width: 24px;
     height: 24px;
+}
+
+.travel-plan-chat-icon-close,
+.travel-plan-chat-toggle[aria-expanded="true"] .travel-plan-chat-icon-open {
+    display: none;
+}
+
+.travel-plan-chat-toggle[aria-expanded="true"] .travel-plan-chat-icon-close {
+    display: block;
 }
 
 /* 안 읽은 개수. 숫자가 있을 때만 보인다 (0 이면 스크립트가 hidden 을 건다) */
@@ -2297,16 +2315,16 @@
     text-align: center;
 }
 
-/* 떠 있는 채팅 버튼과 같은 모서리를 기준으로 그 자리에서 펼쳐진다 */
+/* 떠 있는 토글 버튼 바로 위에서 펼쳐진다. 버튼은 가리지 않는다 */
 .travel-plan-chat-panel {
     position: fixed;
-    right: 28px;
-    bottom: 28px;
+    right: var(--tp-chat-edge);
+    bottom: calc(var(--tp-chat-edge) + var(--tp-chat-toggle-space));
     z-index: 40;
     display: flex;
     flex-direction: column;
     /* 좁은 화면에서도 밖으로 넘치지 않게 남은 폭 안에서만 커진다 */
-    width: min(420px, calc(100vw - 56px));
+    width: min(420px, calc(100vw - var(--tp-chat-edge) * 2));
     /*
       대화가 하나도 없어도 같은 크기로 열린다.
       높이를 정해 두지 않으면 내용만큼만 자라서, 첫 메시지를 보내기 전에는
@@ -2323,11 +2341,16 @@
       여기에 옮겨 적지 않아도 되고, 헤더가 바뀌어도 따라 틀어지지 않는다.
       화면이 넉넉하면 70% 가 500px 보다 커서 늘 하던 대로 500px 로 열린다.
 
+      패널이 토글 버튼 위로 올라선 만큼(--tp-chat-toggle-space) 높이에서 빼서,
+      패널 윗선은 버튼 위로 올리기 전과 같은 자리에 머문다.
+
       dvh 는 주소창이 접혔다 펴지는 모바일에서 실제로 보이는 높이를 따른다.
       vh 줄을 먼저 두어, dvh 를 모르는 브라우저는 그대로 vh 로 읽는다.
     */
-    max-height: min(70vh, calc(100vh - 56px));
-    max-height: min(70dvh, calc(100dvh - 56px));
+    max-height: min(calc(70vh - var(--tp-chat-toggle-space)),
+                    calc(100vh - var(--tp-chat-edge) * 2 - var(--tp-chat-toggle-space)));
+    max-height: min(calc(70dvh - var(--tp-chat-toggle-space)),
+                    calc(100dvh - var(--tp-chat-edge) * 2 - var(--tp-chat-toggle-space)));
     border: 1px solid var(--tp-chat-line);
     border-radius: 8px;
     /* 종이(미세한 warm-white)와 다른 cool gray 라 한 겹 위에 있는 것이 보인다 */
@@ -2351,14 +2374,10 @@
   버튼은 내용을 덜 가리도록 조금 작아진다.
 */
 @media (max-width: 560px) {
-    .travel-plan-chat {
-        right: 16px;
-        bottom: 16px;
-    }
-
-    .travel-plan-chat-toggle {
-        width: 46px;
-        height: 46px;
+    /* 버튼·패널 자리와 폭·높이는 위 규칙이 이 값으로 다시 계산한다 */
+    :root {
+        --tp-chat-edge: 16px;
+        --tp-chat-toggle-size: 46px;
     }
 
     .travel-plan-chat-icon {
@@ -2367,11 +2386,7 @@
     }
 
     .travel-plan-chat-panel {
-        right: 16px;
-        bottom: 16px;
-        width: calc(100vw - 32px);
-        max-height: min(70vh, calc(100vh - 32px));
-        max-height: min(70dvh, calc(100dvh - 32px));
+        width: calc(100vw - var(--tp-chat-edge) * 2);
     }
 }
 
@@ -2415,6 +2430,32 @@
 .travel-plan-chat-header-button:hover {
     background: var(--tp-chat-line);
     color: var(--tp-plan-ink-soft);
+}
+
+/*
+  넓은 화면에서는 머리글을 잡고 패널을 옮길 수 있다(travel-plan-chat-drag.js).
+  폭 기준은 스크립트의 (max-width: 768px) 와 같다. 좁은 화면은 위의 반응형 자리를 그대로 쓴다.
+  머리글 안의 버튼은 각자 cursor: pointer 라 잡는 손 모양이 되지 않는다.
+*/
+@media (min-width: 769px) {
+    .travel-plan-chat-header[data-travel-plan-chat-drag-handle] {
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+    }
+
+    /* 한 번 옮긴 뒤에는 스크립트가 넣은 left/top 으로만 자리를 잡는다 */
+    .travel-plan-chat-panel.is-placed {
+        right: auto;
+        bottom: auto;
+    }
+}
+
+/* 옮기는 동안에만 붙는다. 포인터가 어디 위에 있든 잡은 손 모양이고 글자가 선택되지 않는다 */
+.travel-plan-chat-dragging,
+.travel-plan-chat-dragging * {
+    cursor: grabbing !important;
+    user-select: none;
 }
 
 /*
@@ -2932,12 +2973,13 @@
       패널은 모서리를 다듬느라 overflow 를 잘라 두어서, 232px 를 고집하면
       위쪽이 패널 밖으로 나가 잘린다.
       빼는 96px 은 패널에서 이 상자가 쓸 수 없는 자리다(머리글 + 입력줄 위 여백).
+      패널이 토글 버튼 위로 올라선 만큼(--tp-chat-toggle-space)도 함께 뺀다.
 
       dvh 는 주소창이 접혔다 펴지는 모바일에서 실제로 보이는 높이를 따른다.
       vh 줄을 먼저 두어, dvh 를 모르는 브라우저는 그대로 vh 로 읽는다.
     */
-    max-height: min(232px, calc(70vh - 96px));
-    max-height: min(232px, calc(70dvh - 96px));
+    max-height: min(232px, calc(70vh - 96px - var(--tp-chat-toggle-space)));
+    max-height: min(232px, calc(70dvh - 96px - var(--tp-chat-toggle-space)));
     padding: 8px;
     border: 1px solid var(--tp-chat-line);
     border-radius: 10px;
@@ -3053,15 +3095,17 @@
     background: #e7eeea;
 }
 
-/* 좁은 화면에서는 아래에 붙여 양옆 여백만 남긴다 */
+/* 좁은 화면에서는 양옆 여백만 남기고, 아래는 토글 버튼 바로 위까지만 내려온다 */
 @media (max-width: 480px) {
     .travel-plan-chat-panel {
         right: 8px;
         left: 8px;
-        bottom: 8px;
+        bottom: calc(var(--tp-chat-edge) + var(--tp-chat-toggle-space));
         width: auto;
-        max-height: min(70vh, calc(100vh - 16px));
-        max-height: min(70dvh, calc(100dvh - 16px));
+        max-height: min(calc(70vh - var(--tp-chat-toggle-space)),
+                        calc(100vh - 8px - var(--tp-chat-edge) - var(--tp-chat-toggle-space)));
+        max-height: min(calc(70dvh - var(--tp-chat-toggle-space)),
+                        calc(100dvh - 8px - var(--tp-chat-edge) - var(--tp-chat-toggle-space)));
     }
 }
 

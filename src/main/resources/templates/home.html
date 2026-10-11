@@ -119,10 +119,12 @@
               <div class="recommend-card-media">
                 <!--
                   여행지 업로드 사진은 서버가 카드 크기로 줄인 썸네일을 쓴다. 그 밖의 주소는 원래대로 둔다.
+                  세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
                   sizes 는 home.css 의 .recommend-editorial 격자 폭과 같은 값이다.
                   썸네일을 받지 못하면 원본으로 한 번만 되돌린다. (랜드마크 카드와 같은 방식)
                 -->
-                <img th:src="${destination.cardImageUrl != null} ? ${destination.cardImageUrl} : @{${destination.imageUrl}}"
+                <img class="card-thumb"
+                     th:src="${destination.cardImageUrl != null} ? ${destination.cardImageUrl} : @{${destination.imageUrl}}"
                      th:classappend="${destination.imageNoDerivatives} ? 'is-no-derivatives'"
                      th:alt="${destination.name}"
                      th:attr="srcset=${destination.cardImageSrcset},
@@ -242,9 +244,11 @@
             <div class="home-converge-photo">
               <!--
                 여행지 업로드 사진은 카드 크기 썸네일을 쓰고, 받지 못하면 원본으로 한 번 되돌린다.
+                세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
                 sizes 는 레일 카드 폭(한 화면 6장 → 4장 → 2.3장)에 3:4 칸을 cover 로 채울 때의 사진 폭 배율을 곱한 값이다.
               -->
-              <img th:src="${landmark.cardImageUrl != null} ? ${landmark.cardImageUrl} : @{${landmark.imageUrl}}"
+              <img class="card-thumb"
+                   th:src="${landmark.cardImageUrl != null} ? ${landmark.cardImageUrl} : @{${landmark.imageUrl}}"
                    th:classappend="${landmark.imageNoDerivatives} ? 'is-no-derivatives'"
                    th:with="k=${landmark.cardImageCoverScale}"
                    th:attr="srcset=${landmark.cardImageSrcset},
@@ -309,11 +313,12 @@
   </div>
 
   <script src="/js/home-season-preview.js?v=20260929-1" defer></script>
-  <script src="/js/home.js?v=20261008-1" defer></script>
+  <script src="/js/home.js?v=20261011-1" defer></script>
   <script src="/js/home-festival.js?v=20261002-1" defer></script>
   <script src="/js/slider.js?v=20261003-home-hero" defer></script>
   <script src="/js/home-withdrawal-toast.js" defer></script>
   <!-- 랜드마크 아치 카드 (스크롤 수렴) -->
   <script src="/js/home-converge-prototype.js?v=20260930-2" defer></script>
+  <script src="/js/card-thumbnail.js?v=20261011-2" defer></script>
 </th:block>
 </html>

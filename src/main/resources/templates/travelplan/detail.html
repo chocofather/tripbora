@@ -10,6 +10,8 @@
   <script src="/js/travel-plan-realtime.js" defer></script>
   <!-- 채팅 UI. STOMP 연결은 위 realtime 이 들고 있는 것을 그대로 쓴다 -->
   <script src="/js/travel-plan-chat.js" defer></script>
+  <!-- 채팅 패널 옮기기(넓은 화면). 송수신과 상관없이 자리만 다룬다 -->
+  <script src="/js/travel-plan-chat-drag.js" defer></script>
   <!-- 투표 만들기. 채팅창 안에서 열리지만 저장은 기존 HTTP 경로다 -->
   <script src="/js/travel-plan-poll.js" defer></script>
   <!-- 여행 계획 확정. 이번 단계는 확정할 수 있는지 묻는 것까지다 -->
@@ -158,10 +160,16 @@
       <button type="button" class="travel-plan-chat-toggle"
               aria-expanded="false" aria-label="채팅 열기"
               data-travel-plan-chat-toggle>
-        <svg class="travel-plan-chat-icon" viewBox="0 0 24 24" aria-hidden="true"
+        <!-- 닫혀 있을 때는 말풍선, 열려 있을 때는 접기 화살표(aria-expanded 를 보고 CSS 가 바꾼다) -->
+        <svg class="travel-plan-chat-icon travel-plan-chat-icon-open" viewBox="0 0 24 24" aria-hidden="true"
              fill="none" stroke="currentColor" stroke-width="1.6"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4.5 19.5l1.3-4A7.5 7.5 0 1 1 20 11.5z"></path>
+        </svg>
+        <svg class="travel-plan-chat-icon travel-plan-chat-icon-close" viewBox="0 0 24 24" aria-hidden="true"
+             fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6"></path>
         </svg>
         <!-- 안 읽은 개수. 서버에서 받은 값만 넣는다 -->
         <span class="travel-plan-chat-badge" hidden
@@ -177,7 +185,8 @@
     <section class="travel-plan-chat-panel" hidden aria-label="여행 채팅"
              th:if="${travelPlan.currentMember != null}"
              data-travel-plan-chat-panel>
-      <header class="travel-plan-chat-header">
+      <!-- 넓은 화면에서는 이 머리글을 잡고 패널을 옮긴다(travel-plan-chat-drag.js). 버튼은 잡는 자리가 아니다 -->
+      <header class="travel-plan-chat-header" data-travel-plan-chat-drag-handle>
         <h2 class="travel-plan-chat-panel-title">여행 채팅</h2>
         <div class="travel-plan-chat-header-actions">
           <!--
@@ -190,7 +199,7 @@
             <span class="travel-plan-poll-entry-count" hidden
                   data-travel-plan-poll-count>0</span>
           </button>
-          <!-- 여닫는 길은 하나뿐이다. 떠 있는 버튼으로 열고 여기서 닫는다 -->
+          <!-- 주로 오른쪽 아래 토글 버튼으로 여닫는다. 이 × 도 같은 닫기다(머리글에서 바로 닫고 싶을 때) -->
           <button type="button" class="travel-plan-chat-header-button"
                   aria-label="채팅 닫기" data-travel-plan-chat-close>×</button>
         </div>

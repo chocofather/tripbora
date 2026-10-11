@@ -1712,3 +1712,17 @@ img.is-no-derivatives {
     transform: none !important;
     background-color: #f3f4f6;
 }
+
+/*
+  여행지 카드 썸네일(img.card-thumb). 채우는 방식은 각 카드의 object-fit: cover 그대로이고, 자르는 위치만 바꾼다.
+  세로 사진은 가운데를 자르면 탑·건물 윗부분이 먼저 잘리므로 card-thumbnail.js 가 실제 비율로 data-thumb-shape 를 붙여
+  조금 위쪽을 남긴다. 아래가 크게 잘리지 않게 위 끝(0%)까지는 올리지 않는다.
+  공공누리 제3유형(img.is-no-derivatives)은 위 규칙(!important)이 그대로 이긴다.
+*/
+img.card-thumb[data-thumb-shape="portrait"] {
+    object-position: 50% 40%;
+}
+
+img.card-thumb[data-thumb-shape="tall"] {
+    object-position: 50% 35%;
+}

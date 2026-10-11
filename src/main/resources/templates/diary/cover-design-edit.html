@@ -19,7 +19,8 @@
 </th:block>
 
 <th:block th:fragment="body">
-  <section class="diary-cover-design-page" aria-labelledby="cover-design-edit-title">
+  <!-- is-cover-editor: 좁은 화면 배치(표지 → 꾸미기 → 설정, 아래 고정 저장)를 이 편집 화면에만 건다 -->
+  <section class="diary-cover-design-page is-cover-editor" aria-labelledby="cover-design-edit-title">
     <header class="diary-form-header">
       <a class="diary-detail-back" th:href="@{/diaries/cover-designs}">← 내 표지 디자인으로</a>
       <h1 id="cover-design-edit-title"

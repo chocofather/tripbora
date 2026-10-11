@@ -8388,3 +8388,408 @@ body.is-pin-open {
         transition: none;
     }
 }
+
+/* ===== 표지 화면 스마트폰 정리 (표지 디자인 패널 · 표지 라이브러리 · 표지 디자인 편집 · 새 여행일기) =====
+   PC 화면을 그대로 쌓지 않는다. 목록은 한 화면에 여러 표지가 보이게, 편집은 표지와 도구가 함께 보이게,
+   생성 폼은 제목 → 기간 → 표지 → 만들기가 짧게 이어지게 줄인다.
+   표지 그림(.diary-cover-canvas)은 폭 100% + 표지 비율 + 컨테이너 단위로 그려지므로
+   여기서는 표지 칸의 크기만 바꾼다. 안쪽 사진·스티커·글씨의 자리와 저장 값은 그대로다. */
+@media (max-width: 680px) {
+    /* --- 표지 디자인 패널: 머리와 두 영역의 여백 --- */
+    .diary-library-sheet .diary-library {
+        padding: 0 16px 32px;
+    }
+
+    .diary-library-sheet .diary-library-head {
+        margin-bottom: 4px;
+        padding-bottom: 8px;
+    }
+
+    .diary-library-title {
+        font-size: 20px;
+    }
+
+    .diary-library-section.is-library {
+        padding: 18px 16px 24px;
+    }
+
+    .diary-library-sheet .diary-library-section.is-library {
+        margin-inline: -16px;
+        padding-inline: 16px;
+    }
+
+    .diary-library-section-head {
+        margin-bottom: 14px;
+    }
+
+    .diary-library-section-title {
+        font-size: 17px;
+    }
+
+    .diary-library-subtitle {
+        font-size: 12.5px;
+    }
+
+    .diary-library-section.is-library .diary-library-section-body {
+        margin-top: 14px;
+    }
+
+    .diary-library-section.is-owned {
+        margin-top: 26px;
+    }
+
+    /* --- 표지 라이브러리: 두 열로 여러 표지를 한눈에 비교한다 --- */
+    .diary-cover-design-gallery.diary-library-gallery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        gap: 22px 14px;
+    }
+
+    .diary-library-gallery > .diary-cover-design-item {
+        width: 100%;
+    }
+
+    .diary-library-gallery .diary-library-item-info {
+        margin-top: 8px;
+    }
+
+    .diary-library-gallery .diary-cover-design-name {
+        font-size: 13.5px;
+    }
+
+    .diary-library-gallery .diary-library-creator {
+        font-size: 11.5px;
+    }
+
+    /* 좁은 카드에서는 설명과 등록일을 접고 다운로드 수와 상태(보유중·받기·신고)만 남긴다 */
+    .diary-library-gallery .diary-library-item-description,
+    .diary-library-gallery .diary-library-card-row .diary-library-meta > :not([data-library-download-count]) {
+        display: none;
+    }
+
+    .diary-library-gallery .diary-library-card-row .diary-library-meta {
+        margin-top: 0;
+        font-size: 11.5px;
+    }
+
+    .diary-library-gallery .diary-library-card-actions .diary-library-icon-button {
+        width: 32px;
+        height: 32px;
+    }
+
+    .diary-library-gallery .diary-library-card-actions .diary-library-owned-badge,
+    .diary-library-gallery .diary-library-card-actions .diary-library-shared-badge {
+        width: auto;
+        height: 32px;
+        padding: 0 2px;
+    }
+
+    /*
+      --- 내 보유 디자인(관리) · 내 공유 디자인: 작은 표지 + 이름·정보 + 관리 메뉴의 가로형 행 ---
+      표지를 누르면 편집, ⋯ 메뉴 안에 삭제(확인 후)라 실수로 지우지 않는다.
+    */
+    .diary-library-section.is-owned .diary-cover-design-gallery,
+    .diary-cover-design-gallery.diary-library-gallery:has(> .diary-library-mine-item) {
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
+        gap: 10px;
+    }
+
+    .diary-library-section.is-owned .diary-cover-design-item,
+    .diary-library-gallery > .diary-library-mine-item {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        column-gap: 12px;
+        align-items: start;
+        padding: 10px 8px 10px 10px;
+        border: 1px solid #ece7df;
+        border-radius: 12px;
+        background: #fff;
+    }
+
+    .diary-library-section.is-owned .diary-cover-design-preview-link,
+    .diary-library-mine-item > .diary-library-mine-preview {
+        grid-row: 1 / span 2;
+        grid-column: 1;
+    }
+
+    .diary-library-section.is-owned .diary-cover-design-info {
+        margin-top: 2px;
+    }
+
+    .diary-library-section.is-owned .diary-cover-design-name {
+        font-size: 14px;
+    }
+
+    .diary-library-section.is-owned .diary-cover-design-share {
+        grid-column: 2;
+        align-self: end;
+        margin-top: 6px;
+    }
+
+    /* 관리 메뉴(⋯)는 표지 위가 아니라 행 안에 있으므로 밝은 바탕의 32px 버튼으로 늘 보이게 둔다 */
+    .diary-library-section.is-owned .diary-book-menu-button {
+        width: 32px;
+        height: 32px;
+        background: #f4f1ec;
+        color: #5f574c;
+        opacity: 1;
+    }
+
+    .diary-library-mine-item > .diary-library-item-info {
+        grid-column: 2;
+        margin-top: 2px;
+    }
+
+    .diary-library-mine-item > .diary-library-mine-actions {
+        grid-column: 2;
+        margin-top: 8px;
+    }
+
+    /* --- 표지 디자인 편집 / 새 표지 디자인 (회원 편집 화면만: .is-cover-editor) --- */
+    .diary-cover-design-page.is-cover-editor {
+        width: calc(100% - 32px);
+        margin: 16px auto 0;
+        /* 아래 고정 저장 줄에 마지막 내용이 가리지 않게 그만큼 비워 둔다 */
+        padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .is-cover-editor .diary-form-header {
+        margin-bottom: 10px;
+    }
+
+    .is-cover-editor .diary-detail-back {
+        margin-bottom: 6px;
+        font-size: 12.5px;
+    }
+
+    .is-cover-editor .diary-form-header h1 {
+        font-size: 20px;
+    }
+
+    .is-cover-editor .diary-list-subtitle {
+        display: none;
+    }
+
+    .is-cover-editor .diary-cover-design-editor {
+        gap: 14px;
+        margin-top: 8px;
+    }
+
+    /* 표지는 화면 높이의 절반 남짓만 차지해 바로 아래 꾸미기 도구가 같이 보이게 한다 (비율은 그대로) */
+    .is-cover-editor .diary-cover-preview {
+        width: min(100%, calc(46vh * var(--diary-cover-ratio)));
+        width: min(100%, calc(46dvh * var(--diary-cover-ratio)));
+    }
+
+    /* 꾸미기 도구를 표지 바로 아래로 올리고, 이름·재질·색은 그 아래에 둔다 */
+    .is-cover-editor .diary-cover-design-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .is-cover-editor .diary-cover-tools {
+        order: -1;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .is-cover-editor .diary-cover-tools .diary-form-label {
+        display: none;
+    }
+
+    .is-cover-editor .diary-cover-tool-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .is-cover-editor .diary-cover-tool {
+        height: 52px;
+        font-size: 11.5px;
+    }
+
+    .is-cover-editor .diary-cover-design-form.diary-form {
+        gap: 14px;
+        padding: 16px 14px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(40, 39, 45, 0.05);
+    }
+
+    .is-cover-editor .diary-cover-material {
+        padding: 9px 4px;
+        font-size: 12.5px;
+    }
+
+    /* 저장은 스크롤 위치와 상관없이 늘 닿게 화면 아래에 고정한다 */
+    .is-cover-editor .diary-cover-design-form .diary-form-actions {
+        position: fixed;
+        z-index: 40;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: flex;
+        gap: 8px;
+        margin: 0;
+        padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid #ece7df;
+        background: #fff;
+    }
+
+    /* 목록으로(a)와 저장(button)의 상자 계산을 맞춰 두 버튼 높이를 같게 둔다 */
+    .is-cover-editor .diary-cover-design-form .diary-form-cancel,
+    .is-cover-editor .diary-cover-design-form .diary-form-submit {
+        box-sizing: border-box;
+        flex: 1 1 0;
+        min-height: 42px;
+    }
+
+    /* --- 새 여행일기 (이 화면만: .is-diary-new) --- */
+    .diary-form-page.is-diary-new {
+        width: calc(100% - 32px);
+        margin: 16px auto 40px;
+    }
+
+    .is-diary-new .diary-form-header {
+        margin-bottom: 12px;
+    }
+
+    .is-diary-new .diary-list-eyebrow {
+        margin-bottom: 4px;
+        font-size: 11px;
+    }
+
+    .is-diary-new .diary-form-header h1 {
+        font-size: 22px;
+    }
+
+    /* 부가 설명은 줄인다. 대표 이미지 안내(한 장·기본 표지)만 작게 남긴다 */
+    .is-diary-new .diary-form-header .diary-list-subtitle,
+    .is-diary-new .diary-cover-style-picker + .diary-form-hint,
+    .is-diary-new .diary-notebook-picker + .diary-form-hint {
+        display: none;
+    }
+
+    .is-diary-new .diary-form-hint {
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
+
+    .is-diary-new .diary-form {
+        gap: 16px;
+        padding: 16px 14px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(40, 39, 45, 0.05);
+    }
+
+    .is-diary-new .diary-form-field {
+        gap: 6px;
+    }
+
+    /* 기간: 시작일 ~ 종료일을 한 줄 두 칸으로 */
+    .is-diary-new .diary-period-inputs {
+        flex-direction: row;
+        align-items: flex-end;
+        gap: 6px;
+    }
+
+    .is-diary-new .diary-period-item {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .is-diary-new .diary-period-item label {
+        font-size: 12px;
+    }
+
+    .is-diary-new .diary-period-separator {
+        flex: 0 0 auto;
+        padding-bottom: 10px;
+    }
+
+    .is-diary-new .diary-cover-picker {
+        width: 100%;
+    }
+
+    /*
+      표지 고르기: 기본 표지 8종과 내 디자인을 다 펼치지 않고 가로로 넘기는 한 줄로 둔다.
+      (고르는 값과 탭·스크립트는 그대로다)
+    */
+    .is-diary-new .diary-cover-style-picker,
+    .is-diary-new .diary-cover-design-choices {
+        display: flex;
+        gap: 8px;
+        margin-inline: -14px;
+        padding: 2px 14px 4px;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        scrollbar-width: none;
+    }
+
+    .is-diary-new .diary-cover-style-picker::-webkit-scrollbar,
+    .is-diary-new .diary-cover-design-choices::-webkit-scrollbar {
+        display: none;
+    }
+
+    .is-diary-new .diary-cover-option {
+        flex: 0 0 76px;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 4px;
+        scroll-snap-align: start;
+        text-align: center;
+    }
+
+    .is-diary-new .diary-cover-option-swatch {
+        width: 32px;
+        height: 44px;
+    }
+
+    .is-diary-new .diary-cover-option-name {
+        display: -webkit-box;
+        width: 100%;
+        font-size: 11.5px;
+        line-height: 1.3;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .is-diary-new .diary-cover-design-choice,
+    .is-diary-new .diary-cover-design-create {
+        flex: 0 0 84px;
+        width: 84px;
+        scroll-snap-align: start;
+    }
+
+    .is-diary-new .diary-cover-design-choice-name {
+        font-size: 11.5px;
+    }
+
+    /* 노트 종류는 좁은 폭에서도 두 장을 나란히 둔다(견본만 작게) */
+    .is-diary-new .diary-notebook-picker {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .is-diary-new .diary-notebook-option {
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .is-diary-new .diary-notebook-preview {
+        width: 36px;
+        height: 26px;
+    }
+
+    .is-diary-new .diary-form-actions .diary-form-cancel,
+    .is-diary-new .diary-form-actions .diary-form-submit {
+        box-sizing: border-box;
+        min-height: 44px;
+    }
+
+    .is-diary-new .diary-form-actions .diary-form-submit {
+        flex: 1 1 auto;
+    }
+}

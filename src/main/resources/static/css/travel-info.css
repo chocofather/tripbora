@@ -772,9 +772,282 @@
 
 }
 
+/*
+  스마트폰 목록. PC 카드를 세로로 좁히지 않고, 사진과 핵심 정보가 한 줄에 읽히는 가로형 카드로 바꾼다.
+  (PC·태블릿 2열 이상은 위 규칙 그대로다)
+  - 여행정보: 정사각 썸네일 + 분류·제목·지역·날짜
+  - 축제·행사: 포스터 비율(3:4) 썸네일 + 상태·제목·기간·지역. 기간을 제목 바로 아래에 둔다.
+  필터는 큰 상자 대신 가로로 넘기는 한 줄 pill 로 모아 첫 화면에 카드가 들어오게 한다.
+*/
+@media (max-width: 620px) {
+    .travel-info-page {
+        --travel-info-thumb-width: clamp(104px, 30vw, 128px);
+        --travel-info-thumb-height: var(--travel-info-thumb-width);
+        --travel-info-mobile-radius: 12px;
+        margin-top: 16px;
+        margin-bottom: 48px;
+    }
+
+    .travel-info-heading {
+        margin-bottom: 14px;
+    }
+
+    .travel-info-kicker {
+        margin-bottom: 4px;
+        font-size: 10.5px;
+    }
+
+    .travel-info-heading h1 {
+        font-size: 24px;
+    }
+
+    .travel-info-heading p {
+        margin-top: 4px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* 필터: 상자 안의 상자를 만들지 않는다. 묶음마다 작은 이름 + 가로로 넘기는 한 줄 */
+    .travel-info-filters {
+        gap: 10px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .travel-info-search-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .travel-info-search-control {
+        min-height: 42px;
+        border-radius: 10px;
+    }
+
+    .travel-info-filter-label {
+        margin-bottom: 5px;
+        font-size: 11.5px;
+    }
+
+    .travel-info-pills {
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .travel-info-pills::-webkit-scrollbar {
+        display: none;
+    }
+
+    .travel-info-filter-pill {
+        flex: 0 0 auto;
+        min-height: 34px;
+        padding: 0 13px;
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+
+    .travel-info-filter-actions {
+        margin-top: -4px;
+    }
+
+    .travel-info-filter-reset {
+        min-height: 30px;
+        padding: 0 8px;
+        font-size: 12px;
+    }
+
+    .travel-info-results-header {
+        min-height: 40px;
+        margin-top: 4px;
+    }
+
+    .travel-info-results-header p,
+    .travel-info-sort-option {
+        font-size: 12.5px;
+    }
+
+    /* 가로형 카드: 왼쪽 썸네일, 오른쪽 정보. 카드 높이는 썸네일 높이를 기준으로 맞춘다 */
+    .travel-info-grid {
+        gap: 10px;
+    }
+
+    .travel-info-card {
+        display: grid;
+        grid-template-columns: var(--travel-info-thumb-width) minmax(0, 1fr);
+        min-height: var(--travel-info-thumb-height);
+        border-radius: var(--travel-info-mobile-radius);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+
+    .travel-info-card:hover {
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+        transform: none;
+    }
+
+    .travel-info-thumbnail,
+    .travel-info-card.is-festival .travel-info-thumbnail {
+        width: 100%;
+        height: 100%;
+        min-height: var(--travel-info-thumb-height);
+        aspect-ratio: auto;
+    }
+
+    /* 빈 썸네일은 아이콘만 둔다. 이름은 role=img 의 aria-label 로 그대로 읽힌다 */
+    .travel-info-thumbnail-placeholder > span:not(.travel-info-placeholder-icon) {
+        display: none;
+    }
+
+    .travel-info-placeholder-icon,
+    .travel-info-card.is-festival .travel-info-placeholder-icon {
+        font-size: 22px;
+    }
+
+    /* 저장 버튼은 PC 처럼 사진 오른쪽 위에 두되 작게. 터치 영역은 32px 를 지킨다 */
+    .travel-info-card-bookmark,
+    .travel-info-card.is-festival .travel-info-card-bookmark {
+        top: 6px;
+        right: auto;
+        left: calc(var(--travel-info-thumb-width) - 38px);
+        width: 32px;
+        height: 32px;
+    }
+
+    .travel-info-card-bookmark .travel-info-bookmark-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .travel-info-card-body,
+    .travel-info-card.is-festival .travel-info-card-body {
+        min-width: 0;
+        padding: 10px 12px;
+    }
+
+    .travel-info-card-badges {
+        flex-wrap: nowrap;
+        gap: 5px;
+        overflow: hidden;
+    }
+
+    .travel-info-category,
+    .travel-info-card.is-festival .travel-info-category {
+        overflow: hidden;
+        padding: 3px 8px;
+        font-size: 10.5px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .travel-info-event-status {
+        flex: 0 0 auto;
+        padding: 2px 7px;
+        font-size: 10px;
+    }
+
+    /* 제목은 두 줄 자리를 잡아 두어 한 줄 제목 카드도 같은 높이로 줄 선다(PC 카드와 같은 방식) */
+    .travel-info-card h2,
+    .travel-info-card.is-festival h2 {
+        min-height: calc(2em * 1.38);
+        margin: 6px 0 3px;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        line-height: 1.38;
+    }
+
+    .travel-info-type-meta {
+        font-size: 12px;
+    }
+
+    .travel-info-card-footer {
+        padding-top: 6px;
+        font-size: 11px;
+    }
+
+    /*
+      축제·행사: 포스터 비율 썸네일. 기간은 제목 바로 아래에 또렷하게 두고 지역은 그 아래 보조로 둔다.
+      (마크업 순서는 그대로 두고 보여 주는 순서만 바꾼다)
+    */
+    /*
+      포스터 칸은 세로 2:3. 흔한 포스터(A판 1:1.41, 4:5~9:16)가 거의 그대로 들어가는 비율이다.
+      포스터는 PC 와 같이 잘라 내지 않고(contain) 칸 안에 다 보이게 두고, 가로형 사진만 칸을 채운다(is-landscape → cover).
+      2:3 칸에서 A판 포스터는 위아래로 3% 남짓만 남아 빈 띠가 거의 보이지 않는다.
+      폭은 카드가 화면을 과하게 차지하지 않을 만큼(높이 약 132~147px)으로 묶는다.
+    */
+    .travel-info-card.is-festival {
+        --travel-info-thumb-width: clamp(88px, 24vw, 98px);
+        --travel-info-thumb-height: calc(var(--travel-info-thumb-width) * 3 / 2);
+    }
+
+    /* 포스터가 길어진 만큼 글 묶음은 위아래 가운데에 모아 둔다(사이가 벌어지지 않게) */
+    .travel-info-card.is-festival .travel-info-card-body {
+        justify-content: center;
+    }
+
+    /* 저장 버튼은 포스터 위(제목·문구 자리)를 가리지 않게 카드 오른쪽 아래, 지역 줄 옆에 둔다 */
+    .travel-info-card.is-festival .travel-info-card-bookmark {
+        top: auto;
+        right: 8px;
+        bottom: 8px;
+        left: auto;
+    }
+
+    .travel-info-card.is-festival .travel-info-festival-period {
+        order: 1;
+        /* 글자 길이만큼만 차지해 오른쪽 아래 저장 버튼 자리와 겹치지 않는다 */
+        align-self: flex-start;
+        max-width: 100%;
+        flex-wrap: nowrap;
+        margin-top: 1px;
+        overflow: hidden;
+        color: var(--travel-info-text);
+        font-size: 13px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .travel-info-card.is-festival .travel-info-type-meta {
+        order: 2;
+        margin-top: 3px;
+    }
+
+    /* 축제 카드는 썸네일(포스터) 높이에 맞춘다. 제목 두 줄 자리를 미리 잡지 않고, 기간 → 지역이 바로 잇는다 */
+    .travel-info-card.is-festival h2 {
+        min-height: 0;
+    }
+
+    /* 행사 목록에서 비교하는 것은 이름·기간·지역이다. 등록일·조회수 줄은 좁은 화면에서만 접는다(PC 는 그대로) */
+    .travel-info-card.is-festival .travel-info-card-footer {
+        display: none;
+    }
+
+    .travel-info-empty {
+        padding: 40px 18px;
+        border-radius: var(--travel-info-mobile-radius);
+    }
+
+    .travel-info-empty p {
+        font-size: 15px;
+    }
+
+    .travel-info-pagination {
+        margin-top: 24px;
+    }
+}
+
 @media (max-width: 430px) {
     .travel-info-page {
-        width: calc(100% - 24px);
+        width: calc(100% - 32px);
     }
 
     .travel-info-heading p {

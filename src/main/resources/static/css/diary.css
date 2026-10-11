@@ -7971,12 +7971,62 @@ body.is-pin-open {
         overflow-x: auto;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
+        /*
+          가로 스냅의 스크롤 막대는 감춘다. 두 장 폭을 한 장 폭으로 보여 주므로 막대 손잡이가
+          종이 바로 아래에 왼쪽 절반 길이의 굵은 회색 선처럼 보였다. 넘기기(스와이프)는 그대로다.
+        */
+        scrollbar-width: none;
     }
 
-    /* 한 장의 viewport만 화면 폭을 차지한다. 내부 720px 캔버스는 그대로다. */
+    .diary-book-spread::-webkit-scrollbar {
+        display: none;
+    }
+
+    /*
+      한 장의 viewport만 화면 폭을 차지한다. 내부 720px 캔버스는 그대로다.
+      (스크립트가 없을 때의 가로 스냅. 스크립트가 붙으면 아래 줄 하나로 넘긴다)
+    */
     .diary-book-spread > .diary-sheet-viewport {
         flex: 0 0 100%;
         scroll-snap-align: start;
+        scroll-snap-stop: always;
+    }
+
+    /*
+      스크립트가 붙으면(.is-page-track, diary-mobile-pages.js) 일반 carousel 처럼 넘긴다.
+      - .diary-book-spread : 보이는 창. 가로 스크롤 없이 잘라 둔다. 세로 손짓과 확대는 브라우저에 맡긴다.
+      - .diary-page-strip  : 모든 장을 한 줄로 담은 줄. transform 은 이 줄 하나에만 건다.
+        자리 = 지금 장 번호 × 한 장 폭 + 손가락을 따라 끈 거리(지금 장 기준 한 장 폭 안).
+    */
+    .is-page-track .diary-book-spread {
+        display: block;
+        overflow: hidden;
+        scroll-snap-type: none;
+        touch-action: pan-y pinch-zoom;
+    }
+
+    .diary-page-strip {
+        display: flex;
+        width: 100%;
+        transform: translate3d(calc(var(--diary-page-index, 0) * -100% + var(--diary-page-drag, 0px)), 0, 0);
+        will-change: transform;
+    }
+
+    .diary-page-strip > .diary-sheet-viewport {
+        flex: 0 0 100%;
+    }
+
+    .diary-page-strip.is-settling {
+        transition: transform var(--diary-page-settle, 200ms) cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    /* 끄는 동안에는 글자가 잡히지 않고, 사진을 끌어도 브라우저 그림 끌기가 시작되지 않게 한다 */
+    .diary-page-strip.is-dragging {
+        user-select: none;
+    }
+
+    .diary-page-strip img {
+        -webkit-user-drag: none;
     }
 
     /* 한 장씩 보이므로 중앙 제본선 칸은 감춘다 */
@@ -7984,22 +8034,48 @@ body.is-pin-open {
         display: none;
     }
 
-    /* 가운데 제본이 없어졌으므로 코일도 장마다 왼쪽 가장자리로 옮겨 간다.
-       본문 영역과 좌표는 그대로다. 장식이 붙는 자리만 달라진다. */
-    .diary-book-spring {
+    /*
+      한 장씩 넘겨 보는 화면에는 펼침(두 장) 흔적을 남기지 않는다.
+      모든 장을 한 줄로 이어 붙이는 것은 diary-mobile-pages.js 가 맡는다.
+      - 아직 쓰지 않은 빈 오른쪽 종이는 장이 아니므로 줄에 넣지 않는다.
+      - 편집 연필은 지금 보는 장 하나만 둔다(대상은 스크립트가 지금 장으로 바꾼다).
+      - 펼침 단위 이전/다음 화살표는 쓰지 않는다. 넘기기는 스와이프다.
+    */
+    .diary-book-spread > .diary-sheet-viewport:has(> .diary-sheet-right:not([data-diary-page-order])),
+    .diary-page-strip > .diary-sheet-viewport:has(> .diary-sheet-right:not([data-diary-page-order])) {
         display: none;
     }
 
-    .diary-book-spread .diary-sheet-spring {
-        display: block;
+    .diary-read-tools {
+        display: flex;
+        justify-content: flex-end;
     }
 
-    /* 코일이 장 왼쪽으로 갔으므로 구멍도 같은 쪽으로 따라간다 (넘김 값은 그대로) */
-    .diary-book-spread.diary-book-spiral .diary-sheet-left::after,
-    .diary-book-spread.diary-book-spiral .diary-sheet-right::after {
-        right: auto;
-        left: -2.84%;
+    .diary-read-tools > [aria-hidden="true"],
+    .diary-read-tools-page.is-right {
+        display: none;
     }
+
+    .diary-spread-nav.is-read .diary-spread-arrow {
+        display: none;
+    }
+
+    /*
+      한 장씩 넘겨 보는 화면에는 금속 코일을 그리지 않는다. 종이 구멍만 남긴다(편집 화면과 같다).
+      장마다 붙는 코일은 종이 밖(left: -5.9%)으로 걸치는 장식이라, 가로 스냅 안에서는
+      다음 장의 코일이 지금 장 오른쪽 끝에 비쳐 보이고 지금 장의 코일은 왼쪽이 잘려 나갔다.
+      본문 영역과 좌표는 그대로다. 장식만 빠진다.
+    */
+    .diary-book-spring,
+    .diary-book-spread .diary-sheet-spring {
+        display: none;
+    }
+
+    /*
+      종이 구멍은 한 장씩 볼 때도 넓은 화면의 펼침 규칙(위 .diary-sheet-left/right::after)을 그대로 쓴다.
+      왼쪽 장(다이어리 안 홀수 번째) = 오른쪽 가장자리, 오른쪽 장(짝수 번째) = 왼쪽 가장자리.
+      편집 화면의 is-holes-right/left 와 같은 기준(다이어리 안 위치)이라 읽기·쓰기가 같은 쪽에 구멍을 둔다.
+    */
 
     .diary-spread-nav {
         gap: 8px;
@@ -8010,34 +8086,124 @@ body.is-pin-open {
         width: 100%;
     }
 
-    /* 툴바가 화면을 많이 차지하지 않게 한 줄로 두고 가로로 넘긴다 */
-    .diary-toolbar {
-        flex-wrap: nowrap;
-        gap: 10px;
-        overflow-x: auto;
-        padding: 6px 10px;
-        -webkit-overflow-scrolling: touch;
+    /*
+      좁은 화면의 편집 툴바는 가로로 넘기지 않고 여러 줄로 접는다.
+      예전처럼 한 줄 + overflow-x 로 두면 사진·스티커·이모지 버튼이 화면 밖 멀리 밀려 보이지 않았고,
+      overflow 가 세로까지 잘라 툴바 안에서 열리는 판(글꼴·형광펜·이모지·꾸미기·라벨기)이 모두 잘렸다.
+      편집하며 내려가도 손이 닿게 화면 위에 붙여 둔다.
+      (사이트 머리는 문서 맨 위에 붙어 함께 올라가므로 겹치지 않는다)
+    */
+    .is-edit-mode .diary-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        gap: 6px 8px;
+        padding: 6px 8px;
+        box-shadow: 0 4px 10px -8px rgba(63, 52, 38, 0.35);
     }
 
     .diary-toolbar-group {
         flex: 0 0 auto;
+        gap: 4px;
     }
 
-    /* 가로로 넘기는 한 줄이 되므로 한 줄 메모 묶음도 같은 줄에 이어 둔다 */
+    /* 줄이 접히므로 한 줄 메모 묶음도 한 줄을 통째로 쓰지 않고 이어 둔다 */
     .diary-header-style {
         flex: 0 0 auto;
         padding-top: 0;
         border-top: 0;
     }
 
-    .diary-toolbar-label {
+    .diary-toolbar-label,
+    .diary-edit-badge,
+    .diary-save-status {
         white-space: nowrap;
     }
 
     .diary-save-status {
         flex: 0 0 auto;
-        margin-left: 8px;
-        white-space: nowrap;
+    }
+
+    /*
+      툴바 안의 판은 버튼 묶음이 아니라 툴바를 기준으로 그 바로 아래 왼쪽 끝에서 연다.
+      묶음 기준이면 줄 오른쪽 끝 버튼의 판이 화면 밖으로 나간다. 폭은 툴바를 넘지 않는다.
+    */
+    .is-edit-mode .diary-toolbar .diary-font-picker,
+    .is-edit-mode .diary-toolbar .diary-highlight,
+    .is-edit-mode .diary-toolbar .diary-emoji,
+    .is-edit-mode .diary-toolbar .diary-sticker-picker,
+    .is-edit-mode .diary-toolbar .diary-header-style {
+        position: static;
+    }
+
+    .is-edit-mode .diary-toolbar .diary-font-list,
+    .is-edit-mode .diary-toolbar .diary-highlight-palette,
+    .is-edit-mode .diary-toolbar .diary-emoji-popover,
+    .is-edit-mode .diary-toolbar .diary-sticker-popover {
+        box-sizing: border-box;
+        top: calc(100% + 4px);
+        right: auto;
+        left: 0;
+        max-width: 100%;
+    }
+}
+
+/* 움직임 줄이기 설정이면 한 장씩 넘길 때도 미끄러지지 않고 바로 그 장에 앉는다 */
+@media (prefers-reduced-motion: reduce) {
+    .diary-page-strip.is-settling {
+        transition: none;
+    }
+}
+
+/* 스마트폰 폭: 바깥 여백을 줄여 종이와 툴바가 화면 폭을 더 쓰고, 툴바는 아이콘 위주로 줄인다 */
+@media (max-width: 640px) {
+    .diary-detail-page,
+    .diary-detail-page.is-read-mode {
+        width: calc(100% - 24px);
+        margin-top: 28px;
+    }
+
+    /*
+      묶음 단위로 접으면 큰 묶음 하나 때문에 줄 끝이 비어 줄 수만 늘어난다.
+      이 폭에서는 묶음을 풀어 버튼 하나하나가 줄을 채우게 한다(판은 이미 툴바 기준이라 그대로 열린다).
+      한 줄 메모 서식은 본문 서식과 헷갈리지 않게 이름표와 함께 한 묶음으로 남긴다.
+    */
+    .is-edit-mode .diary-toolbar .diary-toolbar-group:not(.diary-header-style),
+    .is-edit-mode .diary-toolbar .diary-photo-add {
+        display: contents;
+    }
+
+    /* 편집 화면이라는 조용한 표시. 이 폭에서는 도구 자리를 위해 감춘다(편집 기능과는 상관없다) */
+    .is-edit-mode .diary-toolbar .diary-edit-badge {
+        display: none;
+    }
+
+    .is-edit-mode .diary-toolbar {
+        gap: 6px;
+    }
+
+    /* 글자 이름표는 화면에서만 감춘다. label for / aria-labelledby 로 읽어 주는 이름은 그대로다 */
+    .is-edit-mode .diary-toolbar .diary-toolbar-label:not(#diary-header-font-label) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .is-edit-mode .diary-toolbar .diary-font-trigger {
+        min-width: 0;
+        max-width: 92px;
+    }
+
+    .is-edit-mode .diary-toolbar .diary-toolbar-select {
+        max-width: 72px;
+    }
+
+    .is-edit-mode .diary-toolbar .diary-photo-button {
+        gap: 4px;
+        padding: 0 7px;
+        font-size: 11px;
     }
 }
 

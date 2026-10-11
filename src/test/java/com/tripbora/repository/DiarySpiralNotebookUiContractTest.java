@@ -149,9 +149,9 @@ class DiarySpiralNotebookUiContractTest {
                 .contains("left: -5.9%;")
                 .doesNotContain("px)");
 
-        // 좁은 화면에서 구멍이 왼쪽으로 옮겨 갈 때도 넘김 값은 같다
+        // 좁은 화면(한 장씩 보기)도 펼침의 구멍 규칙을 그대로 쓰므로 넘김 값을 따로 두지 않는다
         String narrow = between(css, "@media (max-width: 860px) {", "@media (max-width: 780px) {");
-        assertThat(narrow).contains("left: -2.84%;");
+        assertThat(narrow).doesNotContain("-2.84%");
     }
 
     /**
@@ -234,17 +234,34 @@ class DiarySpiralNotebookUiContractTest {
     }
 
     @Test
-    void theCoilMovesToTheEdgeWhenPagesAreReadOneAtATime() throws IOException {
+    void pagesReadOneAtATimeKeepOnlyTheHolesWithoutTheCoil() throws IOException {
         String css = read(DIARY_CSS);
 
         // 넓은 화면: 가운데 코일 하나
         assertThat(rule(css, ".diary-book-spread .diary-sheet-spring")).contains("display: none;");
 
         String narrow = between(css, "@media (max-width: 860px) {", "@media (max-width: 780px) {");
-        // 좁은 화면: 가운데 코일을 감추고 장마다 왼쪽 가장자리로 옮긴다
-        assertThat(between(narrow, ".diary-book-spring {", "}")).contains("display: none;");
-        assertThat(between(narrow, ".diary-book-spread .diary-sheet-spring {", "}"))
-                .contains("display: block;");
+        /*
+          좁은 화면: 한 장씩 가로로 넘겨 보므로 금속 코일은 가운데 것도, 장마다 붙는 것도 그리지 않는다.
+          장 코일은 종이 밖으로 걸치는 장식이라 옆 장의 코일이 지금 장 끝에 비쳐 보였다.
+        */
+        assertThat(between(narrow, ".diary-book-spring,\n    .diary-book-spread .diary-sheet-spring {", "}"))
+                .contains("display: none;");
+        // 장마다 붙는 코일을 다시 켜는 규칙이 없다
+        assertThat(narrow).doesNotContain(".diary-sheet-spring {\n        display: block;");
+        /*
+          종이 구멍은 한 장씩 볼 때도 펼침과 같은 쪽이다. 왼쪽 장(홀수 번째) = 오른쪽, 오른쪽 장(짝수 번째) = 왼쪽.
+          좁은 화면에서 구멍 자리를 따로 덮어쓰지 않는다(예전에는 모든 장을 왼쪽으로 몰았다).
+        */
+        assertThat(rule(css, ".diary-book-spread.diary-book-spiral .diary-sheet-left::after"))
+                .contains("right: -2.84%;");
+        assertThat(rule(css, ".diary-book-spread.diary-book-spiral .diary-sheet-right::after"))
+                .contains("left: -2.84%;");
+        assertThat(narrow).doesNotContain(".diary-sheet-left::after")
+                .doesNotContain(".diary-sheet-right::after");
+        // 두 장 폭을 한 장 폭으로 넘기는 가로 스크롤 막대가 종이 아래 반쪽 선처럼 보이지 않게 감춘다
+        assertThat(between(narrow, ".diary-book-spread {", "}")).contains("scrollbar-width: none;");
+        assertThat(between(narrow, ".diary-book-spread::-webkit-scrollbar {", "}")).contains("display: none;");
         // 좁아졌다고 본문이나 종이 크기를 새로 줄이지 않는다
         assertThat(narrow).doesNotContain(".diary-canvas");
     }

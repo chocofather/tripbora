@@ -26,6 +26,8 @@
   <script src="/js/diary-editor.js" defer></script>
   <script src="/js/diary-page-scale.js" defer></script>
   <script src="/js/diary-page-flip.js" defer></script>
+  <!-- 좁은 화면 읽기: 펼침 단위가 아니라 모든 장을 한 장씩 이어서 넘긴다 -->
+  <script src="/js/diary-mobile-pages.js" defer></script>
   <script src="/js/diary-photo-picker.js" defer></script>
   <script src="/js/diary-sticker-picker.js" defer></script>
   <!-- 꾸미기 팝오버의 라벨/메모지 갈래. 스티커 쪽과 같은 팝오버를 함께 쓴다 -->
@@ -507,9 +509,11 @@
       읽기 화면에서 펼침이 바뀔 때 이 안쪽만 통째로 갈아 끼운다.
       (서버가 그린 그대로를 쓰므로 새로고침/직접 접근과 화면이 완전히 같다)
     -->
+    <!-- data-page-count: 좁은 화면에서 모든 장을 한 줄로 넘길 때 "현재 / 전체 N장" 에 쓴다 (diary-mobile-pages.js) -->
     <div id="diary-read-board" th:fragment="readBoard" th:unless="${editMode}"
          th:data-spread-url="@{/diaries/{id}/spread(id=${diary.id})}"
-         th:data-spread="${currentSpread}">
+         th:data-spread="${currentSpread}"
+         th:data-page-count="${#lists.size(diaryPages)}">
 
     <!--
       종이 바깥 위쪽 줄. 왼쪽/오른쪽 장마다 연필 하나씩 두어 그 장의 편집으로 바로 간다.

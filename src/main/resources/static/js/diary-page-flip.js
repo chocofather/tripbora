@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!board || event.metaKey || event.ctrlKey || event.altKey) return;
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        // 좁은 화면은 펼침이 아니라 한 장씩 넘긴다(diary-mobile-pages.js 가 맡는다).
+        if (compactLayout.matches) return;
 
         const link = board.querySelector(
             `a.diary-spread-arrow[data-flip="${event.key === 'ArrowRight' ? 'next' : 'previous'}"]`);
@@ -156,6 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 새로 그려진 되풀이형 마스킹테이프를 같은 렌더러로 다시 이어 붙인다.
         board.querySelectorAll('.diary-sticker[data-tape-center]')
             .forEach(item => window.diaryTape?.render(item));
+        // 좁은 화면이면 새 조각에서 다시 모든 장을 한 줄로 이어 넘긴다.
+        window.diaryMobilePages?.attach(board);
     }
 
     /** 취소/지난 응답 표시. (사용자 오류로 알리지 않는다) */

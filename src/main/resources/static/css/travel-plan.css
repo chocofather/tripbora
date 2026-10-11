@@ -4206,3 +4206,262 @@
 .travel-plan-final-paper .travel-plan-alt-view {
     cursor: default;
 }
+
+/*
+  ===== 함께 계획하기 편집 화면 스마트폰 정리 =====
+
+  넓은 화면의 "책상 위 종이 한 장" 은 스마트폰에서는 종이 테두리와 안쪽 여백이
+  바깥 여백과 겹쳐 일정 글자가 들어갈 폭이 190px 안팎까지 줄어든다.
+  좁은 화면에서는 종이를 화면 자체로 쓰고(테두리·그늘 없음), 여백은 좌우 16px 하나로 맞춘다.
+
+  .is-planning 은 편집 화면(detail.html)에만 붙어 최종본·초대 미리보기는 그대로다.
+  이 파일의 다른 규칙보다 뒤에 두어 같은 우선순위의 기본 규칙을 덮는다.
+*/
+@media (max-width: 560px) {
+    .travel-plan-page.is-planning {
+        padding: 10px 0 calc(88px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .is-planning .travel-plan-page-top {
+        margin: 0 0 6px;
+        padding: 0 16px;
+    }
+
+    .is-planning .travel-plan-page-top-row {
+        gap: 6px;
+    }
+
+    .is-planning .travel-plan-back-link {
+        margin-bottom: 0;
+        font-size: 13px;
+    }
+
+    /*
+      상단 액션은 한 줄로 둔다. 누구나 쓰는 참여자를 맨 앞에 두고,
+      방장 액션(확정 / 초대 / 삭제)은 그 뒤에 이어 붙인다.
+      글자가 커져 넘칠 때만 방장 묶음 안에서 옆으로 넘긴다.
+      초대·참여자 팝오버의 기준은 바깥 줄(.travel-plan-top-actions)이라
+      방장 묶음에 overflow 를 걸어도 팝오버는 잘리지 않는다.
+    */
+    .is-planning .travel-plan-top-actions {
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .is-planning .travel-plan-common-actions {
+        order: -1;
+        flex: 0 0 auto;
+    }
+
+    .is-planning .travel-plan-owner-actions {
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        gap: 4px;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .is-planning .travel-plan-owner-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* 참여자가 맨 앞으로 오면서 구분선이 끝에 남으므로 좁은 화면에서는 뺀다 */
+    .is-planning .travel-plan-action-divider {
+        display: none;
+    }
+
+    .is-planning .travel-plan-members-toggle,
+    .is-planning .travel-plan-invite-toggle,
+    .is-planning .travel-plan-finalize-toggle,
+    .is-planning .travel-plan-plan-delete {
+        box-sizing: border-box;
+        min-height: 32px;
+        padding: 5px 9px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    /* 삭제는 테두리 없는 글자 버튼이라 옆 여백을 줄여도 눌리는 높이는 같다 */
+    .is-planning .travel-plan-plan-delete {
+        padding-inline: 5px;
+    }
+
+    /* 참여자 팝오버: 손가락으로 누를 줄 높이와 메뉴 칸만 늘린다 */
+    .is-planning .travel-plan-member {
+        padding: 5px 0;
+    }
+
+    .is-planning .travel-plan-member-menu-button {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* 종이를 화면 자체로 쓴다. 테두리·그늘·질감을 걷어 낸다 */
+    .is-planning .travel-plan-paper {
+        padding: 0 16px;
+        border: 0;
+        border-radius: 0;
+        background: var(--tp-plan-paper);
+        box-shadow: none;
+    }
+
+    /* 제목 / 기간을 짧게. 왼쪽 강조선은 폭을 먹어 좁은 화면에서는 뺀다 */
+    .is-planning .travel-plan-detail-header {
+        margin-bottom: 14px;
+        padding: 6px 0 12px;
+    }
+
+    .is-planning .travel-plan-detail-heading {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .is-planning .travel-plan-detail-status {
+        margin-bottom: 6px;
+        padding: 1px 8px;
+        font-size: 11.5px;
+    }
+
+    .is-planning .travel-plan-detail-header h1 {
+        gap: 6px;
+        margin-bottom: 3px;
+        font-size: 20px;
+        line-height: 1.35;
+    }
+
+    .is-planning .travel-plan-detail-length {
+        font-size: 13px;
+    }
+
+    .is-planning .travel-plan-detail-period {
+        font-size: 12.5px;
+    }
+
+    .is-planning .travel-plan-day {
+        margin-bottom: 20px;
+    }
+
+    /*
+      DAY 머리글은 그 DAY 를 넘기는 동안 화면 위에 붙어 있어,
+      일정이 많아도 지금 어느 날을 보고 있는지 놓치지 않는다.
+      공통 헤더는 고정형이 아니라 top: 0 에 붙여도 겹치지 않는다.
+    */
+    .is-planning .travel-plan-day-heading {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 6px 10px;
+        border-radius: 6px 6px 0 0;
+        font-size: 14px;
+    }
+
+    .is-planning .travel-plan-day-date {
+        padding: 1px 8px;
+        font-size: 11.5px;
+    }
+
+    .is-planning .travel-plan-line {
+        gap: 10px;
+        padding: 10px 0 10px 2px;
+    }
+
+    .is-planning .travel-plan-line-order {
+        min-width: 18px;
+        padding-top: 2px;
+        font-size: 11px;
+    }
+
+    .is-planning .travel-plan-line-content,
+    .is-planning .travel-plan-item-editor textarea,
+    .is-planning .travel-plan-slot-form textarea {
+        font-size: 14.5px;
+        line-height: 1.6;
+    }
+
+    /*
+      ⋯ 는 글자 크기는 그대로 두고 눌리는 자리만 32px 로 넓힌다.
+      위아래 음수 여백으로 줄 높이는 늘리지 않는다.
+    */
+    .is-planning .travel-plan-item-menu-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        margin: -6px -4px -6px 0;
+        padding: 0;
+    }
+
+    .is-planning .travel-plan-item-menu-list {
+        top: 28px;
+    }
+
+    .is-planning .travel-plan-item-action,
+    .is-planning .travel-plan-item-delete {
+        padding: 9px 14px;
+    }
+
+    .is-planning .travel-plan-line.is-slot {
+        padding: 6px 0 6px 2px;
+    }
+
+    .is-planning .travel-plan-slot-hint {
+        padding: 5px 10px 5px 4px;
+    }
+
+    /*
+      채팅: 넓은 화면의 옮기기는 쓰지 않고(스크립트가 768px 이하에서 끈다)
+      오른쪽 아래 고정 자리를 그대로 쓴다.
+      열렸을 때 화면 대부분을 덮지 않도록 높이를 화면의 60% 안쪽으로 줄여,
+      위쪽 일정은 계속 보이고 넘길 수 있다. 대화는 패널 안에서만 넘긴다.
+    */
+    .is-planning .travel-plan-chat {
+        bottom: calc(var(--tp-chat-edge) + env(safe-area-inset-bottom, 0px));
+    }
+
+    .is-planning .travel-plan-chat-panel {
+        right: 12px;
+        left: 12px;
+        bottom: calc(var(--tp-chat-edge) + var(--tp-chat-toggle-space)
+                     + env(safe-area-inset-bottom, 0px));
+        width: auto;
+        max-height: min(460px, calc(60vh - var(--tp-chat-toggle-space)));
+        max-height: min(460px, calc(60dvh - var(--tp-chat-toggle-space)));
+        border-radius: 12px;
+    }
+
+    /* 패널이 낮아진 만큼 이모지 상자도 패널 안에서 잘리지 않게 같은 기준으로 줄인다 */
+    .is-planning .travel-plan-chat-emoji-panel {
+        max-height: min(232px, calc(60vh - 96px - var(--tp-chat-toggle-space)));
+        max-height: min(232px, calc(60dvh - 96px - var(--tp-chat-toggle-space)));
+    }
+
+    .is-planning .travel-plan-chat-header-button {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+
+    .is-planning .travel-plan-chat-send {
+        height: 34px;
+    }
+
+    .is-planning .travel-plan-chat-input {
+        min-height: 34px;
+        /* 16px 아래면 iOS 가 입력할 때 화면을 확대한다 */
+        font-size: 16px;
+    }
+
+    .is-planning .travel-plan-chat-tool {
+        width: 34px;
+        height: 34px;
+    }
+
+    /* 투표 센터: 주소창이 접혔다 펴져도 머리글과 아래 버튼이 보이는 높이 안에 둔다 */
+    .is-planning .travel-plan-poll-modal-panel {
+        max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px);
+    }
+}

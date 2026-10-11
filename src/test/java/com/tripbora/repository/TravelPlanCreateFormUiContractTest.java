@@ -337,8 +337,9 @@ class TravelPlanCreateFormUiContractTest {
         String detail = plannerHtml();
         String css = resource("/static/css/travel-plan.css");
 
+        // is-planning 은 좁은 화면 정리를 편집 화면에만 거는 표시다. 바탕 구조는 같다
         assertThat(detail)
-                .contains("class=\"travel-plan-page\"")
+                .contains("class=\"travel-plan-page is-planning\"")
                 .contains("class=\"travel-plan-paper\"");
 
         // 흰 책상 위에 종이 한 장이 놓인 구조다

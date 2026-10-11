@@ -246,3 +246,91 @@
         padding-left: 10px;
     }
 }
+
+/*
+  ===== 스마트폰 정리 =====
+  필터는 상자 없이 한 줄 칩(넘치면 옆으로 넘김)으로 두고,
+  글 한 줄은 제목(최대 2줄) 아래 [분류] 날짜 · 조회 한 줄로 줄인다.
+*/
+@media (max-width: 680px) {
+    /* 필터 네 개는 좁은 화면에서도 한 줄에 들어간다. 글자가 길어지면 다음 줄로 넘어간다 */
+    .mypage-post-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding: 0;
+        background: none;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .mypage-post-filters a {
+        flex: 0 0 auto;
+        width: auto;
+        min-height: 34px;
+        padding: 6px 13px;
+        background: #fff;
+        border-color: #e2e8f0;
+        font-size: 13px;
+    }
+
+    .mypage-post-list {
+        border-radius: 12px;
+    }
+
+    /* 분류 배지와 날짜·조회를 제목 아래 한 줄로 모은다 */
+    .mypage-post-row {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 6px 8px;
+        padding: 12px 14px;
+    }
+
+    .mypage-post-main {
+        display: contents;
+    }
+
+    .mypage-post-title {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+
+    .mypage-post-title a {
+        display: -webkit-box;
+        overflow: hidden;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .mypage-post-type {
+        min-width: 0;
+        min-height: 22px;
+        padding: 3px 7px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+
+    .mypage-post-meta {
+        min-width: 0;
+        font-size: 12px;
+    }
+
+    .mypage-post-empty {
+        padding: 28px 16px;
+        font-size: 13.5px;
+    }
+
+    .mypage-post-pagination {
+        margin-top: 14px;
+    }
+
+    .mypage-post-pagination > a,
+    .mypage-post-pagination > .is-disabled {
+        min-height: 36px;
+        font-size: 13px;
+    }
+}

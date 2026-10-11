@@ -554,6 +554,19 @@
         min-width: 0;
     }
 
+    /*
+      뽑는 중 상자. 기본 규칙은 content-box 라 width: 100% 에 좌우 padding·border 가
+      더해져 좁은 화면에서는 부모보다 넓어지고 오른쪽 끝이 화면 밖으로 나간다.
+      padding·border 를 폭 안에 넣는다. 670px 은 기본 규칙의 전체 폭
+      (본문 620 + padding 24×2 + border 1×2)이라 넓은 화면에서 보이는 크기는 같다.
+    */
+    .random-stage {
+        box-sizing: border-box;
+        width: min(670px, 100%);
+        max-width: 100%;
+        min-width: 0;
+    }
+
     .random-travel-decoration {
         justify-content: flex-end;
         height: 110px;
@@ -601,6 +614,245 @@
     .random-redraw-button,
     .random-all-destinations-link {
         width: 100%;
+    }
+}
+
+/*
+  ===== 스마트폰 정리 =====
+
+  위 720px 규칙은 넓은 화면 배치를 세로로 쌓은 것이라, 스마트폰에서는
+  첫 화면이 소개 카드로 거의 차고 결과는 한 장이 400px 넘는 카드 8장으로 길게 이어진다.
+  여기서는 조건(국내/해외) → 뽑기 → 결과가 한 흐름으로 짧게 이어지도록 줄이고,
+  결과는 2열 작은 카드로 바꾼다. 결과 버튼 줄은 결과를 넘기는 동안 화면 아래에 붙어 있다.
+*/
+@media (max-width: 560px) {
+    .random-travel-page {
+        min-height: 0;
+        padding: 14px 16px 40px;
+    }
+
+    .random-travel-hero {
+        border-radius: 16px;
+    }
+
+    .random-travel-copy {
+        padding: 20px 16px 18px;
+    }
+
+    .random-travel-eyebrow {
+        min-height: 24px;
+        padding: 3px 10px;
+        font-size: 11px;
+    }
+
+    .random-travel-hero h1 {
+        margin-top: 12px;
+        font-size: 26px;
+        line-height: 1.25;
+    }
+
+    .random-travel-subtitle {
+        margin-top: 6px;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    /* 국내/해외는 화면 폭을 반씩 나누는 segmented control 로 둔다 */
+    .random-scope-group {
+        gap: 4px;
+        margin-top: 16px;
+        padding: 4px;
+        border-radius: 12px;
+    }
+
+    .random-scope-button {
+        min-height: 40px;
+        border-radius: 9px;
+        font-size: 15px;
+    }
+
+    .random-draw-button {
+        min-width: 0;
+        min-height: 46px;
+        margin-top: 10px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-size: 16px;
+    }
+
+    /* 장식 그림은 스마트폰에서 뽑기 버튼을 아래로 밀어내기만 해서 뺀다 */
+    .random-travel-decoration {
+        display: none;
+    }
+
+    .random-status {
+        min-height: 20px;
+        margin: 12px 0 8px;
+        font-size: 13.5px;
+    }
+
+    .random-stage {
+        padding: 18px 16px;
+        border-radius: 14px;
+    }
+
+    /* 긴 지역 이름은 상자를 넓히지 않고 상자 안에서 줄을 바꾼다. 짧은 이름은 그대로 한 줄 */
+    .random-stage strong {
+        max-width: 100%;
+        min-height: 36px;
+        margin-top: 4px;
+        font-size: 24px;
+        overflow-wrap: anywhere;
+    }
+
+    /* 뽑힌 지역: 큰 소개 카드 대신 짧은 머리글 */
+    .random-region-result {
+        padding: 18px 16px 16px;
+        border-radius: 14px;
+    }
+
+    .random-region-result::after {
+        top: 14px;
+        right: 16px;
+        width: 10px;
+        height: 10px;
+    }
+
+    .random-region-kicker {
+        font-size: 12px;
+    }
+
+    .random-region-country {
+        margin-top: 8px;
+        font-size: 14px;
+    }
+
+    .random-region-name {
+        margin-top: 2px;
+        font-size: 30px;
+    }
+
+    .random-region-summary {
+        margin-top: 6px;
+        font-size: 13.5px;
+        line-height: 1.55;
+    }
+
+    .random-destinations {
+        padding-top: 20px;
+    }
+
+    .random-destinations-heading {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .random-destinations-heading h3 {
+        min-width: 0;
+        font-size: 18px;
+    }
+
+    .random-destinations-heading p {
+        flex: 0 0 auto;
+        margin-top: 0;
+        font-size: 12.5px;
+    }
+
+    /* 2열 작은 카드: 사진 4:3, 이름 2줄, 설명 2줄 */
+    .random-destination-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 10px;
+    }
+
+    .random-destination-card {
+        border-radius: 12px;
+    }
+
+    .random-destination-image-wrap {
+        aspect-ratio: 4 / 3;
+    }
+
+    .random-destination-content {
+        padding: 9px 10px 10px;
+    }
+
+    .random-destination-location {
+        font-size: 11.5px;
+    }
+
+    .random-destination-name {
+        display: -webkit-box;
+        overflow: hidden;
+        margin-top: 3px;
+        font-size: 14.5px;
+        line-height: 1.35;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .random-destination-description {
+        margin-top: 4px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        -webkit-line-clamp: 2;
+    }
+
+    .random-destination-cta {
+        padding-top: 6px;
+        font-size: 12px;
+    }
+
+    /*
+      [지역 여행지 전체 보기] [다시 뽑기] 는 결과를 넘기는 동안 화면 아래에 붙어 있다.
+      결과 구역을 벗어나면 원래 자리(목록 끝)로 돌아간다.
+    */
+    .random-destinations-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        width: auto;
+        margin: 16px -16px 0;
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--tripbora-border);
+        background: #fff;
+    }
+
+    /* "OO 전체 여행지 보기" 가 한 줄에 들어가도록 이동 버튼에 폭을 더 준다 */
+    .random-destinations-actions {
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    }
+
+    .random-redraw-button,
+    .random-all-destinations-link {
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 42px;
+        padding-inline: 10px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+
+    /* 지역 이름이 길면 줄을 바꾸지 않고 말줄임으로 끝낸다 */
+    .random-all-destinations-link > span:first-child {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .random-message {
+        padding: 20px 16px;
+        border-radius: 14px;
+    }
+
+    .random-message strong {
+        font-size: 16px;
+    }
+
+    .random-message p {
+        margin-top: 6px;
+        font-size: 13.5px;
     }
 }
 

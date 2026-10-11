@@ -238,3 +238,82 @@
         max-width: 100%;
     }
 }
+
+/*
+  ===== 스마트폰 정리 =====
+  현재 사진(작게) → 사진 바꾸기 → 닉네임 → [취소][저장] 이 한 화면에 들어오도록
+  상자 안 여백과 칸 사이를 줄인다. 저장/취소는 한 줄 두 칸으로 둔다.
+*/
+@media (max-width: 680px) {
+    .mypage-profile-form {
+        gap: 16px;
+        padding: 16px 14px;
+        border-radius: 12px;
+    }
+
+    .mypage-current-profile {
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 14px;
+    }
+
+    .mypage-current-profile .mypage-profile-image {
+        flex: 0 0 auto;
+        width: 56px;
+        height: 56px;
+    }
+
+    .mypage-current-profile > div {
+        gap: 2px;
+    }
+
+    .mypage-current-profile strong {
+        font-size: 14.5px;
+    }
+
+    .mypage-current-profile span {
+        font-size: 12px;
+    }
+
+    .mypage-form-field {
+        gap: 6px;
+    }
+
+    .mypage-form-field label {
+        font-size: 13.5px;
+    }
+
+    .mypage-form-field input[type="text"] {
+        min-height: 42px;
+        /* 16px 아래면 iOS 가 입력할 때 화면을 확대한다 */
+        font-size: 16px;
+    }
+
+    .mypage-file-picker {
+        align-items: center;
+        flex-direction: row;
+        gap: 10px;
+    }
+
+    .mypage-form-field .mypage-file-button {
+        min-height: 38px;
+        padding: 0 14px;
+        font-size: 13px;
+    }
+
+    .mypage-success-message {
+        margin-bottom: 12px;
+    }
+
+    .mypage-form-actions {
+        flex-direction: row;
+        gap: 8px;
+        padding-top: 0;
+    }
+
+    .mypage-form-actions a,
+    .mypage-form-actions button {
+        flex: 1 1 0;
+        width: auto;
+    }
+}

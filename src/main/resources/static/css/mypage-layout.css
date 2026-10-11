@@ -312,3 +312,154 @@ a.mypage-menu-item:hover {
         padding: 14px;
     }
 }
+
+/*
+  ===== 스마트폰 정리 =====
+
+  넓은 화면의 왼쪽 메뉴 상자는 좁은 화면에서 "마이페이지" 제목 + 가로 스크롤 탭 상자로
+  120px 가까이를 차지하고, 그 아래 영문 머리표·큰 제목·설명이 다시 이어졌다.
+  여기서는 메뉴 상자를 걷어 내고 한 줄 밑줄 탭(가로로 넘김)만 남긴다.
+  지금 보고 있는 메뉴가 화면 밖에 있으면 mypage-navigation.js 가 처음 한 번 보이게 넘겨 둔다.
+  공통 헤더는 건드리지 않는다.
+*/
+@media (max-width: 680px) {
+    .mypage-layout {
+        width: calc(100% - 32px);
+        gap: 0;
+        margin: 0 auto 48px;
+    }
+
+    .mypage-navigation {
+        margin: 0 -16px 16px;
+        overflow-x: auto;
+        background: #fff;
+        border: 0;
+        border-bottom: 1px solid #e8edf2;
+        border-radius: 0;
+        scrollbar-width: none;
+    }
+
+    .mypage-navigation::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* 마이페이지 홈은 공통 헤더의 프로필 메뉴와 각 화면 제목으로 충분하다 */
+    .mypage-navigation-title {
+        display: none;
+    }
+
+    .mypage-navigation-list {
+        gap: 2px;
+        padding: 0 10px;
+    }
+
+    .mypage-navigation .mypage-navigation-link {
+        min-height: 44px;
+        padding: 10px 8px;
+        background: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        font-size: 13.5px;
+    }
+
+    .mypage-navigation a.mypage-navigation-link:hover {
+        background: none;
+    }
+
+    .mypage-navigation .mypage-navigation-link.is-active {
+        background: none;
+        border-bottom-color: var(--tripbora-primary);
+    }
+
+    /* 화면 제목: 영문 머리표는 빼고 제목과 한 줄 설명만 */
+    .mypage-page-header {
+        margin-bottom: 14px;
+    }
+
+    .mypage-page-header > p {
+        display: none;
+    }
+
+    .mypage-page-header h1 {
+        font-size: 22px;
+        line-height: 1.3;
+        letter-spacing: -0.03em;
+    }
+
+    .mypage-page-header > span {
+        margin-top: 4px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* 마이페이지 홈: [사진] 닉네임 / 이메일 / [프로필 관리] */
+    .mypage-profile-card {
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 6px 12px;
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    .mypage-profile-card .mypage-profile-image {
+        grid-row: span 2;
+        width: 56px;
+        height: 56px;
+    }
+
+    .mypage-profile-summary {
+        gap: 2px;
+    }
+
+    .mypage-profile-summary strong {
+        font-size: 16px;
+    }
+
+    .mypage-profile-summary span {
+        font-size: 12.5px;
+    }
+
+    .mypage-profile-card .mypage-primary-action {
+        grid-column: 2;
+        justify-self: start;
+        width: auto;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+
+    .mypage-menu-section {
+        margin-top: 20px;
+    }
+
+    .mypage-menu-section h2 {
+        margin-bottom: 6px;
+        font-size: 15px;
+    }
+
+    .mypage-menu-list {
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .mypage-menu-item {
+        min-height: 56px;
+        gap: 12px;
+        padding: 10px 2px;
+    }
+
+    .mypage-menu-item > span:first-child {
+        gap: 2px;
+    }
+
+    .mypage-menu-item strong {
+        font-size: 14.5px;
+    }
+
+    .mypage-menu-item small {
+        font-size: 12px;
+    }
+
+    .mypage-menu-arrow {
+        font-size: 22px;
+    }
+}

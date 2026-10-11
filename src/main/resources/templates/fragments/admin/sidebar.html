@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <body>
-<aside class="admin-sidebar" th:fragment="sidebar(activeMenu)">
+<aside class="admin-sidebar" id="admin-sidebar" th:fragment="sidebar(activeMenu)">
   <a class="admin-brand" th:href="@{/admin}" aria-label="관리자 홈으로 이동">
     <span class="admin-brand-name">Tripbora</span>
     <span class="admin-brand-label">Admin</span>
   </a>
+  <!-- 좁은 화면의 메뉴 서랍을 닫는다. 넓은 화면에서는 보이지 않는다 -->
+  <button type="button" class="admin-sidebar-close" aria-label="메뉴 닫기"
+          data-admin-menu-close>×</button>
 
   <nav class="admin-nav" aria-label="관리자 메뉴">
     <section class="admin-nav-group">

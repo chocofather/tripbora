@@ -282,3 +282,111 @@
         padding-left: 10px;
     }
 }
+
+/*
+  ===== 스마트폰 정리 =====
+  댓글 한 개가 큰 상자 하나를 차지하지 않도록
+  댓글 내용(최대 2줄) → [분류] 원글 제목(한 줄) → 날짜 · 원문 보기 순서로 줄인다.
+*/
+@media (max-width: 680px) {
+    /* 필터 네 개는 좁은 화면에서도 한 줄에 들어간다. 글자가 길어지면 다음 줄로 넘어간다 */
+    .mypage-comment-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding: 0;
+        background: none;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .mypage-comment-filters a {
+        flex: 0 0 auto;
+        width: auto;
+        min-height: 34px;
+        padding: 6px 13px;
+        background: #fff;
+        border-color: #e2e8f0;
+        font-size: 13px;
+    }
+
+    .mypage-comment-list {
+        border-radius: 12px;
+    }
+
+    .mypage-comment-row {
+        gap: 6px;
+        padding: 12px 14px;
+    }
+
+    .mypage-comment-preview {
+        order: -1;
+        color: #263247;
+        font-size: 14px;
+        line-height: 1.55;
+        -webkit-line-clamp: 2;
+    }
+
+    /* 어디에 단 댓글인지: [분류] 원글 제목 한 줄 */
+    .mypage-comment-heading {
+        align-items: center;
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .mypage-comment-badges {
+        gap: 4px;
+    }
+
+    .mypage-comment-type,
+    .mypage-comment-reply {
+        min-height: 20px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        font-size: 10.5px;
+    }
+
+    .mypage-comment-target {
+        flex: 1 1 auto;
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .mypage-comment-target,
+    .mypage-comment-target a {
+        width: auto;
+        min-width: 0;
+    }
+
+    .mypage-comment-target a {
+        overflow: hidden;
+        color: #526078;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* 날짜와 원문 보기를 한 줄 양끝에 둔다 */
+    .mypage-comment-footer {
+        align-items: center;
+        flex-direction: row;
+        gap: 12px;
+        font-size: 12px;
+    }
+
+    .mypage-comment-empty {
+        padding: 28px 16px;
+        font-size: 13.5px;
+    }
+
+    .mypage-comment-pagination {
+        margin-top: 14px;
+    }
+
+    .mypage-comment-pagination > a,
+    .mypage-comment-pagination > .is-disabled {
+        min-height: 36px;
+        font-size: 13px;
+    }
+}

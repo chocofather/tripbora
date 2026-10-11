@@ -18,13 +18,28 @@
 
   <link rel="stylesheet" href="/css/admin-layout.css" />
   <th:block th:if="${headFragment != null}" th:replace="${headFragment}"></th:block>
+  <!--
+    좁은 화면 전용 규칙(메뉴 서랍, 표 → 목록, 폼 여백 등). 모두 @media 안에만 있다.
+    화면별 CSS 를 좁은 화면에서만 덮어써야 해서 화면별 headFragment 뒤에 둔다.
+  -->
+  <link rel="stylesheet" href="/css/admin-mobile.css" />
+  <script src="/js/admin-mobile.js" defer></script>
 </head>
 <body class="admin-page">
 <div class="admin-shell">
   <aside th:replace="~{fragments/admin/sidebar :: sidebar(${activeMenu})}"></aside>
+  <!-- 좁은 화면에서 메뉴 서랍이 열렸을 때만 보이는 뒷배경. 누르면 서랍이 닫힌다 -->
+  <div class="admin-sidebar-backdrop" hidden data-admin-menu-backdrop></div>
 
   <div class="admin-main">
     <header class="admin-topbar">
+      <!-- 좁은 화면에서만 보인다. 왼쪽 메뉴를 서랍으로 연다 -->
+      <button type="button" class="admin-menu-toggle"
+              aria-controls="admin-sidebar" aria-expanded="false"
+              data-admin-menu-toggle>
+        <span class="admin-menu-toggle-icon" aria-hidden="true"></span>
+        <span>메뉴</span>
+      </button>
       <span class="admin-topbar-title">관리자 페이지</span>
       <nav class="admin-topbar-actions" aria-label="관리자 보조 메뉴">
         <a th:href="@{/}">사이트 보기</a>

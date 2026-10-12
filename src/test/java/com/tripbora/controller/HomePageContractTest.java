@@ -68,7 +68,13 @@ class HomePageContractTest {
                 .contains("renderSeasonDestinations(currentSeason, tag.categoryName)")
                 // 계절 탭은 숫자 카테고리 ID 대신 카테고리 이름으로 고른다.
                 .contains("&categoryName=${encodeURIComponent(categoryName)}")
-                .contains("localizedTags(homeI18n.fallTags, ['단풍 명소', '가을 풍경 여행'])")
+                // 가을: 첫 탭(기본)은 FALL 여행지 최근 7일 인기, 나머지는 같은 카테고리 이름 조회를 쓴다.
+                // 탭 라벨은 '가을 꽃 여행'이지만 조회 카테고리 이름은 '가을 꽃 명소'다.
+                .contains("[SEASON_POPULAR_TAB, '단풍 명소', '가을 꽃 명소', '가을 풍경 여행']")
+                .contains("/api/season-destinations/popular?season=${season}&limit=${SEASON_CARD_LIMIT}")
+                .contains("&limit=${SEASON_CARD_LIMIT}`")
+                // 모든 탭은 네 장만 받는다. (슬라이드·더보기용으로 더 받지 않는다)
+                .contains("const SEASON_CARD_LIMIT = 4;")
                 .doesNotContain("categoryId=")
                 // 인기 여행지는 필터 없는 편집형 영역이라 서버가 그린다. 메인 스크립트는 필터 API 를 부르지 않는다.
                 .doesNotContain("/api/popular-destinations/")
@@ -77,6 +83,23 @@ class HomePageContractTest {
                 .contains("th:each=\"destination, stat : ${popularDestinations}\"")
                 .contains("th:href=\"@{/destinations/{id}(id=${destination.id})}\"")
                 .contains("th:alt=\"${destination.name}\"");
+    }
+
+    @Test
+    void fallSeasonTabsHaveFourLabelsInEveryLanguageAndShareOneFourColumnCard() throws IOException {
+        for (String file : new String[]{"/messages.properties", "/messages_ko.properties",
+                "/messages_en.properties", "/messages_ja.properties",
+                "/messages_zh_CN.properties", "/messages_zh_TW.properties"}) {
+            java.util.Properties messages = new java.util.Properties();
+            messages.load(new java.io.StringReader(resource(file)));
+            // 라벨 순서가 home.js 의 [인기, 단풍 명소, 가을 꽃 명소, 가을 풍경 여행] 과 맞아야 한다.
+            assertThat(messages.getProperty("home.season.fall.tags").split("\\|")).as(file).hasSize(4);
+        }
+        assertThat(resource("/messages_ko.properties"))
+                .contains("home.season.fall.tags=가을 인기 여행지|단풍 여행|가을 꽃 여행|가을 풍경 여행");
+        // 데스크톱 계절 카드는 카드 수와 관계없이 한 줄 네 칸 폭으로 고정한다. (탭마다 크기가 달라지지 않는다)
+        assertThat(resource("/static/css/home.css"))
+                .contains(".trip-card-list .trip-card {\n    flex: 0 0 calc((100% - 48px) / 4);");
     }
 
     @Test

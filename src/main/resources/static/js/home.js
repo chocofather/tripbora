@@ -4,7 +4,12 @@ const homeI18n = document.getElementById('home-i18n').dataset;
   각 탭은 테마 카테고리를 기본(한국어) 이름으로 고른다. (categories.name 은 UNIQUE, DB 번호는 쓰지 않는다)
   여행지 season 이 아니라 이 카테고리 연결로 고르므로 ALL_SEASONS 여행지도 탭에 나온다.
   관리자 화면에서 카테고리 이름을 바꾸면 여기도 같이 바꿔야 한다.
+  카테고리 자리에 SEASON_POPULAR_TAB 을 두면 카테고리 대신 여행지 season 의 최근 7일 인기 순으로 고른다.
 */
+const SEASON_POPULAR_TAB = null;
+// 모든 탭은 데스크톱 한 줄 네 장만 받는다. (슬라이드·더보기 없음)
+const SEASON_CARD_LIMIT = 4;
+
 function localizedTags(labels, categoryNames) {
     return labels.split('|').map((label, index) => ({label, categoryName: categoryNames[index]}));
 }
@@ -34,7 +39,8 @@ const seasonMeta = {
         desc: homeI18n.fallDescription,
         bgClass: 'fall',
         monthRange: [9, 10, 11],
-        tags: localizedTags(homeI18n.fallTags, ['단풍 명소', '가을 풍경 여행'])
+        tags: localizedTags(homeI18n.fallTags,
+            [SEASON_POPULAR_TAB, '단풍 명소', '가을 꽃 명소', '가을 풍경 여행'])
     },
     WINTER: {
         badge: homeI18n.winterBadge,
@@ -137,12 +143,15 @@ function createDestinationCard(dest, imageSizes = SEASON_CARD_IMAGE_SIZES) {
 }
 
 // 5. 추천 여행지 뿌리기 (API 연동)
-async function renderSeasonDestinations(season, categoryName = null) {
-    let url = `/api/season-destinations?season=${season}`;
-    if (categoryName) url += `&categoryName=${encodeURIComponent(categoryName)}`;
+async function renderSeasonDestinations(season, categoryName = SEASON_POPULAR_TAB) {
+    // 카테고리 탭은 그 카테고리 후보 중 무작위, 인기 탭은 같은 season 여행지의 최근 7일 조회 합계 순이다.
+    const url = categoryName
+        ? `/api/season-destinations?season=${season}&categoryName=${encodeURIComponent(categoryName)}&limit=${SEASON_CARD_LIMIT}`
+        : `/api/season-destinations/popular?season=${season}&limit=${SEASON_CARD_LIMIT}`;
     // API에서 [{id, name, imageUrl, regionName, season, ...}] 형태 반환
     const res = await fetch(url);
-    const data = await res.json();
+    // 응답이 실패하면 카드 없이 둔다. (카테고리가 아직 없으면 서버는 빈 배열을 준다)
+    const data = res.ok ? await res.json() : [];
     const listDiv = document.querySelector('.trip-card-list');
     if (!listDiv) return;
     listDiv.innerHTML = '';

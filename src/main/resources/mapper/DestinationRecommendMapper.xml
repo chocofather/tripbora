@@ -177,6 +177,51 @@
         ORDER BY recent.recent_views DESC, recent.destination_id ASC
     </select>
 
+    <!--
+      메인 계절 인기 탭 (예: 가을 인기 여행지): 여행지 season 이 같은 곳만 고른다. 카테고리는 보지 않는다.
+      (ALL_SEASONS + 단풍 명소 여행지는 단풍 여행 탭에만 나오고 여기에는 나오지 않는다)
+      일별 조회는 먼저 여행지 단위로 합친 뒤 LEFT JOIN 하므로 조회 기록이 없는 여행지도 0으로 후보에 남고,
+      사진·카테고리를 JOIN 하지 않아 조회수가 여러 번 더해지지 않는다.
+      순서는 '지금 뜨는 여행지'와 같이 합계 내림차순, 같으면 id 오름차순이다. (RAND 없음)
+      날짜는 애플리케이션이 Asia/Seoul 기준으로 넘긴다. (CURDATE() 를 쓰지 않는다)
+      사진·지역 표시는 계절 큐레이션 탭과 같다. (대표 사진 중 순서가 가장 앞선 한 장, 없으면 null)
+      destinations 에는 공개·숨김·소프트 삭제 컬럼이 없고(삭제는 행 삭제, 일별 조회도 CASCADE),
+      다른 메인 여행지 추천에도 그런 공통 필터가 없어 노출 조건은 따로 두지 않는다.
+    -->
+    <select id="findSeasonPopularByViewDate" resultMap="SeasonDestinationDtoMap">
+        SELECT
+            d.id AS destination_id,
+            d.region_id AS region_id,
+            dt.name,
+            (
+                SELECT di.image_url
+                FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1
+                ORDER BY di.order_index ASC, di.id ASC
+                LIMIT 1
+            ) AS image_url,
+            cc.region_name AS region_name,
+            pcc.id AS parent_region_id,
+            pcc.region_name AS parent_region_name,
+            d.season,
+            NULL AS category_id,
+            NULL AS category_name
+        FROM destinations d
+                 LEFT JOIN (
+                     SELECT dvd.destination_id,
+                            SUM(dvd.view_count) AS recent_views
+                     FROM destination_view_daily dvd
+                     WHERE dvd.view_date BETWEEN #{fromDate} AND #{toDate}
+                     GROUP BY dvd.destination_id
+                 ) recent ON recent.destination_id = d.id
+                 LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
+                 LEFT JOIN country_categories cc ON d.region_id = cc.id
+                 LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
+        WHERE d.season = #{season}
+        ORDER BY COALESCE(recent.recent_views, 0) DESC, d.id ASC
+        LIMIT #{limit}
+    </select>
+
     <!-- 카테고리 ID → 카테고리명 -->
     <select id="findCategoryNameById" resultType="string">
         SELECT name FROM categories WHERE id = #{categoryId}

@@ -64,6 +64,17 @@ public class DestinationRecommendService {
                 requestedLanguage);
     }
 
+    /**
+     * 메인 계절 섹션 '가을 인기 여행지' 같은 계절 인기 탭: 여행지 season 이 같은 곳만 고른다. (카테고리 무관)
+     * 기간은 '지금 뜨는 여행지'와 같이 today-6일 ~ today (양 끝 포함)이고, 조회 기록이 없는 곳은 0으로 본다.
+     */
+    public List<SeasonDestinationDto> findSeasonPopularDestinations(
+            String season, LocalDate today, int limit, SupportedLanguage requestedLanguage) {
+        LocalDate fromDate = today.minusDays(TRENDING_DAYS - 1);
+        return localize(recommendMapper.findSeasonPopularByViewDate(season, fromDate, today, limit),
+                requestedLanguage);
+    }
+
     // 카테고리 이름 조회
     public String getCategoryName(Long categoryId) {
         return recommendMapper.findCategoryNameById(categoryId);

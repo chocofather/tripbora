@@ -204,6 +204,32 @@ class DestinationRecommendServiceLocalizationTest {
     }
 
     @Test
+    void seasonPopularAsksForTheSeasonAndTheLastSevenKstDaysIncludingToday() {
+        SeasonDestinationDto mountain = new SeasonDestinationDto();
+        mountain.setId(21L);
+        mountain.setName("내장산");
+        // 오늘(10/12) 포함 7일 = 10/6 ~ 10/12. 계절과 개수는 그대로 Mapper 에 넘긴다.
+        when(recommendMapper.findSeasonPopularByViewDate(
+                "FALL", LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 12), 4))
+                .thenReturn(List.of(mountain));
+        when(destinationService.resolveLocalizedContentByDestinationIds(
+                List.of(21L), SupportedLanguage.ENGLISH))
+                .thenReturn(Map.of(21L, translation(21L, "Naejangsan")));
+        when(referenceNameLocalizationService.localizeCountryCategoryNames(
+                Map.of(), SupportedLanguage.ENGLISH)).thenReturn(Map.of());
+        when(referenceNameLocalizationService.localizeCategories(
+                List.of(), SupportedLanguage.ENGLISH)).thenReturn(Map.of());
+
+        DestinationRecommendService service = new DestinationRecommendService(
+                recommendMapper, destinationService, referenceNameLocalizationService);
+
+        List<SeasonDestinationDto> result = service.findSeasonPopularDestinations(
+                "FALL", LocalDate.of(2026, 10, 12), 4, SupportedLanguage.ENGLISH);
+
+        assertThat(result).extracting(SeasonDestinationDto::getName).containsExactly("Naejangsan");
+    }
+
+    @Test
     void trendingQueryUsesTheGivenDateRangeWithAStableOrderAndNoDatabaseClock() throws IOException {
         String xml;
         try (var in = getClass().getResourceAsStream("/mapper/DestinationRecommendMapper.xml")) {

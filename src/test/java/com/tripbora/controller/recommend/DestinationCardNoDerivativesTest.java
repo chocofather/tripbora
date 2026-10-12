@@ -4,6 +4,7 @@ import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.dto.SeasonDestinationDto;
 import com.tripbora.repository.destination.DestinationMapper;
 import com.tripbora.service.destination.DestinationImageService;
+import com.tripbora.service.destination.DestinationViewClock;
 import com.tripbora.service.file.DestinationCardThumbnailService;
 import com.tripbora.service.file.FileUploadService;
 import com.tripbora.service.recommend.DestinationRecommendService;
@@ -51,7 +52,7 @@ class DestinationCardNoDerivativesTest {
                 new DestinationImageService(destinationMapper, fileUploadService);
         DestinationRecommendController controller = new DestinationRecommendController(recommendService,
                 new DestinationCardThumbnailService(uploadRoot.toString(), destinationImageService),
-                destinationImageService);
+                destinationImageService, new DestinationViewClock());
 
         List<SeasonDestinationDto> cards = controller.getSeasonDestinations("SPRING", null, 5, Locale.KOREAN);
 

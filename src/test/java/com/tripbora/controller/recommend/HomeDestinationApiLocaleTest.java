@@ -12,12 +12,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import com.tripbora.service.destination.DestinationImageService;
+import com.tripbora.service.destination.DestinationViewClock;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,7 +52,7 @@ class HomeDestinationApiLocaleTest {
                         destinationImageService);
         DestinationRecommendController seasonController =
                 new DestinationRecommendController(destinationRecommendService, cardThumbnailService,
-                        destinationImageService);
+                        destinationImageService, new DestinationViewClock());
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(popularController, seasonController)
                 .setLocaleResolver(new TripBoraLocaleResolver())
@@ -81,5 +88,43 @@ class HomeDestinationApiLocaleTest {
         verify(popularRecommendService).findDomesticPopular(5, language);
         verify(destinationRecommendService).findByCurationCategoryName(
                 "단풍 명소", 5, language);
+    }
+
+    @Test
+    void fallTabsAskForFourCardsAndThePopularTabUsesTheKstToday() throws Exception {
+        // 2026-10-11 15:30 UTC = 2026-10-12 00:30 KST. 인기 탭 기간의 '오늘'은 KST 날짜다.
+        DestinationViewClock clock = new DestinationViewClock(
+                Clock.fixed(Instant.parse("2026-10-11T15:30:00Z"), ZoneOffset.UTC));
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new DestinationRecommendController(destinationRecommendService,
+                        cardThumbnailService, destinationImageService, clock))
+                .build();
+        SeasonDestinationDto popular = new SeasonDestinationDto();
+        popular.setId(21L);
+        popular.setName("내장산");
+        when(destinationRecommendService.findSeasonPopularDestinations(
+                "FALL", LocalDate.of(2026, 10, 12), 4, SupportedLanguage.KOREAN))
+                .thenReturn(List.of(popular));
+        // 관리자가 아직 만들지 않은 카테고리는 빈 배열로 정상 응답한다.
+        when(destinationRecommendService.findByCurationCategoryName(
+                "가을 꽃 명소", 4, SupportedLanguage.KOREAN)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/season-destinations/popular")
+                        .param("season", "FALL")
+                        .locale(Locale.KOREAN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("내장산"));
+        mockMvc.perform(get("/api/season-destinations")
+                        .param("season", "FALL")
+                        .param("categoryName", "가을 꽃 명소")
+                        .locale(Locale.KOREAN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        verify(destinationRecommendService).findSeasonPopularDestinations(
+                "FALL", LocalDate.of(2026, 10, 12), 4, SupportedLanguage.KOREAN);
+        verify(destinationRecommendService).findByCurationCategoryName(
+                "가을 꽃 명소", 4, SupportedLanguage.KOREAN);
     }
 }

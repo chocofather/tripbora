@@ -78,6 +78,35 @@ class HomeDestinationRecommendMapperContractTest {
         }
     }
 
+    @Test
+    void seasonPopularTabRanksOnlyThatSeasonByRecentDailyViewsCountingEachViewOnce()
+            throws IOException {
+        String query = select(resource("/mapper/DestinationRecommendMapper.xml"),
+                "findSeasonPopularByViewDate");
+
+        assertThat(query)
+                // 여행지 season 으로만 고른다. 카테고리(단풍 명소 등)는 보지 않는다.
+                .contains("WHERE d.season = #{season}")
+                .doesNotContain("JOIN categories", "destination_categories", "#{categoryName}")
+                // 누적 views 가 아니라 기간(양 끝 포함) 일별 조회 합계를 쓴다. 날짜는 애플리케이션이 넘긴다.
+                .contains("SUM(dvd.view_count) AS recent_views")
+                .contains("WHERE dvd.view_date BETWEEN #{fromDate} AND #{toDate}")
+                .doesNotContain("d.views", "CURDATE()", "NOW()")
+                // 일별 조회를 먼저 여행지 단위로 합친 뒤 LEFT JOIN 한다. (조회 기록이 없으면 0, 중복 합산 없음)
+                .contains("GROUP BY dvd.destination_id")
+                .contains("LEFT JOIN (")
+                .contains(") recent ON recent.destination_id = d.id")
+                .doesNotContain("JOIN destination_images")
+                .contains("ORDER BY COALESCE(recent.recent_views, 0) DESC, d.id ASC")
+                .contains("LIMIT #{limit}")
+                .doesNotContain("RAND()");
+        // 대표 사진은 한 장만 고르는 서브쿼리 한 곳에서만 읽는다.
+        assertThat(query.split("FROM destination_images", -1)).hasSize(2);
+        assertThat(query).contains("ORDER BY di.order_index ASC, di.id ASC", "LIMIT 1");
+        // 조회 집계는 한 번만 읽는다.
+        assertThat(query.split("FROM destination_view_daily", -1)).hasSize(2);
+    }
+
     private static String select(String mapper, String id) {
         int start = mapper.indexOf("<select id=\"" + id + "\"");
         assertThat(start).as(id).isNotNegative();

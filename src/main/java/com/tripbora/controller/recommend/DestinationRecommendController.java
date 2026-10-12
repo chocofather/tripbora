@@ -42,7 +42,7 @@ public class DestinationRecommendController {
         return withCardImages(destinations);
     }
 
-    // 2) 계절 인기 탭: 여행지 season 이 같은 곳을 오늘(KST) 포함 최근 7일 조회 합계 순으로 N곳. (카테고리 무관)
+    // 2) 계절 인기 탭: 여행지 season 이 같거나 그 계절 카테고리가 있는 곳을 오늘(KST) 포함 최근 7일 조회 합계 순으로 N곳.
     @GetMapping("/popular")
     public List<SeasonDestinationDto> getSeasonPopularDestinations(
             @RequestParam String season,

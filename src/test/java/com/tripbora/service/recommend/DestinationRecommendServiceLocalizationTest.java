@@ -209,8 +209,10 @@ class DestinationRecommendServiceLocalizationTest {
         mountain.setId(21L);
         mountain.setName("내장산");
         // 오늘(10/12) 포함 7일 = 10/6 ~ 10/12. 계절과 개수는 그대로 Mapper 에 넘긴다.
+        // 가을은 season 외에 가을 카테고리 4개(탭 라벨이 아닌 실제 categories.name)도 후보로 넘긴다.
         when(recommendMapper.findSeasonPopularByViewDate(
-                "FALL", LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 12), 4))
+                "FALL", List.of("가을", "단풍 명소", "가을 꽃 명소", "가을 풍경 여행"),
+                LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 12), 4))
                 .thenReturn(List.of(mountain));
         when(destinationService.resolveLocalizedContentByDestinationIds(
                 List.of(21L), SupportedLanguage.ENGLISH))
@@ -227,6 +229,27 @@ class DestinationRecommendServiceLocalizationTest {
                 "FALL", LocalDate.of(2026, 10, 12), 4, SupportedLanguage.ENGLISH);
 
         assertThat(result).extracting(SeasonDestinationDto::getName).containsExactly("Naejangsan");
+    }
+
+    @Test
+    void seasonPopularForOtherSeasonsKeepsSeasonOnlyCandidates() {
+        when(recommendMapper.findSeasonPopularByViewDate(
+                "SPRING", List.of(), LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 12), 4))
+                .thenReturn(List.of());
+        when(destinationService.resolveLocalizedContentByDestinationIds(
+                List.of(), SupportedLanguage.KOREAN)).thenReturn(Map.of());
+        when(referenceNameLocalizationService.localizeCountryCategoryNames(
+                Map.of(), SupportedLanguage.KOREAN)).thenReturn(Map.of());
+        when(referenceNameLocalizationService.localizeCategories(
+                List.of(), SupportedLanguage.KOREAN)).thenReturn(Map.of());
+
+        DestinationRecommendService service = new DestinationRecommendService(
+                recommendMapper, destinationService, referenceNameLocalizationService);
+
+        assertThat(service.findSeasonPopularDestinations(
+                "SPRING", LocalDate.of(2026, 10, 12), 4, SupportedLanguage.KOREAN)).isEmpty();
+        verify(recommendMapper).findSeasonPopularByViewDate(
+                "SPRING", List.of(), LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 12), 4);
     }
 
     @Test

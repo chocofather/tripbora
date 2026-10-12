@@ -178,8 +178,9 @@
     </select>
 
     <!--
-      메인 계절 인기 탭 (예: 가을 인기 여행지): 여행지 season 이 같은 곳만 고른다. 카테고리는 보지 않는다.
-      (ALL_SEASONS + 단풍 명소 여행지는 단풍 여행 탭에만 나오고 여기에는 나오지 않는다)
+      메인 계절 인기 탭 (예: 가을 인기 여행지): 여행지 season 이 같거나, 계절 카테고리(categoryNames) 중 하나라도
+      연결된 곳을 고른다. (OR 조건. 예: ALL_SEASONS + 단풍 명소 도 가을 인기 여행지 후보다)
+      categoryNames 가 비어 있으면 season 만 본다. 카테고리는 EXISTS 로만 보므로 여러 개가 연결돼도 여행지는 한 번만 나온다.
       일별 조회는 먼저 여행지 단위로 합친 뒤 LEFT JOIN 하므로 조회 기록이 없는 여행지도 0으로 후보에 남고,
       사진·카테고리를 JOIN 하지 않아 조회수가 여러 번 더해지지 않는다.
       순서는 '지금 뜨는 여행지'와 같이 합계 내림차순, 같으면 id 오름차순이다. (RAND 없음)
@@ -217,7 +218,21 @@
                  LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
-        WHERE d.season = #{season}
+        WHERE (
+                  d.season = #{season}
+                  <if test="categoryNames != null and !categoryNames.isEmpty()">
+                  OR EXISTS (
+                         SELECT 1
+                         FROM destination_categories dc
+                                  JOIN categories c ON c.id = dc.category_id
+                         WHERE dc.destination_id = d.id
+                           AND c.name IN
+                           <foreach collection="categoryNames" item="categoryName" open="(" separator=", " close=")">
+                               #{categoryName}
+                           </foreach>
+                     )
+                  </if>
+              )
         ORDER BY COALESCE(recent.recent_views, 0) DESC, d.id ASC
         LIMIT #{limit}
     </select>

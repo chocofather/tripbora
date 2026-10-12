@@ -41,11 +41,14 @@ public interface DestinationRecommendMapper {
                                                       @Param("limit") int limit);
 
     /**
-     * 메인 계절 인기 탭: 여행지 season 이 같은 곳 중 destination_view_daily 기간 합계 상위 N곳.
+     * 메인 계절 인기 탭: 여행지 season 이 같거나 categoryNames 중 하나라도 연결된 곳 중
+     * destination_view_daily 기간 합계 상위 N곳. (OR 조건, 카테고리가 여러 개여도 여행지는 한 번만 나온다)
      * 기간 조회 기록이 없는 여행지도 0으로 보고 후보에 넣는다. 합계 내림차순, 같으면 여행지 id 오름차순이다.
      * fromDate/toDate 는 애플리케이션이 Asia/Seoul 기준으로 정해 넘긴다. 양 끝 날짜를 포함한다.
+     * @param categoryNames 계절 카테고리 기본(한국어) 이름. 비어 있으면 season 만 본다.
      */
     List<SeasonDestinationDto> findSeasonPopularByViewDate(@Param("season") String season,
+                                                           @Param("categoryNames") List<String> categoryNames,
                                                            @Param("fromDate") LocalDate fromDate,
                                                            @Param("toDate") LocalDate toDate,
                                                            @Param("limit") int limit);

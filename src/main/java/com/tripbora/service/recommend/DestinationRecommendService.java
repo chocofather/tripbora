@@ -28,6 +28,13 @@ public class DestinationRecommendService {
     static final int HOME_LANDMARK_LIMIT = 18;
     // 지금 뜨는 여행지 기간: 오늘 포함 7일
     static final int TRENDING_DAYS = 7;
+    /*
+      계절 인기 탭에서 season 외에 후보로 넣는 카테고리 (categories.name, 기본 한국어 이름).
+      화면 탭 라벨이 아니라 실제 카테고리 이름이다. (예: '가을 꽃 여행' 탭 → '가을 꽃 명소')
+      여기 없는 계절은 season 만 본다.
+    */
+    static final Map<String, List<String>> SEASON_POPULAR_CATEGORY_NAMES = Map.of(
+            "FALL", List.of("가을", "단풍 명소", "가을 꽃 명소", "가을 풍경 여행"));
 
     private final DestinationRecommendMapper recommendMapper;
     private final DestinationService destinationService;
@@ -65,13 +72,18 @@ public class DestinationRecommendService {
     }
 
     /**
-     * 메인 계절 섹션 '가을 인기 여행지' 같은 계절 인기 탭: 여행지 season 이 같은 곳만 고른다. (카테고리 무관)
+     * 메인 계절 섹션 '가을 인기 여행지' 같은 계절 인기 탭: 여행지 season 이 같거나
+     * 그 계절 카테고리(SEASON_POPULAR_CATEGORY_NAMES) 중 하나라도 연결된 곳을 고른다.
      * 기간은 '지금 뜨는 여행지'와 같이 today-6일 ~ today (양 끝 포함)이고, 조회 기록이 없는 곳은 0으로 본다.
      */
     public List<SeasonDestinationDto> findSeasonPopularDestinations(
             String season, LocalDate today, int limit, SupportedLanguage requestedLanguage) {
         LocalDate fromDate = today.minusDays(TRENDING_DAYS - 1);
-        return localize(recommendMapper.findSeasonPopularByViewDate(season, fromDate, today, limit),
+        List<String> categoryNames = season == null
+                ? List.of()
+                : SEASON_POPULAR_CATEGORY_NAMES.getOrDefault(season, List.of());
+        return localize(recommendMapper.findSeasonPopularByViewDate(
+                        season, categoryNames, fromDate, today, limit),
                 requestedLanguage);
     }
 

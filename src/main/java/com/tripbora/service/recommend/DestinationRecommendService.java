@@ -33,10 +33,10 @@ public class DestinationRecommendService {
     private final DestinationService destinationService;
     private final ReferenceNameLocalizationService referenceNameLocalizationService;
 
-    // 시즌+카테고리별 여행지 N개
-    public List<SeasonDestinationDto> findBySeasonAndCategory(
-            String season, Long categoryId, int limit, SupportedLanguage requestedLanguage) {
-        return localize(recommendMapper.findBySeasonAndCategory(season, categoryId, limit),
+    // 계절 큐레이션 탭: 테마 카테고리가 연결된 여행지 N개 (여행지 season 은 보지 않는다)
+    public List<SeasonDestinationDto> findByCurationCategoryName(
+            String categoryName, int limit, SupportedLanguage requestedLanguage) {
+        return localize(recommendMapper.findByCurationCategoryName(categoryName, limit),
                 requestedLanguage);
     }
 

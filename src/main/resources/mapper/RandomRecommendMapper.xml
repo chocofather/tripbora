@@ -23,16 +23,25 @@
         <result property="countryName" column="country_name"/>
     </resultMap>
 
-    <!-- regionId 하나로 랜덤 -->
+    <!--
+      regionId 하나로 랜덤.
+      대표 사진은 JOIN 대신 한 장만 고르는 서브쿼리다. 대표 사진 수만큼 후보 행이 늘지 않아 여행지마다 뽑힐 확률이 같다.
+      순서(order_index, id)가 가장 앞선 한 장이고, 대표 사진이 없으면 null 로 그대로 후보에 남는다.
+    -->
     <select id="findRandomByRegion" resultMap="RandomDestinationDtoMap">
         SELECT
             d.id AS destination_id,
             dt.name,
             dt.short_description,
-            di.image_url
+            (
+                SELECT di.image_url
+                FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1
+                ORDER BY di.order_index ASC, di.id ASC
+                LIMIT 1
+            ) AS image_url
         FROM destinations d
                  JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
-                 LEFT JOIN destination_images di ON di.destination_id = d.id AND di.is_main = 1
         WHERE d.region_id = #{regionId}
         ORDER BY RAND()
             LIMIT #{limit}
@@ -90,7 +99,14 @@
             d.id AS destination_id,
             dt.name,
             dt.short_description,
-            di.image_url,
+            <!-- 대표 사진 한 장 (findRandomByRegion 과 같은 기준). 후보 행 수는 여행지 수 그대로다. -->
+            (
+                SELECT di.image_url
+                FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1
+                ORDER BY di.order_index ASC, di.id ASC
+                LIMIT 1
+            ) AS image_url,
             destination_countries.country_id,
             destination_countries.country_name,
             d.region_id AS region_id,
@@ -99,7 +115,6 @@
         JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
         JOIN country_categories region ON region.id = d.region_id
         JOIN destination_countries ON destination_countries.destination_id = d.id
-        LEFT JOIN destination_images di ON di.destination_id = d.id AND di.is_main = 1
         WHERE d.region_id IN
         <foreach collection="regionIds" item="id" open="(" separator="," close=")">
             #{id}

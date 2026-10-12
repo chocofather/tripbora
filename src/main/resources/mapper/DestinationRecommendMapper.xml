@@ -18,13 +18,25 @@
         <result property="categoryName" column="category_name"/>
     </resultMap>
 
-    <!-- 시즌+카테고리(태그)별 여행지 N개 -->
-    <select id="findBySeasonAndCategory" resultMap="SeasonDestinationDtoMap">
+    <!--
+      메인 계절 큐레이션 탭: 이름으로 고른 테마 카테고리(categories.name 은 UNIQUE)가 연결된 여행지 N개.
+      d.season 은 여행지 자체의 대표 방문 계절이라 조건에 넣지 않는다. (ALL_SEASONS + 단풍 명소 도 가을 탭에 나온다)
+      대표(is_main) 여부와 관계없이 destination_categories 의 모든 연결을 보고, EXISTS 라 여행지는 한 번만 나온다.
+      대표 사진은 JOIN 대신 한 장만 고르는 서브쿼리라 대표 사진이 여러 장이어도 여행지는 한 번만 나온다.
+      순서(order_index, id)가 가장 앞선 한 장이고 (요청마다 바뀌지 않는다), 대표 사진이 없으면 null 로 그대로 나온다.
+    -->
+    <select id="findByCurationCategoryName" resultMap="SeasonDestinationDtoMap">
         SELECT
         d.id AS destination_id,
         d.region_id AS region_id,
         dt.name,
-        di.image_url,
+        (
+            SELECT di.image_url
+            FROM destination_images di
+            WHERE di.destination_id = d.id AND di.is_main = 1
+            ORDER BY di.order_index ASC, di.id ASC
+            LIMIT 1
+        ) AS image_url,
         cc.region_name AS region_name,
         pcc.id AS parent_region_id,
         pcc.region_name AS parent_region_name,
@@ -32,29 +44,34 @@
         c.id AS category_id,
         c.name AS category_name
         FROM destinations d
+        JOIN categories c ON c.name = #{categoryName}
         LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
-        LEFT JOIN destination_images di ON d.id = di.destination_id AND di.is_main = 1
         LEFT JOIN country_categories cc ON d.region_id = cc.id
         <!-- 카드 지역 표시용 직계 상위 지역 (예: 공주시 → 충남). 한 줄에 최대 한 건이라 행 수는 그대로다. -->
         LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
-        LEFT JOIN destination_categories dc ON d.id = dc.destination_id
-        LEFT JOIN categories c ON dc.category_id = c.id
-        WHERE d.season = #{season}
-        <if test="categoryId != null">
-            AND c.id = #{categoryId}
-        </if>
+        WHERE EXISTS (
+            SELECT 1
+            FROM destination_categories dc
+            WHERE dc.destination_id = d.id AND dc.category_id = c.id
+        )
         ORDER BY RAND()
         LIMIT #{limit}
     </select>
 
 
-    <!-- 시즌별 전체 여행지 N개 (카테고리 조건 없음) -->
+    <!-- 시즌별 전체 여행지 N개 (카테고리 조건 없음). 대표 사진은 계절 큐레이션 탭과 같이 한 장만 고른다. -->
     <select id="findBySeason" resultMap="SeasonDestinationDtoMap">
         SELECT
             d.id AS destination_id,
             d.region_id AS region_id,
             dt.name,
-            di.image_url,
+            (
+                SELECT di.image_url
+                FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1
+                ORDER BY di.order_index ASC, di.id ASC
+                LIMIT 1
+            ) AS image_url,
             cc.region_name AS region_name,
             pcc.id AS parent_region_id,
             pcc.region_name AS parent_region_name,
@@ -63,7 +80,6 @@
             NULL AS category_name
         FROM destinations d
                  LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
-                 LEFT JOIN destination_images di ON d.id = di.destination_id AND di.is_main = 1
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
         WHERE d.season = #{season}

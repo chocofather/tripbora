@@ -11,13 +11,12 @@ import java.util.List;
 public interface DestinationRecommendMapper {
 
     /**
-     * 특정 시즌(봄/여름/가을/겨울) + 카테고리(태그)별 여행지 리스트
-     * @param season "SPRING", "SUMMER", "FALL", "WINTER"
-     * @param categoryId 카테고리 PK (null이면 전체)
+     * 메인 계절 큐레이션 탭: 카테고리 이름(categories.name, UNIQUE)이 연결된 여행지 N개.
+     * 대표 카테고리만이 아니라 연결된 카테고리 전체를 보고, 여행지 season 은 조건에 넣지 않는다.
+     * @param categoryName 테마 카테고리 기본(한국어) 이름 (예: "단풍 명소")
      */
-    List<SeasonDestinationDto> findBySeasonAndCategory(@Param("season") String season,
-                                                       @Param("categoryId") Long categoryId,
-                                                       @Param("limit") int limit);
+    List<SeasonDestinationDto> findByCurationCategoryName(@Param("categoryName") String categoryName,
+                                                          @Param("limit") int limit);
 
     /**
      * 특정 시즌 전체(카테고리 무관) 추천 여행지 리스트 (limit N개)

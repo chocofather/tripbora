@@ -30,6 +30,31 @@ class RandomRecommendMapperContractTest {
     }
 
     @Test
+    void randomQueriesPickOneStableMainPhotoSoPhotoCountNeverChangesTheOdds() throws IOException {
+        String mapper = resource("/mapper/RandomRecommendMapper.xml");
+
+        for (String id : new String[]{"findRandomByRegion", "findRandomByRegionIds"}) {
+            String query = between(mapper, "<select id=\"" + id + "\"", "</select>");
+            assertThat(query)
+                    .as(id)
+                    // 대표 사진 수만큼 후보 행이 늘지 않게 JOIN 하지 않고 한 장만 고른다.
+                    .doesNotContain("JOIN destination_images")
+                    .contains("SELECT di.image_url")
+                    .contains("WHERE di.destination_id = d.id AND di.is_main = 1")
+                    // 요청마다 사진이 바뀌지 않게 순서를 고정한다.
+                    .contains("ORDER BY di.order_index ASC, di.id ASC")
+                    .contains("LIMIT 1")
+                    .contains(") AS image_url")
+                    // 여행지 추천은 그대로 랜덤이다.
+                    .contains("ORDER BY RAND()")
+                    .contains("LIMIT #{limit}");
+            // destination_images 는 사진을 고르는 서브쿼리 한 곳에서만 읽는다.
+            // (사진 존재 조건이 없어 대표 사진이 없는 여행지도 후보에 남는다)
+            assertThat(query.split("FROM destination_images", -1)).as(id).hasSize(2);
+        }
+    }
+
+    @Test
     void randomResultMapKeepsExistingFieldsAndAddsCardLocationFields() throws IOException {
         String mapper = resource("/mapper/RandomRecommendMapper.xml");
         String resultMap = between(mapper, "<resultMap id=\"RandomDestinationDtoMap\"", "</resultMap>");

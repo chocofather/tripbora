@@ -39,7 +39,7 @@ class DestinationRecommendServiceLocalizationTest {
         palace.setCategoryName("랜드마크");
         palace.setSeason("SPRING");
         palace.setImageUrl("/palace.jpg");
-        when(recommendMapper.findBySeasonAndCategory("SPRING", 7L, 5))
+        when(recommendMapper.findByCurationCategoryName("랜드마크", 5))
                 .thenReturn(List.of(palace));
         when(destinationService.resolveLocalizedContentByDestinationIds(
                 List.of(15L), SupportedLanguage.JAPANESE))
@@ -54,8 +54,8 @@ class DestinationRecommendServiceLocalizationTest {
         DestinationRecommendService service = new DestinationRecommendService(
                 recommendMapper, destinationService, referenceNameLocalizationService);
 
-        SeasonDestinationDto result = service.findBySeasonAndCategory(
-                "SPRING", 7L, 5, SupportedLanguage.JAPANESE).get(0);
+        SeasonDestinationDto result = service.findByCurationCategoryName(
+                "랜드마크", 5, SupportedLanguage.JAPANESE).get(0);
 
         assertThat(result.getName()).isEqualTo("景福宮");
         assertThat(result.getRegionName()).isEqualTo("鐘路区");

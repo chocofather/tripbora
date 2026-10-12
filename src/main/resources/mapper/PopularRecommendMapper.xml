@@ -25,9 +25,10 @@
                      d.region_id AS region_id,
                      dt.name,
                      (
-                         SELECT image_url
-                         FROM destination_images
-                         WHERE destination_id = d.id AND is_main = 1
+                         SELECT di.image_url
+                         FROM destination_images di
+                         WHERE di.destination_id = d.id AND di.is_main = 1
+                         ORDER BY di.order_index ASC, di.id ASC
                              LIMIT 1
              ) AS image_url,
              cc.region_name,
@@ -80,9 +81,10 @@
                      d.region_id AS region_id,
                      dt.name,
                      (
-                         SELECT image_url
-                         FROM destination_images
-                         WHERE destination_id = d.id AND is_main = 1
+                         SELECT di.image_url
+                         FROM destination_images di
+                         WHERE di.destination_id = d.id AND di.is_main = 1
+                         ORDER BY di.order_index ASC, di.id ASC
                              LIMIT 1
              ) AS image_url,
              cc.region_name,
@@ -135,9 +137,10 @@
         d.region_id AS region_id,
         dt.name,
         (
-        SELECT image_url
-        FROM destination_images
-        WHERE destination_id = d.id AND is_main = 1
+        SELECT di.image_url
+        FROM destination_images di
+        WHERE di.destination_id = d.id AND di.is_main = 1
+        ORDER BY di.order_index ASC, di.id ASC
         LIMIT 1
         ) AS image_url,
         cc.region_name,

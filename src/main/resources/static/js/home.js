@@ -1,10 +1,15 @@
 const homeI18n = document.getElementById('home-i18n').dataset;
 
-function localizedTags(labels, ids) {
-    return labels.split('|').map((label, index) => ({label, id: ids[index]}));
+/*
+  각 탭은 테마 카테고리를 기본(한국어) 이름으로 고른다. (categories.name 은 UNIQUE, DB 번호는 쓰지 않는다)
+  여행지 season 이 아니라 이 카테고리 연결로 고르므로 ALL_SEASONS 여행지도 탭에 나온다.
+  관리자 화면에서 카테고리 이름을 바꾸면 여기도 같이 바꿔야 한다.
+*/
+function localizedTags(labels, categoryNames) {
+    return labels.split('|').map((label, index) => ({label, categoryName: categoryNames[index]}));
 }
 
-// 1. 시즌별 메타데이터 (각 태그: label, id)
+// 1. 시즌별 메타데이터 (각 태그: label, categoryName)
 const seasonMeta = {
     SPRING: {
         badge: homeI18n.springBadge,
@@ -12,7 +17,8 @@ const seasonMeta = {
         desc: homeI18n.springDescription,
         bgClass: 'spring',
         monthRange: [3,     4, 5],
-        tags: localizedTags(homeI18n.springTags, [89, 91, 88, 90, 93])
+        tags: localizedTags(homeI18n.springTags,
+            ['국내 봄 여행지', '국내 벚꽃 명소', '피크닉 명소', '해외 봄 여행지', '일본 벚꽃 명소'])
     },
     SUMMER: {
         badge: homeI18n.summerBadge,
@@ -20,7 +26,7 @@ const seasonMeta = {
         desc: homeI18n.summerDescription,
         bgClass: 'summer',
         monthRange: [6, 7, 8],
-        tags: localizedTags(homeI18n.summerTags, [6, 94, 96, 23])
+        tags: localizedTags(homeI18n.summerTags, ['바다', '계곡', '해외 휴양지', '섬'])
     },
     FALL: {
         badge: homeI18n.fallBadge,
@@ -28,7 +34,7 @@ const seasonMeta = {
         desc: homeI18n.fallDescription,
         bgClass: 'fall',
         monthRange: [9, 10, 11],
-        tags: localizedTags(homeI18n.fallTags, [46, 98])
+        tags: localizedTags(homeI18n.fallTags, ['단풍 명소', '가을 풍경 여행'])
     },
     WINTER: {
         badge: homeI18n.winterBadge,
@@ -36,7 +42,7 @@ const seasonMeta = {
         desc: homeI18n.winterDescription,
         bgClass: 'winter',
         monthRange: [12, 1, 2],
-        tags: localizedTags(homeI18n.winterTags, [100, 30, 101, 102])
+        tags: localizedTags(homeI18n.winterTags, ['눈꽃 여행', '온천', '겨울 스포츠', '따듯한 여행지'])
     }
 };
 
@@ -77,8 +83,8 @@ function renderTags() {
             btn.onclick = () => {
                 tagListDiv.querySelectorAll('.tag').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                // 태그 클릭 시 추천 여행지 뿌리기 (id 기반)
-                renderSeasonDestinations(currentSeason, tag.id);
+                // 태그 클릭 시 추천 여행지 뿌리기 (카테고리 이름 기반)
+                renderSeasonDestinations(currentSeason, tag.categoryName);
             };
             if (idx === 0) btn.classList.add('active');
             tagListDiv.appendChild(btn);
@@ -131,9 +137,9 @@ function createDestinationCard(dest, imageSizes = SEASON_CARD_IMAGE_SIZES) {
 }
 
 // 5. 추천 여행지 뿌리기 (API 연동)
-async function renderSeasonDestinations(season, categoryId = null) {
+async function renderSeasonDestinations(season, categoryName = null) {
     let url = `/api/season-destinations?season=${season}`;
-    if (categoryId) url += `&categoryId=${categoryId}`;
+    if (categoryName) url += `&categoryName=${encodeURIComponent(categoryName)}`;
     // API에서 [{id, name, imageUrl, regionName, season, ...}] 형태 반환
     const res = await fetch(url);
     const data = await res.json();
@@ -147,7 +153,7 @@ async function renderSeasonDestinations(season, categoryId = null) {
 
 // 6. 페이지 진입 시 기본 여행지(시즌+첫번째 태그)
 if (meta.tags.length > 0) {
-    renderSeasonDestinations(currentSeason, meta.tags[0].id);
+    renderSeasonDestinations(currentSeason, meta.tags[0].categoryName);
 }
 
 // 인기 여행지는 home.html 이 서버에서 그린다. (필터 없는 편집형 영역이라 이 파일에서 다루지 않는다)

@@ -65,7 +65,11 @@ class HomePageContractTest {
         assertThat(homeScript)
                 .contains("SPRING", "SUMMER", "FALL", "WINTER")
                 .contains("/api/season-destinations?season=")
-                .contains("renderSeasonDestinations(currentSeason, tag.id)")
+                .contains("renderSeasonDestinations(currentSeason, tag.categoryName)")
+                // 계절 탭은 숫자 카테고리 ID 대신 카테고리 이름으로 고른다.
+                .contains("&categoryName=${encodeURIComponent(categoryName)}")
+                .contains("localizedTags(homeI18n.fallTags, ['단풍 명소', '가을 풍경 여행'])")
+                .doesNotContain("categoryId=")
                 // 인기 여행지는 필터 없는 편집형 영역이라 서버가 그린다. 메인 스크립트는 필터 API 를 부르지 않는다.
                 .doesNotContain("/api/popular-destinations/")
                 .doesNotContain("renderPopularRecommend", "popularTags");

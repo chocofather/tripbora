@@ -58,8 +58,8 @@ class HomeDestinationApiLocaleTest {
         seasonal.setName(language.getLanguageTag() + " seasonal");
         when(popularRecommendService.findDomesticPopular(5, language))
                 .thenReturn(List.of(popular));
-        when(destinationRecommendService.findBySeasonAndCategory(
-                "SPRING", 7L, 5, language)).thenReturn(List.of(seasonal));
+        when(destinationRecommendService.findByCurationCategoryName(
+                "단풍 명소", 5, language)).thenReturn(List.of(seasonal));
 
         Cookie localeCookie = new Cookie(
                 TripBoraLocaleResolver.COOKIE_NAME, language.getLanguageTag());
@@ -70,8 +70,8 @@ class HomeDestinationApiLocaleTest {
                 .andExpect(jsonPath("$[0].name")
                         .value(language.getLanguageTag() + " popular"));
         mockMvc.perform(get("/api/season-destinations")
-                        .param("season", "SPRING")
-                        .param("categoryId", "7")
+                        .param("season", "FALL")
+                        .param("categoryName", "단풍 명소")
                         .param("limit", "5")
                         .cookie(localeCookie))
                 .andExpect(status().isOk())
@@ -79,7 +79,7 @@ class HomeDestinationApiLocaleTest {
                         .value(language.getLanguageTag() + " seasonal"));
 
         verify(popularRecommendService).findDomesticPopular(5, language);
-        verify(destinationRecommendService).findBySeasonAndCategory(
-                "SPRING", 7L, 5, language);
+        verify(destinationRecommendService).findByCurationCategoryName(
+                "단풍 명소", 5, language);
     }
 }

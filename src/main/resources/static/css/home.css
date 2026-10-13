@@ -266,27 +266,35 @@
   계절 배경은 static/images/home/season/ 의 고정 파일명 네 장이다.
   이미지를 바꿀 때는 같은 이름으로 덮어쓰기만 하면 된다. (가로형 사진, background-size: cover 로 가운데 기준으로 잘린다)
   클래스 이름은 home.js 가 붙이는 값이라 가을은 .fall 이고 파일은 autumn.webp 다.
+  사진은 영역이 화면에 가까워져 home.js 가 is-bg-ready 를 붙일 때 받는다. (첫 화면 이미지와 대역폭을 다투지 않게)
 */
-.seasonal-bg-wrapper.spring {
+.seasonal-bg-wrapper.spring.is-bg-ready {
     background-image: url('/images/home/season/spring.webp');
 }
 
-.seasonal-bg-wrapper.summer {
+.seasonal-bg-wrapper.summer.is-bg-ready {
     background-image: url('/images/home/season/summer.webp');
+}
+
+.seasonal-bg-wrapper.summer {
     /* 가운데 기준이면 구름만 남아 바다가 잘린다. 세로 기준만 아래로 내린다. */
     background-position: center 70%;
 }
 
-.seasonal-bg-wrapper.fall {
+.seasonal-bg-wrapper.fall.is-bg-ready {
     background-image: url('/images/home/season/autumn.webp');
-    background-position: center 35%;
+}
 
+.seasonal-bg-wrapper.fall {
+    background-position: center 35%;
+}
+
+.seasonal-bg-wrapper.winter.is-bg-ready {
+    background-image: url('/images/home/season/winter.webp');
 }
 
 .seasonal-bg-wrapper.winter {
-    background-image: url('/images/home/season/winter.webp');
     background-position: center 40%;
-
 }
 
 .season-header {

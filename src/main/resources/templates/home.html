@@ -8,10 +8,11 @@
     Swiper 는 이 화면의 Hero 와 이벤트 프로모션 배너만 쓴다. 공통 layout 이 아니라 여기서 부른다.
     defer 라 문서 순서대로 실행된다 — head 의 이 파일이 body 의 slider.js 보다 먼저 끝나고,
     slider.js 는 DOMContentLoaded 안에서 new Swiper 를 부르므로 순서가 보장된다.
+    버전은 정확히 적는다. 'swiper@9' 는 unpkg 가 302 로 9.4.1 에 보내므로, 첫 화면을 막는 CSS 앞에 왕복이 한 번 더 생긴다.
   -->
-  <link rel="stylesheet" href="https://unpkg.com/swiper@9/swiper-bundle.min.css" />
-  <script src="https://unpkg.com/swiper@9/swiper-bundle.min.js" defer></script>
-  <link rel="stylesheet" href="/css/home.css?v=20261012-fall" />
+  <link rel="stylesheet" href="https://unpkg.com/swiper@9.4.1/swiper-bundle.min.css" />
+  <script src="https://unpkg.com/swiper@9.4.1/swiper-bundle.min.js" defer></script>
+  <link rel="stylesheet" href="/css/home.css?v=20261013-image-loading" />
   <!-- 랜드마크 아치 카드 (스크롤 수렴) -->
   <link rel="stylesheet" href="/css/home-converge-prototype.css?v=20260930-4" />
   <link rel="stylesheet" href="/css/home-mobile.css?v=20261009-season" />
@@ -122,6 +123,7 @@
                   세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
                   sizes 는 home.css 의 .recommend-editorial 격자 폭과 같은 값이다.
                   썸네일을 받지 못하면 원본으로 한 번만 되돌린다. (랜드마크 카드와 같은 방식)
+                  큰 대표 카드는 Hero 바로 아래라 휴대폰·PC 모두 첫 화면에 걸린다. 미루지 않고 바로 받고, 보조 카드는 미룬다.
                 -->
                 <img class="card-thumb"
                      th:src="${destination.cardImageUrl != null} ? ${destination.cardImageUrl} : @{${destination.imageUrl}}"
@@ -131,9 +133,10 @@
                               sizes=${destination.cardImageSrcset == null} ? null : (${stat.first}
                                   ? '(max-width: 680px) calc(100vw - 28px), (max-width: 960px) calc(100vw - 40px), (max-width: 1160px) calc(50vw - 40px), 540px'
                                   : '(max-width: 680px) calc(50vw - 22px), (max-width: 960px) calc(25vw - 22px), (max-width: 1160px) calc(25vw - 20px), 270px'),
-                              data-original-src=${destination.cardImageUrl != null} ? @{${destination.imageUrl}} : null"
+                              data-original-src=${destination.cardImageUrl != null} ? @{${destination.imageUrl}} : null,
+                              loading=${stat.first} ? 'eager' : 'lazy'"
                      onerror="if (this.dataset.originalSrc) { this.removeAttribute('srcset'); this.src = this.dataset.originalSrc; delete this.dataset.originalSrc; }"
-                     loading="lazy" decoding="async">
+                     decoding="async">
               </div>
               <h3 class="recommend-card-name" th:text="${destination.name}" th:title="${destination.name}">경복궁</h3>
               <!-- 상위 지역이 있으면 '서울 종로구' 처럼 앞에 붙인다. (랜드마크 카드와 같은 규칙) -->
@@ -313,7 +316,7 @@
   </div>
 
   <script src="/js/home-season-preview.js?v=20260929-1" defer></script>
-  <script src="/js/home.js?v=20261012-fall" defer></script>
+  <script src="/js/home.js?v=20261013-image-loading" defer></script>
   <script src="/js/home-festival.js?v=20261002-1" defer></script>
   <script src="/js/slider.js?v=20261003-home-hero" defer></script>
   <script src="/js/home-withdrawal-toast.js" defer></script>

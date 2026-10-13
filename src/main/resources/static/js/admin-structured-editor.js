@@ -21,7 +21,7 @@
     /** 서버 StructuredContentValidator 와 같은 한도. (StructuredEditorLimitsContractTest 가 맞는지 본다) */
     const LIMITS = Object.freeze({
         blocks: 60,
-        sliderItems: 20,
+        sliderItems: 40,
         title: 120,
         richText: 5000,
         imageText: 3000,
@@ -174,6 +174,42 @@
         const credit = writeCredit(image.credit);
         if (credit) written.credit = credit;
         return written;
+    }
+
+    /** 공통 출처 설정을 적용해도 되는지. 이미지 한 장의 저장 검사(validate)와 같은 규칙·문구다. 문제가 없으면 "". */
+    function commonCreditProblem(credit) {
+        const written = writeCredit(credit);
+        if (!written) return '적용할 출처 정보를 입력해 주세요.';
+        if (!written.author && !written.source) return '출처표시에는 저작자 또는 출처명을 입력해 주세요.';
+        if (written.sourceUrl && !isWebUrl(written.sourceUrl)) return '출처 URL은 http 또는 https 주소로 입력해 주세요.';
+        if (written.licenseUrl && !isWebUrl(written.licenseUrl)) return '라이선스 URL은 http 또는 https 주소로 입력해 주세요.';
+        return '';
+    }
+
+    /** [전체 이미지에 적용]이 덮어쓸 사진 수. 이미 다른 개별 출처가 있는 사진만 센다. */
+    function commonCreditOverwrites(items, credit) {
+        const common = JSON.stringify(writeCredit(credit));
+        return items.filter(item => {
+            const current = item.image ? writeCredit(item.image.credit) : null;
+            return current && JSON.stringify(current) !== common;
+        }).length;
+    }
+
+    /**
+     * 슬라이더 공통 출처를 넘겨받은 사진들(그 슬라이더의 items)의 출처 칸에 복사한다. 채운 사진 수를 돌려준다.
+     * onlyEmpty 면 출처가 비어 있는 사진만 채운다. 이미지가 아직 없는 자리(업로드 중·실패)는 출처를 붙일 곳이 없어 건너뛴다.
+     * 사진마다 따로 복사하므로 적용한 뒤 한 장을 고쳐도 다른 사진은 그대로이고, 저장은 지금처럼 사진마다의 credit 이다.
+     */
+    function applyCommonCredit(items, credit, onlyEmpty) {
+        const written = writeCredit(credit);
+        if (!written) return 0;
+        let applied = 0;
+        items.forEach(item => {
+            if (!item.image || (onlyEmpty && writeCredit(item.image.credit))) return;
+            item.image.credit = readCredit(written);
+            applied++;
+        });
+        return applied;
     }
 
     /**
@@ -446,6 +482,10 @@
             uploads: new Set(), // 업로드 중인 이미지 자리 key
             imageErrors: new Map(), // 이미지 자리 key → 서버 메시지
             openCredits: new Set(), // 출처 정보 입력 칸을 펼친 이미지 자리 key
+            // 슬라이더 공통 출처 설정. 블록 id 별 입력값·결과 문구이고 저장하지 않는다. (적용하면 사진마다의 credit 에 복사된다)
+            commonCredits: new Map(), // 블록 id → credit 입력값
+            commonCreditStatus: new Map(), // 블록 id → {text, error}
+            openCommonCredits: new Set(), // 공통 출처 설정을 펼친 블록 id
             errors: null, // 마지막 저장 시도 검사 결과
             menuOpen: false,
             loadError: false,
@@ -609,6 +649,7 @@
          * 글 칸 하나. 값이 바뀌면 model 만 바꾸고 다시 그리지 않는다. (입력 중 커서를 지킨다)
          * attributes 는 입력 칸에 더 붙일 속성(list, inputmode 등), optionalHint: false 는 "(선택)" 표시를 뺀다.
          * secondary 는 보조 입력(이미지 설명 alt)이라 제목·설명보다 한 단계 약하게 보인다.
+         * draft 는 저장하지 않는 입력 도우미(슬라이더 공통 출처)라 글을 고친 것으로 치지 않는다.
          */
         function field(block, options, errorId) {
             const key = options.key;
@@ -623,7 +664,7 @@
                 className: invalid.className, 'data-focus-key': key,
                 oninput: event => {
                     options.set(event.target.value);
-                    markDirty();
+                    if (!options.draft) markDirty();
                     if (options.summary) {
                         const summary = root.querySelector(`[data-block-id="${CSS.escape(block.id)}"] [data-block-summary]`);
                         if (summary) summary.textContent = blockSummary(block);
@@ -784,43 +825,10 @@
                 return el('div', {className: 'admin-structured-credit', role: 'group', 'aria-label': '출처 정보'}, [header]);
             }
 
-            const creditField = (name, label, max, extra = {}) => field(block, {
-                key: `${imageKey}:credit-${name}`, label, max, optionalHint: false,
-                attributes: extra.attributes, help: extra.help, value: credit[name],
-                set: value => {
-                    credit[name] = value;
-                    if (extra.after) extra.after(value);
-                    refreshPreview();
-                }
-            }, errorId);
-            const urlAttributes = {inputmode: 'url', autocomplete: 'off', spellcheck: 'false'};
-            const licenseListId = `${panelId}-licenses`;
-            const licenseUrlField = creditField('licenseUrl', '라이선스 URL', LIMITS.creditLicenseUrl,
-                {attributes: urlAttributes});
-            const licenseUrlInput = licenseUrlField.querySelector('input');
-            // 제안 라이선스를 그대로 입력하면 URL 을 채운다. 비었거나 다른 제안값의 URL 일 때만 바꾼다. (직접 쓴 URL 은 둔다)
-            const fillLicenseUrl = value => {
-                const known = CREDIT_LICENSES.find(item => item.name === value.trim());
-                const current = text(credit.licenseUrl).trim();
-                if (!known || (current && !CREDIT_LICENSES.some(item => item.url === current))) return;
-                credit.licenseUrl = known.url;
-                licenseUrlInput.value = known.url;
-            };
-
             return el('div', {className: 'admin-structured-credit is-open', role: 'group', 'aria-label': '출처 정보'}, [
                 header,
                 el('div', {id: panelId, className: 'admin-structured-credit-fields'}, [
-                    el('div', {className: 'admin-structured-credit-names'}, [
-                        creditField('author', '저작자', LIMITS.creditAuthor),
-                        creditField('source', '출처명', LIMITS.creditSource)
-                    ]),
-                    creditField('sourceUrl', '출처 URL', LIMITS.creditSourceUrl, {attributes: urlAttributes}),
-                    creditField('license', '라이선스', LIMITS.creditLicense, {
-                        attributes: {list: licenseListId, autocomplete: 'off'}, after: fillLicenseUrl,
-                        help: '목록에 없어도 직접 입력할 수 있습니다.'
-                    }),
-                    el('datalist', {id: licenseListId}, CREDIT_LICENSES.map(item => el('option', {value: item.name}))),
-                    licenseUrlField,
+                    ...creditInputs(block, credit, imageKey, `${panelId}-licenses`, errorId, {onChange: refreshPreview}),
                     el('div', {className: 'admin-structured-credit-footer'}, [
                         preview,
                         el('button', {
@@ -837,6 +845,115 @@
                                 render(addKey);
                             }
                         })
+                    ])
+                ])
+            ]);
+        }
+
+        /**
+         * 출처 입력 칸 다섯 개(저작자·출처명 / 출처 URL / 라이선스 / 라이선스 URL).
+         * 이미지 한 장의 출처 정보와 슬라이더 공통 출처 설정이 같은 칸을 쓴다. 칸 key 는 `${keyPrefix}:credit-<이름>` 이다.
+         * options.onChange 는 값이 바뀔 때마다, options.draft 는 저장하지 않는 입력값(공통 출처)일 때 쓴다.
+         */
+        function creditInputs(block, credit, keyPrefix, licenseListId, errorId, options) {
+            const creditField = (name, label, max, extra = {}) => field(block, {
+                key: `${keyPrefix}:credit-${name}`, label, max, optionalHint: false, draft: options.draft,
+                attributes: extra.attributes, help: extra.help, value: credit[name],
+                set: value => {
+                    credit[name] = value;
+                    if (extra.after) extra.after(value);
+                    options.onChange();
+                }
+            }, errorId);
+            const urlAttributes = {inputmode: 'url', autocomplete: 'off', spellcheck: 'false'};
+            const licenseUrlField = creditField('licenseUrl', '라이선스 URL', LIMITS.creditLicenseUrl,
+                {attributes: urlAttributes});
+            const licenseUrlInput = licenseUrlField.querySelector('input');
+            // 제안 라이선스를 그대로 입력하면 URL 을 채운다. 비었거나 다른 제안값의 URL 일 때만 바꾼다. (직접 쓴 URL 은 둔다)
+            const fillLicenseUrl = value => {
+                const known = CREDIT_LICENSES.find(item => item.name === value.trim());
+                const current = text(credit.licenseUrl).trim();
+                if (!known || (current && !CREDIT_LICENSES.some(item => item.url === current))) return;
+                credit.licenseUrl = known.url;
+                licenseUrlInput.value = known.url;
+            };
+            return [
+                el('div', {className: 'admin-structured-credit-names'}, [
+                    creditField('author', '저작자', LIMITS.creditAuthor),
+                    creditField('source', '출처명', LIMITS.creditSource)
+                ]),
+                creditField('sourceUrl', '출처 URL', LIMITS.creditSourceUrl, {attributes: urlAttributes}),
+                creditField('license', '라이선스', LIMITS.creditLicense, {
+                    attributes: {list: licenseListId, autocomplete: 'off'}, after: fillLicenseUrl,
+                    help: '목록에 없어도 직접 입력할 수 있습니다.'
+                }),
+                el('datalist', {id: licenseListId}, CREDIT_LICENSES.map(item => el('option', {value: item.name}))),
+                licenseUrlField
+            ];
+        }
+
+        /**
+         * 슬라이더 공통 출처 설정. 같은 출처의 사진이 많을 때 한 번 입력해 이 슬라이더 사진들의 출처 칸에 채운다.
+         * 입력값은 저장하지 않는 도우미이고, 적용하면 사진마다의 credit 에 따로 복사된다. (applyCommonCredit)
+         * 평소에는 접힌 토글 한 줄이다. 다른 슬라이더 블록의 사진에는 닿지 않는다.
+         */
+        function commonCreditControl(block, errorId) {
+            const prefix = `${block.id}:common`;
+            const open = state.openCommonCredits.has(block.id);
+            const toggleKey = `${prefix}:toggle`;
+            const panelId = `sb-${block.id}-common-credit`;
+            const header = el('div', {className: 'admin-structured-credit-header'}, [
+                el('button', {
+                    type: 'button', className: 'admin-structured-credit-toggle',
+                    'aria-expanded': String(open), 'aria-controls': open ? panelId : null,
+                    'data-focus-key': toggleKey,
+                    onclick: () => {
+                        if (open) state.openCommonCredits.delete(block.id);
+                        else state.openCommonCredits.add(block.id);
+                        render(toggleKey);
+                    }
+                }, [
+                    el('span', {text: '공통 출처 설정'}),
+                    el('span', {className: 'admin-structured-credit-chevron', 'aria-hidden': 'true', text: open ? '▴' : '▾'})
+                ]),
+                open ? null : el('span', {className: 'admin-structured-credit-summary is-empty',
+                    text: '같은 출처를 이 슬라이더의 여러 이미지에 한 번에 채웁니다.'})
+            ]);
+            const className = 'admin-structured-credit admin-structured-common-credit';
+            if (!open) {
+                return el('div', {className, role: 'group', 'aria-label': '공통 출처 설정'}, [header]);
+            }
+
+            if (!state.commonCredits.has(block.id)) state.commonCredits.set(block.id, emptyCredit());
+            const credit = state.commonCredits.get(block.id);
+            const status = state.commonCreditStatus.get(block.id);
+            const defaultStatus = '올린 이미지의 출처 정보에 채웁니다. 적용한 뒤에도 이미지마다 고칠 수 있습니다.';
+            const statusLine = el('p', {className: `admin-help-text admin-structured-common-credit-status${status?.error ? ' is-error' : ''}`,
+                'aria-live': 'polite', text: status ? status.text : defaultStatus});
+            const hasImages = block.items.some(item => item.image);
+            const applyButton = (name, label, onlyEmpty) => el('button', {
+                type: 'button', className: 'admin-btn is-small', disabled: !hasImages,
+                'data-focus-key': `${prefix}:${name}`, text: label,
+                onclick: () => applyCommonCreditTo(block, onlyEmpty, `${prefix}:${name}`)
+            });
+            return el('div', {className: `${className} is-open`, role: 'group', 'aria-label': '공통 출처 설정'}, [
+                header,
+                el('div', {id: panelId, className: 'admin-structured-credit-fields'}, [
+                    ...creditInputs(block, credit, prefix, `${panelId}-licenses`, errorId, {
+                        draft: true,
+                        onChange: () => {
+                            // 값을 고치면 지난 적용 결과 문구는 맞지 않으므로 안내 문구로 되돌린다.
+                            state.commonCreditStatus.delete(block.id);
+                            statusLine.textContent = defaultStatus;
+                            statusLine.classList.remove('is-error');
+                        }
+                    }),
+                    el('div', {className: 'admin-structured-credit-footer'}, [
+                        statusLine,
+                        el('div', {className: 'admin-structured-image-actions'}, [
+                            applyButton('apply-all', '전체 이미지에 적용', false),
+                            applyButton('apply-empty', '출처 없는 이미지에만 적용', true)
+                        ])
                     ])
                 ])
             ]);
@@ -943,6 +1060,7 @@
             return [
                 field(block, {key: `${block.id}:title`, label: '슬라이더 제목', max: LIMITS.title, summary: true,
                     value: block.title, set: value => { block.title = value; }}, errorId),
+                commonCreditControl(block, errorId),
                 block.items.length
                     ? el('ol', {className: 'admin-structured-items', 'aria-label': '슬라이더 이미지'},
                         block.items.map((item, index) => renderImageItem(block, item, index, errorId)))
@@ -1056,6 +1174,33 @@
             markDirty();
             const next = state.blocks[Math.min(index, state.blocks.length - 1)];
             render(next ? `${next.id}:delete` : 'add-toggle');
+        }
+
+        /**
+         * 공통 출처를 이 슬라이더(block)의 사진에만 채운다. 전체 적용이 다른 개별 출처를 덮어쓰게 되면 먼저 묻는다.
+         * 결과는 버튼 옆 문구로 알리고, 채운 사진의 출처 정보는 각 사진 카드에서 다시 고칠 수 있다.
+         */
+        function applyCommonCreditTo(block, onlyEmpty, focusKey) {
+            const credit = state.commonCredits.get(block.id);
+            const problem = commonCreditProblem(credit);
+            if (problem) {
+                state.commonCreditStatus.set(block.id, {text: problem, error: true});
+                render(focusKey);
+                return;
+            }
+            const overwrites = onlyEmpty ? 0 : commonCreditOverwrites(block.items, credit);
+            if (overwrites > 0 && !window.confirm(
+                `기존에 입력된 개별 출처 정보(이미지 ${overwrites}장)도 덮어씁니다. 적용할까요?`)) {
+                return;
+            }
+            const applied = applyCommonCredit(block.items, credit, onlyEmpty);
+            if (applied > 0) markDirty();
+            state.commonCreditStatus.set(block.id, {
+                text: applied > 0 ? `이미지 ${applied}장에 공통 출처를 적용했습니다.`
+                    : onlyEmpty ? '출처가 비어 있는 이미지가 없습니다.' : '출처를 채울 이미지가 없습니다.',
+                error: false
+            });
+            render(focusKey);
         }
 
         function moveItem(block, item, offset) {
@@ -1176,5 +1321,6 @@
     });
 
     // 테스트에서 상태 없는 도우미를 직접 확인할 수 있게 둔다.
-    window.TravelInfoStructuredEditor = Object.freeze({LIMITS, readBlock, writeBlock, validate, newId});
+    window.TravelInfoStructuredEditor = Object.freeze({LIMITS, readBlock, writeBlock, validate, newId,
+        applyCommonCredit, commonCreditOverwrites, commonCreditProblem});
 })();

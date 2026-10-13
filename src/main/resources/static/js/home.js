@@ -69,7 +69,28 @@ const meta = seasonMeta[currentSeason];
 
 // 3. DOM 메타데이터 적용
 const wrapper = document.querySelector('.seasonal-bg-wrapper');
-if (wrapper) wrapper.className = `seasonal-bg-wrapper ${meta.bgClass}`;
+if (wrapper) {
+    wrapper.className = `seasonal-bg-wrapper ${meta.bgClass}`;
+    deferSeasonBackground(wrapper);
+}
+
+/*
+  계절 배경 사진(2400px 대)은 CSS 배경이라 화면 위치와 상관없이 클래스가 붙는 즉시 받는다.
+  첫 화면 아래에 있는 영역이므로 화면에 가까워질 때 is-bg-ready 를 붙여 그때 받게 한다. (home.css)
+  그 전에는 같은 자리에 배경색만 있고 높이는 그대로라 레이아웃이 움직이지 않는다.
+*/
+function deferSeasonBackground(element) {
+    if (!('IntersectionObserver' in window)) {
+        element.classList.add('is-bg-ready');
+        return;
+    }
+    const observer = new IntersectionObserver(entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        element.classList.add('is-bg-ready');
+        observer.disconnect();
+    }, {rootMargin: '600px 0px'});
+    observer.observe(element);
+}
 const badgeElem = document.querySelector('.season-badge');
 if (badgeElem) badgeElem.textContent = meta.badge;
 const titleElem = document.querySelector('.season-title');
@@ -118,11 +139,12 @@ function createDestinationCard(dest, imageSizes = SEASON_CARD_IMAGE_SIZES) {
     card.className = 'trip-card';
     // 여행지 업로드 사진은 서버가 카드 크기로 줄인 썸네일을 쓴다. 그 밖의 주소는 원래대로 둔다.
     // 세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
+    // 계절 추천은 Hero·인기 여행지 아래라 첫 화면 밖이다. 다가갈 때 받는다. (칸 비율은 home.css aspect-ratio 가 잡는다)
     const thumbnailAttributes = dest.cardImageSrcset
         ? `srcset="${dest.cardImageSrcset}" sizes="${imageSizes}"`
         : '';
     card.innerHTML = `
-        <img class="card-thumb" src="${dest.cardImageUrl || dest.imageUrl}" ${thumbnailAttributes} alt="${dest.name}" />
+        <img class="card-thumb" src="${dest.cardImageUrl || dest.imageUrl}" ${thumbnailAttributes} alt="${dest.name}" loading="lazy" decoding="async" />
         <div class="trip-info">
           <h4>${dest.name}</h4>
           <p>${regionText(dest)}</p>

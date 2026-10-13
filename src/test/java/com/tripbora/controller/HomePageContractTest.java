@@ -164,6 +164,52 @@ class HomePageContractTest {
                 .doesNotContain("home-i18n", "escapeHtml", ">자세히 보기<", "자세히 보기");
     }
 
+    /**
+     * 메인 이미지 로딩: 첫 화면 핵심 이미지(Hero 첫 장·인기 여행지 대표 카드)는 미루지 않고,
+     * 그 아래 카드·계절 배경은 다가갈 때 받는다. 여행지 카드는 서버 썸네일(srcset)을 쓰고 칸 비율은 CSS 가 잡는다.
+     */
+    @Test
+    void firstScreenImagesLoadEagerlyAndBelowTheFoldImagesWait() throws IOException {
+        String template = resource("/templates/home.html");
+        String homeScript = resource("/static/js/home.js");
+        String homeCss = resource("/static/css/home.css");
+        var document = Jsoup.parse(template);
+
+        // Hero 첫 장은 높은 우선순위로 바로 받고, 나머지 슬라이드는 미룬다.
+        assertThat(document.select("#home-hero .slide-img img").attr("th:attr"))
+                .contains("fetchpriority=${stat.first} ? 'high' : null")
+                .contains("loading=${stat.first} ? 'eager' : 'lazy'");
+        // 인기 여행지: 대표 카드만 바로, 보조 카드는 미룬다. 둘 다 서버 썸네일 srcset 을 쓴다.
+        var popular = document.select(".recommend-editorial img.card-thumb");
+        assertThat(popular).hasSize(1);
+        assertThat(popular.attr("loading")).isEmpty();
+        assertThat(popular.attr("th:attr"))
+                .contains("loading=${stat.first} ? 'eager' : 'lazy'")
+                .contains("srcset=${destination.cardImageSrcset}");
+        // 첫 화면 아래 영역(이벤트 배너·랜드마크·축제)은 미룬다.
+        assertThat(document.select("#home-promotion img, .home-converge-photo img, .home-festival-image"))
+                .hasSize(3)
+                .allSatisfy(image -> assertThat(image.attr("loading")).isEqualTo("lazy"));
+        // 계절 추천 카드(JS 생성)도 미루고, 썸네일 srcset 을 그대로 쓴다.
+        assertThat(homeScript)
+                .contains("alt=\"${dest.name}\" loading=\"lazy\" decoding=\"async\" />")
+                .contains("`srcset=\"${dest.cardImageSrcset}\" sizes=\"${imageSizes}\"`");
+        // 계절 배경 사진(CSS 배경)은 영역이 화면에 가까워져 is-bg-ready 가 붙을 때만 받는다.
+        assertThat(homeScript)
+                .contains("deferSeasonBackground(wrapper);")
+                .contains("element.classList.add('is-bg-ready');")
+                .contains("{rootMargin: '600px 0px'}");
+        for (String season : new String[]{"spring", "summer", "fall", "winter"}) {
+            assertThat(homeCss).contains(".seasonal-bg-wrapper." + season + ".is-bg-ready {\n    background-image: url(");
+        }
+        assertThat(homeCss).doesNotContainPattern("\\.seasonal-bg-wrapper\\.(spring|summer|fall|winter) \\{\\s*background-image");
+        // 첫 화면을 막는 Swiper CSS 는 정확한 버전으로 불러 CDN 302 왕복을 피한다.
+        assertThat(template)
+                .contains("https://unpkg.com/swiper@9.4.1/swiper-bundle.min.css")
+                .contains("https://unpkg.com/swiper@9.4.1/swiper-bundle.min.js")
+                .doesNotContain("swiper@9/");
+    }
+
     private String resource(String path) throws IOException {
         try (InputStream input = getClass().getResourceAsStream(path)) {
             assertThat(input).as("resource %s", path).isNotNull();

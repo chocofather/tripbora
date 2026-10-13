@@ -423,6 +423,21 @@
     border-top: 1px solid #edf0f7;
 }
 
+/* 슬라이더 공통 출처 설정: 이미지 목록 위의 접힌 한 줄. 펼치면 이미지 출처와 같은 칸 + 적용 버튼 두 개 */
+.admin-structured-common-credit {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border: 1px solid #e4e8f2;
+    border-radius: 6px;
+    background: #f8f9fc;
+}
+
+.admin-structured-common-credit-status {
+    flex: 1 1 200px;
+    min-width: 0;
+    margin: 0;
+}
+
 .admin-structured-credit-add {
     justify-self: start;
     min-height: 28px;

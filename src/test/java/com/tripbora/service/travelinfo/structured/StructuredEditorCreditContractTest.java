@@ -260,8 +260,64 @@ class StructuredEditorCreditContractTest {
     void adminFormLoadsTheNewEditorVersion() throws IOException {
         // 바꾼 JS·CSS 는 버전을 올려 캐시에 남은 예전 판(credit 을 버리는 readImage)과 섞이지 않게 한다.
         assertThat(resource("/templates/admin/travel-info/form.html"))
-                .contains("/js/admin-structured-editor.js?v=20261006-unified-card")
-                .contains("/css/admin-structured-editor.css?v=20261006-unified-card");
+                .contains("/js/admin-structured-editor.js?v=20261013-common-credit")
+                .contains("/css/admin-structured-editor.css?v=20261013-common-credit");
+    }
+
+    /**
+     * 슬라이더 공통 출처 설정. 새 저장 구조 없이 그 슬라이더 사진마다의 credit 에 복사하는 입력 도우미다.
+     * 테스트에서 JS 를 실행하지 않으므로 동작은 코드 계약으로, 복사된 결과(사진마다 같은 credit)는 서버로 확인한다.
+     */
+    @Test
+    void sliderCommonCreditCopiesIntoEachImageCreditOfThatSliderOnly() throws IOException {
+        String editor = editor();
+
+        // 공통 출처 칸은 이미지 한 장의 출처 칸(creditInputs)을 그대로 쓰고, 입력값은 저장하지 않는다. (블록 id 별 draft)
+        assertThat(count(editor, "creditInputs(")).isEqualTo(3); // 정의 + 이미지 출처 + 공통 출처
+        assertThat(editor)
+                .contains("...creditInputs(block, credit, imageKey, `${panelId}-licenses`, errorId, {onChange: refreshPreview})")
+                .contains("...creditInputs(block, credit, prefix, `${panelId}-licenses`, errorId, {\n"
+                        + "                        draft: true,")
+                .contains("if (!options.draft) markDirty();")
+                .contains("commonCredits: new Map(), // 블록 id → credit 입력값");
+        assertThat(between(editor, "function serialize() {", "\n        }"))
+                .contains("JSON.stringify({version: 1, blocks: state.blocks.map(writeBlock)})")
+                .doesNotContain("common");
+        // 슬라이더 블록에만 있고, 적용은 그 블록의 items 만 넘긴다. (다른 슬라이더 사진에는 닿지 않는다)
+        assertThat(count(editor, "commonCreditControl(block, errorId)")).isEqualTo(2); // 정의 + 슬라이더 한 곳
+        assertThat(editor)
+                .contains("const applied = applyCommonCredit(block.items, credit, onlyEmpty);")
+                .contains("commonCreditOverwrites(block.items, credit)")
+                .contains("applyButton('apply-all', '전체 이미지에 적용', false)")
+                .contains("applyButton('apply-empty', '출처 없는 이미지에만 적용', true)");
+        // 사진마다 따로 복사한다(적용한 뒤 한 장만 고칠 수 있다). 빈 사진만 적용은 이미 출처가 있는 사진을 건너뛴다.
+        String apply = between(editor, "function applyCommonCredit(items, credit, onlyEmpty) {", "\n    }");
+        assertThat(apply)
+                .contains("if (!item.image || (onlyEmpty && writeCredit(item.image.credit))) return;")
+                .contains("item.image.credit = readCredit(written);");
+        // 전체 적용이 다른 개별 출처를 덮어쓰면 먼저 묻는다. 적용 전 검사는 저장 검사와 같은 문구다.
+        assertThat(editor)
+                .contains("기존에 입력된 개별 출처 정보(이미지 ${overwrites}장)도 덮어씁니다. 적용할까요?")
+                .contains("return current && JSON.stringify(current) !== common;");
+        String problem = between(editor, "function commonCreditProblem(credit) {", "\n    }");
+        assertThat(problem)
+                .contains("출처표시에는 저작자 또는 출처명을 입력해 주세요.")
+                .contains("출처 URL은 http 또는 https 주소로 입력해 주세요.")
+                .contains("라이선스 URL은 http 또는 https 주소로 입력해 주세요.");
+
+        // 결과 JSON: 사진마다 같은 credit 이 따로 들어간 40장 슬라이더를 서버가 그대로 받는다.
+        String credit = "{\"source\":\"한국관광공사\",\"license\":\"공공누리 제1유형\"}";
+        StringBuilder items = new StringBuilder();
+        for (int index = 0; index < StructuredContentValidator.MAX_SLIDER_ITEMS; index++) {
+            items.append(index == 0 ? "" : ",")
+                    .append("{\"id\":\"i-").append(index).append("\",\"image\":").append(image(credit)).append('}');
+        }
+        StructuredContent content = parser.parseContent(document(
+                "{\"type\":\"IMAGE_SLIDER\",\"id\":\"b-slider\",\"items\":[" + items + "]}"));
+        StructuredBlock.ImageSlider slider = (StructuredBlock.ImageSlider) content.blocks().get(0);
+        assertThat(slider.items()).hasSize(40)
+                .allSatisfy(item -> assertThat(item.image().credit())
+                        .isEqualTo(new StructuredImageCredit(null, "한국관광공사", null, "공공누리 제1유형", null)));
     }
 
     private static String document(String... blocks) {
@@ -286,6 +342,14 @@ class StructuredEditorCreditContractTest {
             count++;
         }
         return count;
+    }
+
+    private static String between(String text, String start, String end) {
+        int from = text.indexOf(start);
+        assertThat(from).as(start).isNotNegative();
+        int to = text.indexOf(end, from + start.length());
+        assertThat(to).as(end).isPositive();
+        return text.substring(from, to);
     }
 
     private String editor() throws IOException {

@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public class StructuredContentValidator {
 
     static final int MAX_BLOCKS = 60;
-    static final int MAX_SLIDER_ITEMS = 20;
+    static final int MAX_SLIDER_ITEMS = 40;
     /** 업로드 때 줄여 저장하므로 실제 값은 훨씬 작다. 말이 안 되는 값만 막는다. */
     static final int MAX_IMAGE_DIMENSION = 8000;
     static final int MAX_ID_LENGTH = 40;

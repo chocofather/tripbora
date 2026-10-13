@@ -274,7 +274,7 @@ class StructuredContentParserTest {
         for (int index = 0; index < items.length; index++) {
             items[index] = item("i" + index, IMAGE, "설명", null, null);
         }
-        assertInvalid(document(slider("s", "제목", items)), "이미지는 20장까지 추가할 수 있습니다.");
+        assertInvalid(document(slider("s", "제목", items)), "이미지는 40장까지 추가할 수 있습니다.");
     }
 
     // ---- 이미지 ----------------------------------------------------------------------------
@@ -598,7 +598,7 @@ class StructuredContentParserTest {
             items.append(index == 0 ? "" : ",").append("\"i").append(index).append("\":{}");
         }
         assertInvalidText("{\"blocks\":{\"s\":{\"items\":{" + items + "}}}}",
-                "번역 블록(s): 번역 이미지는 20장까지 저장할 수 있습니다.");
+                "번역 블록(s): 번역 이미지는 40장까지 저장할 수 있습니다.");
     }
 
     // ---- helpers --------------------------------------------------------------------------

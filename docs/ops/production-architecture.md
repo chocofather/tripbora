@@ -101,6 +101,37 @@ Compose에서 쓰는 주요 변수(이름만):
 
 `UPLOAD_PATH`, `DIARY_PRIVATE_PATH`, `COVER_LIBRARY_PRIVATE_PATH`는 호스트 경로다. 컨테이너 안의 `/data/uploads`, `/data/diary-private`, `/data/cover-library-private`에 bind mount된다(`compose.prod.yaml`).
 
+선택 변수:
+
+- `FLYWAY_BASELINE_ON_MIGRATE`: 기존 운영 DB를 Flyway에 처음 편입하는 배포에서만 `true`로 둔다. 아래 5-1 참고. 없으면 `false`다.
+
+---
+
+## 5-1. DB migration (Flyway)
+
+- DB 변경은 `src/main/resources/db/migration/V<버전>__<설명>.sql`로 Git에서 관리한다.
+- 별도 Flyway 컨테이너나 CLI는 없다. 기존 배포 명령(`docker compose -f compose.prod.yaml --env-file /Users/minjun/tripbora-config/docker-prod.env up -d --build`)으로 app 컨테이너가 시작될 때 Spring Boot가 `tripbora_prod`에 붙어 아직 적용되지 않은 migration만 적용한다.
+- migration 적용이나 검증이 실패하면 app이 뜨지 않는다(`docker logs tripbora-prod-app`으로 확인). 실패를 무시하고 뜨는 경로는 없다.
+- 적용 이력은 DB의 `flyway_schema_history` 테이블에 남는다. 업무 테이블이 아니라 migration 관리용 메타데이터다.
+
+### baseline (Flyway 도입 이전 schema)
+
+- 도입 이전의 기존 schema 전체를 버전 `20261014.0`(`TripBora pre-Flyway baseline`)으로 등록한다.
+- 이후 migration 버전은 이보다 커야 한다. 예: `V20261014_001__add_course_structure.sql` = 버전 `20261014.001`.
+  - 이보다 작은 버전 파일은 적용되지 않으므로 날짜를 거꾸로 쓰지 않는다.
+
+### 최초 편입 절차 (DEV·PROD 각각 한 번)
+
+1. 편입 전 DB 백업을 먼저 받는다.
+2. 해당 환경에서만 `FLYWAY_BASELINE_ON_MIGRATE=true`를 준다.
+   - PROD: `/Users/minjun/tripbora-config/docker-prod.env`에 한 줄 추가
+   - DEV(IntelliJ): 실행 설정 환경변수에 추가
+3. app을 한 번 띄운다. 로그에 baseline 메시지(`Successfully baselined schema with version: 20261014.0`)가 나오고 `flyway_schema_history`가 생긴다.
+4. **바로 `FLYWAY_BASELINE_ON_MIGRATE=false`로 되돌리거나 줄을 지운다.** 이후 배포는 이 값 없이 한다.
+
+- `false` 상태에서 이력 테이블이 없는 기존 DB에 붙으면 Flyway는 baseline하지 않고 기동을 멈춘다(`Found non-empty schema(s) ... but no schema history table`). 의도한 안전장치다. 백업 복원 DB나 잘못 붙은 DB를 조용히 baseline 처리하지 않게 한다.
+- 처음 편입하는 배포에서 이 값을 빠뜨리면 위 오류로 운영 app이 뜨지 않는다. 그때는 2~4를 하고 다시 배포한다.
+
 ---
 
 ## 6. 운영 / 개발 구분
@@ -161,7 +192,7 @@ docker port tripbora-dev-mysql                # (개발) 예상: 3306/tcp -> 127
 - MacBook이 꺼지거나 절전 등으로 서비스가 멈추면 `tripbora.com`도 정상 서비스되지 않는다.
 - Cloudflare Tunnel이 살아 있어도 원본 서비스 `127.0.0.1:8080`이 죽어 있으면 사이트는 동작하지 않는다.
 - 운영 DB를 다루기 전 반드시 `tripbora_prod`인지 확인한다. 운영 DB와 개발 DB를 혼동하지 않는다.
-- 운영 DB에 SQL을 자동 실행하지 않는다. DB 변경이 필요하면 프로젝트 규칙대로 SQL만 제안하고 사용자가 직접 실행한다(CLAUDE.md의 DB 원칙, `db-migration` skill).
+- 운영 DB에 SQL을 임의로 실행하지 않는다. 스키마 변경은 사용자가 검토한 Flyway migration 파일로만, 배포 때 app 기동 과정에서 적용된다(5-1).
 
 ---
 

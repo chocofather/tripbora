@@ -48,6 +48,22 @@ spring:
     username: ${DB_USERNAME:localmaster}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    # DB 변경은 src/main/resources/db/migration 의 V<버전>__<설명>.sql 로만 한다.
+    # 앱이 뜰 때 위 datasource 로 붙어 아직 적용되지 않은 migration 만 적용하고,
+    # 적용이나 검증이 실패하면 앱이 뜨지 않는다.
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    # Flyway 도입(2026-10-14) 이전의 기존 schema 전체를 이 버전으로 본다.
+    # 이후 migration 은 이 값보다 큰 버전이어야 한다. (예: V20261014_001__... = 20261014.1)
+    # 따옴표를 빼면 YAML 이 실수로 읽어 2.0261014E7 이 되고 Flyway 가 버전으로 받지 않는다.
+    baseline-version: "20261014.0"
+    baseline-description: TripBora pre-Flyway baseline
+    # 기존 DB(이력 테이블 없음)를 처음 Flyway 에 편입할 때 한 번만 true 로 준다.
+    # DEV·PROD 둘 다 flyway_schema_history 가 생긴 뒤에는 false(기본값)로 되돌린다.
+    # false 이면 이력 없는 기존 DB 에 붙었을 때 baseline 하지 않고 기동을 멈춘다.
+    # (엉뚱한 DB 를 조용히 baseline 처리하는 것을 막는다)
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
   servlet:
     multipart:
       enabled: true

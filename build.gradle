@@ -60,6 +60,11 @@ dependencies {
     // 3.0.5 는 Spring Boot 3.5 기준으로 만들어진 판이다.
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
 
+    // DB migration (Flyway). 버전은 Boot BOM 이 관리한다.
+    // Flyway 10 부터 MySQL 지원이 flyway-core 밖의 flyway-mysql 모듈로 나뉘어 둘 다 필요하다.
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
     // DevTools (자동 리로드)
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

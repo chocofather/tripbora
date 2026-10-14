@@ -51,6 +51,10 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
 
+      # Flyway 로 기존 운영 DB 를 처음 편입하는 배포에서만 env 파일에 true 로 둔다.
+      # 이력 테이블(flyway_schema_history)이 생긴 뒤에는 false 로 되돌린다.
+      FLYWAY_BASELINE_ON_MIGRATE: ${FLYWAY_BASELINE_ON_MIGRATE:-false}
+
       SERVER_ADDRESS: 0.0.0.0
 
       UPLOAD_PATH: /data/uploads

@@ -9,6 +9,8 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
+        // Flyway 는 기동 중에 DB 에 바로 붙는다. 이 테스트는 실제 DB 없이 컨텍스트만 본다.
+        "spring.flyway.enabled=false",
         "spring.mail.username=",
         "spring.mail.password=",
         "spring.security.oauth2.client.registration.google.client-id=test-google-client",

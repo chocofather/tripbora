@@ -1,5 +1,5 @@
 /**
- * 관리자 여행정보 구조화 콘텐츠(STRUCTURED) 블록 에디터.
+ * 관리자 구조화 콘텐츠(STRUCTURED) 블록 에디터. 도메인별 초기화 설정으로 같은 엔진을 사용한다.
  *
  * <p>정해진 블록 6종을 위에서 아래로 쌓는다. 자유 배치·드래그는 없고 위/아래 버튼으로 순서를 바꾼다.
  * 화면 상태는 하나의 model({version: 1, blocks: [...]})이 갖고, 모든 추가·삭제·복제·이동·입력·이미지 업로드가
@@ -156,8 +156,11 @@
      * 서버가 돌려준 값만 이미지로 받는다. 크기는 서버가 잰 값이다.
      * 저장된 글의 출처표시(credit)도 함께 읽어, 손대지 않고 다시 저장해도 그대로 남게 한다.
      */
-    function readImage(value) {
-        if (!value || typeof value.url !== 'string' || !value.url.startsWith(IMAGE_URL_PREFIX)) return null;
+    function readImage(value, imageUrlPrefix = IMAGE_URL_PREFIX) {
+        if (!value || typeof value.url !== 'string' || !value.url.startsWith(imageUrlPrefix)) return null;
+        // 서버 policy와 같이 해당 namespace의 UUID 파일만 받는다.
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/.test(
+            value.url.slice(imageUrlPrefix.length))) return null;
         const width = Number(value.width);
         const height = Number(value.height);
         if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return null;
@@ -462,12 +465,12 @@
         return parts.length ? `사진: ${parts.join(' · ')}` : '';
     }
 
-    async function uploadImage(file) {
+    async function uploadImage(file, imageUploadUrl, imageUrlPrefix) {
         const body = new FormData();
         body.append('image', file);
         let response;
         try {
-            response = await fetch(UPLOAD_URL, {
+            response = await fetch(imageUploadUrl, {
                 method: 'POST', credentials: 'same-origin', headers: csrfHeaders(), body
             });
         } catch {
@@ -479,7 +482,7 @@
         } catch {
             data = {};
         }
-        const image = response.ok ? readImage(data) : null;
+        const image = response.ok ? readImage(data, imageUrlPrefix) : null;
         if (!image) {
             throw new Error(typeof data.message === 'string' && data.message
                 ? data.message
@@ -500,8 +503,8 @@
         return {id: newId('i', itemIds), image: null, alt: '', title: '', caption: ''};
     }
 
-    function readImageItem(item) {
-        return {id: item.id, image: readImage(item.image), alt: text(item.alt),
+    function readImageItem(item, imageUrlPrefix) {
+        return {id: item.id, image: readImage(item.image, imageUrlPrefix), alt: text(item.alt),
             title: text(item.title), caption: text(item.caption)};
     }
 
@@ -542,7 +545,7 @@
      * 본문 폭(layout)이 없던 예전 일반 글은 기본(DEFAULT)이다.
      * 일반 글은 화면에서 서식 본문(html)으로 고친다. 서식 없는 예전 글(text)은 빈 줄 = 문단, 줄바꿈 = br 로 바꿔 연다.
      */
-    function readBlock(raw) {
+    function readBlock(raw, imageUrlPrefix = IMAGE_URL_PREFIX) {
         if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string') return null;
         const id = raw.id;
         switch (raw.type) {
@@ -553,20 +556,20 @@
                     text: richHtmlToText(html), html};
             }
             case 'FULL_IMAGE':
-                return {id, type: raw.type, image: readImage(raw.image), alt: text(raw.alt), caption: text(raw.caption)};
+                return {id, type: raw.type, image: readImage(raw.image, imageUrlPrefix), alt: text(raw.alt), caption: text(raw.caption)};
             case 'IMAGE_TEXT':
                 return {id, type: raw.type, imagePosition: raw.imagePosition === 'RIGHT' ? 'RIGHT' : 'LEFT',
-                    image: readImage(raw.image), alt: text(raw.alt), title: text(raw.title), text: text(raw.text)};
+                    image: readImage(raw.image, imageUrlPrefix), alt: text(raw.alt), title: text(raw.title), text: text(raw.text)};
             case 'IMAGE_SLIDER':
                 return {id, type: raw.type, title: text(raw.title),
                     items: (Array.isArray(raw.items) ? raw.items : [])
                         .filter(item => item && typeof item.id === 'string')
-                        .map(readImageItem)};
+                        .map(item => readImageItem(item, imageUrlPrefix))};
             case 'IMAGE_GRID': {
                 // 칸 수와 장수가 맞지 않는 값은 화면에서 고칠 수 없으므로 읽지 못한 블록으로 둔다.
                 const items = Array.isArray(raw.items) ? raw.items.filter(item => item && typeof item.id === 'string') : [];
                 if (!GRID_COLUMNS.includes(raw.columns) || items.length !== raw.columns) return null;
-                return {id, type: raw.type, columns: raw.columns, items: items.map(readImageItem)};
+                return {id, type: raw.type, columns: raw.columns, items: items.map(item => readImageItem(item, imageUrlPrefix))};
             }
             case 'CALLOUT': return {id, type: raw.type, text: text(raw.text)};
             default: return null;
@@ -721,7 +724,8 @@
 
     // ---- 에디터 -----------------------------------------------------------------------------
 
-    function createEditor(root, input, form) {
+    function createEditor(root, input, form, {imageUploadUrl, imageUrlPrefix}) {
+        const domPrefix = root.id;
         const state = {
             blocks: [],
             collapsed: new Set(),
@@ -747,7 +751,7 @@
             try {
                 const parsed = JSON.parse(initial);
                 if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.blocks)) throw new Error('version');
-                state.blocks = parsed.blocks.map(readBlock).filter(Boolean);
+                state.blocks = parsed.blocks.map(raw => readBlock(raw, imageUrlPrefix)).filter(Boolean);
                 if (state.blocks.length !== parsed.blocks.length) state.loadError = true;
             } catch {
                 state.loadError = true;
@@ -854,8 +858,8 @@
             const label = blockLabel(block);
             const position = `${index + 1}번째 블록(${label})`;
             const collapsed = state.collapsed.has(block.id);
-            const bodyId = `sb-${block.id}-body`;
-            const errorId = `sb-${block.id}-errors`;
+            const bodyId = `${domPrefix}-sb-${block.id}-body`;
+            const errorId = `${domPrefix}-sb-${block.id}-errors`;
             const messages = state.errors?.byBlock.get(block.id) || [];
             const action = (name, symbol, ariaLabel, handler, options = {}) => el('button', {
                 type: 'button', className: `admin-btn is-small admin-structured-action${options.danger ? ' is-danger' : ''}`,
@@ -901,7 +905,7 @@
          */
         function field(block, options, errorId) {
             const key = options.key;
-            const id = `sb-${key.replace(/:/g, '-')}`;
+            const id = `${domPrefix}-sb-${key.replace(/:/g, '-')}`;
             const invalid = invalidAttributes(key, errorId);
             const control = el(options.multiline ? 'textarea' : 'input', {
                 ...options.attributes,
@@ -944,7 +948,7 @@
          */
         function richTextField(block, errorId) {
             const key = `${block.id}:text`;
-            const id = `sb-${key.replace(/:/g, '-')}`;
+            const id = `${domPrefix}-sb-${key.replace(/:/g, '-')}`;
             const invalid = invalidAttributes(key, errorId);
             let savedRange = null;
             if (!state.richHistory.has(block.id)) state.richHistory.set(block.id, {undo: [], redo: [], typing: null});
@@ -1663,7 +1667,7 @@
             const {key, image, label} = options;
             const uploading = state.uploads.has(key);
             const error = state.imageErrors.get(key);
-            const inputId = `sb-${key.replace(/:/g, '-')}-file`;
+            const inputId = `${domPrefix}-sb-${key.replace(/:/g, '-')}-file`;
             const statusId = `${inputId}-status`;
             const invalid = invalidAttributes(key, errorId);
             const fileInput = el('input', {
@@ -1742,8 +1746,8 @@
                 // credit 은 이미지에 붙는 정보라 이미지가 없으면 넣을 자리가 없다. 자리만 보여 주고 막아 둔다.
                 return el('div', {className: 'admin-structured-credit', role: 'group', 'aria-label': '출처 정보'}, [
                     el('button', {type: 'button', className: 'admin-structured-credit-add', disabled: true,
-                        'aria-describedby': `sb-${addKey.replace(/:/g, '-')}-help`, text: '+ 출처 정보 추가'}),
-                    el('span', {id: `sb-${addKey.replace(/:/g, '-')}-help`, className: 'admin-help-text',
+                        'aria-describedby': `${domPrefix}-sb-${addKey.replace(/:/g, '-')}-help`, text: '+ 출처 정보 추가'}),
+                    el('span', {id: `${domPrefix}-sb-${addKey.replace(/:/g, '-')}-help`, className: 'admin-help-text',
                         text: '이미지를 올린 뒤 추가할 수 있습니다.'})
                 ]);
             }
@@ -1764,7 +1768,7 @@
 
             const open = state.openCredits.has(imageKey);
             const toggleKey = `${imageKey}:credit-toggle`;
-            const panelId = `sb-${addKey.replace(/:/g, '-')}`;
+            const panelId = `${domPrefix}-sb-${addKey.replace(/:/g, '-')}`;
             const invalid = CREDIT_FIELDS.some(name => state.errors?.fields.has(`${imageKey}:credit-${name}`));
             // 접었을 때는 토글 옆 요약, 펼쳤을 때는 입력 칸 아래 미리보기. 둘 다 입력하는 대로 바뀐다.
             const summary = el('span', {className: 'admin-structured-credit-summary'});
@@ -1873,7 +1877,7 @@
             const prefix = `${block.id}:common`;
             const open = state.openCommonCredits.has(block.id);
             const toggleKey = `${prefix}:toggle`;
-            const panelId = `sb-${block.id}-common-credit`;
+            const panelId = `${domPrefix}-sb-${block.id}-common-credit`;
             const header = el('div', {className: 'admin-structured-credit-header'}, [
                 el('button', {
                     type: 'button', className: 'admin-structured-credit-toggle',
@@ -2000,7 +2004,7 @@
 
         /** 정해진 프리셋 중 하나를 고르는 라디오 묶음. (이미지 위치, 본문 폭) 숫자를 직접 넣는 칸은 두지 않는다. */
         function renderChoices(block, options) {
-            const name = `sb-${block.id}-${options.name}`;
+            const name = `${domPrefix}-sb-${block.id}-${options.name}`;
             const choice = ([value, label]) => el('label', {className: 'admin-content-format-option'}, [
                 (() => {
                     const radio = el('input', {type: 'radio', name, value,
@@ -2024,7 +2028,7 @@
         function renderSlider(block, errorId) {
             const addKey = `${block.id}:add`;
             const room = LIMITS.sliderItems - block.items.length;
-            const addInputId = `sb-${block.id}-add-files`;
+            const addInputId = `${domPrefix}-sb-${block.id}-add-files`;
             const addInvalid = invalidAttributes(addKey, errorId);
             const addError = state.imageErrors.get(addKey);
             return [
@@ -2201,7 +2205,7 @@
             state.imageErrors.delete(key);
             render();
             try {
-                assign(await uploadImage(file));
+                assign(await uploadImage(file, imageUploadUrl, imageUrlPrefix));
                 markDirty();
             } catch (error) {
                 state.imageErrors.set(key, error.message);
@@ -2231,7 +2235,7 @@
             for (let index = 0; index < items.length; index++) {
                 const key = `${block.id}:${items[index].id}:image`;
                 try {
-                    items[index].image = await uploadImage(accepted[index]);
+                    items[index].image = await uploadImage(accepted[index], imageUploadUrl, imageUrlPrefix);
                 } catch (error) {
                     state.imageErrors.set(key, error.message);
                 } finally {
@@ -2282,17 +2286,38 @@
         };
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const root = document.querySelector('[data-structured-editor]');
-        const input = document.getElementById('travel-info-structured-content');
-        const form = root?.closest('form');
-        if (!root || !input || !form) return;
+    /** DOM 요소 또는 selector를 받는다. 각 root의 model·편집 이력·업로드 설정은 독립적이다. */
+    function init(options = {}) {
+        const root = typeof options.root === 'string' ? document.querySelector(options.root) : options.root;
+        if (!root) return null;
+        if (root.structuredEditor) return root.structuredEditor;
+        const form = root.closest('form');
+        const inputOption = options.input || root.dataset.structuredInput;
+        const input = typeof inputOption === 'string' ? form?.querySelector(inputOption) : inputOption;
+        if (!input || !form || (input.form && input.form !== form)) return null;
+        const imageUploadUrl = options.imageUploadUrl || root.dataset.imageUploadUrl || UPLOAD_URL;
+        const imageUrlPrefix = options.imageUrlPrefix || root.dataset.imageUrlPrefix || IMAGE_URL_PREFIX;
+        if (!/^\/uploads\/(?:[a-z0-9][a-z0-9-]*\/){2,}$/.test(imageUrlPrefix)) {
+            throw new Error('구조화 이미지 전용 namespace가 필요합니다.');
+        }
+        // endpoint는 같은 origin의 절대 경로로만 설정한다. 도메인별 endpoint는 그대로 유지한다.
+        if (!/^\/(?!\/)[^?#\\\s]+$/.test(imageUploadUrl)) {
+            throw new Error('이미지 업로드 endpoint가 올바르지 않습니다.');
+        }
+        if (!root.id) root.id = newId('structured-editor', new Set());
         // 일반 글 편집 칸에서 Enter 가 div 가 아니라 문단(p)을 만들게 한다.
         document.execCommand('defaultParagraphSeparator', false, 'p');
-        root.structuredEditor = createEditor(root, input, form);
+        root.structuredEditor = createEditor(root, input, form, {imageUploadUrl, imageUrlPrefix});
+        return root.structuredEditor;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-structured-editor]').forEach(root => init({root}));
     });
 
     // 테스트에서 상태 없는 도우미를 직접 확인할 수 있게 둔다.
-    window.TravelInfoStructuredEditor = Object.freeze({LIMITS, readBlock, writeBlock, validate, newId,
+    window.StructuredEditor = Object.freeze({init, LIMITS, readBlock, writeBlock, validate, newId,
         applyCommonCredit, commonCreditOverwrites, commonCreditProblem, normalizeLinkUrl});
+    // 기존 여행정보 호출부와 테스트의 이름을 유지한다.
+    window.TravelInfoStructuredEditor = window.StructuredEditor;
 })();

@@ -32,12 +32,16 @@ public class StructuredContentParser {
 
     /** {@code structured_content} 를 읽는다. STRUCTURED 글에는 반드시 있어야 하므로 비어 있으면 오류다. */
     public StructuredContent parseContent(String json) {
+        return parseContent(json, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public StructuredContent parseContent(String json, StructuredImagePolicy imagePolicy) {
         if (json == null || json.isBlank()) {
             throw new StructuredContentValidationException("구조화 콘텐츠가 비어 있습니다.");
         }
         StructuredContent content =
                 read(CONTENT_READER, json, StructuredContentValidationException.CONTENT_FIELD);
-        validator.validate(content);
+        validator.validate(content, imagePolicy);
         return content;
     }
 

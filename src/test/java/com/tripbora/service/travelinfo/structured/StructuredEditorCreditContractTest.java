@@ -45,9 +45,9 @@ class StructuredEditorCreditContractTest {
         // 읽기: 저장된 credit 을 이미지와 함께 읽는다. 블록·사진 칸은 모두 readImage 를 거친다.
         assertThat(editor)
                 .contains("return {url: value.url, width, height, credit: readCredit(value.credit)};")
-                .contains("image: readImage(raw.image), alt: text(raw.alt), caption: text(raw.caption)")
-                .contains("image: readImage(raw.image), alt: text(raw.alt), title: text(raw.title), text: text(raw.text)")
-                .contains("return {id: item.id, image: readImage(item.image), alt: text(item.alt),");
+                .contains("image: readImage(raw.image, imageUrlPrefix), alt: text(raw.alt), caption: text(raw.caption)")
+                .contains("image: readImage(raw.image, imageUrlPrefix), alt: text(raw.alt), title: text(raw.title), text: text(raw.text)")
+                .contains("return {id: item.id, image: readImage(item.image, imageUrlPrefix), alt: text(item.alt),");
         // 쓰기: 큰 이미지·이미지 + 글(putImage)과 슬라이더·이미지 배치 사진(writeImageItem)이 같은 writeImage 를 쓴다.
         assertThat(editor)
                 .contains("if (image) out.image = writeImage(image);")
@@ -72,8 +72,8 @@ class StructuredEditorCreditContractTest {
         // 새 파일(교체·슬라이더 추가)은 업로드 한 곳에서 credit 없이 시작한다. 이미지를 빼면 credit 도 함께 없어진다.
         assertThat(editor)
                 .contains("return {...image, credit: null};")
-                .contains("assign(await uploadImage(file));")
-                .contains("items[index].image = await uploadImage(accepted[index]);");
+                .contains("assign(await uploadImage(file, imageUploadUrl, imageUrlPrefix));")
+                .contains("items[index].image = await uploadImage(accepted[index], imageUploadUrl, imageUrlPrefix);");
         // [+ 출처 정보 추가]는 빈 credit 을 만들어 펼치고, [출처 정보 제거]는 credit 을 지운다. 값이 있으면 먼저 묻는다.
         assertThat(editor)
                 .contains("image.credit = emptyCredit();\n                            state.openCredits.add(imageKey);")
@@ -260,7 +260,10 @@ class StructuredEditorCreditContractTest {
     void adminFormLoadsTheNewEditorVersion() throws IOException {
         // 바꾼 JS·CSS 는 버전을 올려 캐시에 남은 예전 판(credit 을 버리는 readImage)과 섞이지 않게 한다.
         assertThat(resource("/templates/admin/travel-info/form.html"))
-                .contains("/js/admin-structured-editor.js?v=20261014-rich-text-2")
+                .contains("/js/admin-structured-editor.js?v=20261015-shared-editor")
+                .contains("data-structured-input=\"#travel-info-structured-content\"")
+                .contains("data-image-upload-url=\"/admin/api/travel-info/content-images\"")
+                .contains("data-image-url-prefix=\"/uploads/travel-info/content/\"")
                 .contains("/css/admin-structured-editor.css?v=20261014-rich-text-2");
     }
 

@@ -28,6 +28,8 @@ import com.tripbora.service.file.FileUploadService;
 import com.tripbora.service.post.PostContentSanitizer;
 import com.tripbora.service.travelinfo.structured.StructuredContent;
 import com.tripbora.service.travelinfo.structured.StructuredContentService;
+import com.tripbora.service.travelinfo.structured.StructuredContentImageCleanup;
+import com.tripbora.service.travelinfo.structured.StructuredImagePolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -534,10 +536,10 @@ public class TravelInfoService {
 
             // DB 쓰기를 모두 마친 뒤 고른다. 새 본문에서 빠졌고 다른 글도 쓰지 않는 이미지만 commit 뒤에 지운다.
             if (validated.structured() != null) {
-                Set<String> removedContentImages = new LinkedHashSet<>(previousContentImages);
-                removedContentImages.removeAll(
-                        structuredContentService.collectImageUrls(validated.structured().content()));
-                scheduleContentImageCleanup(unreferencedContentImages(removedContentImages));
+                Set<String> removedContentImages = StructuredContentImageCleanup.removedImages(previousContentImages,
+                        structuredContentService.collectImageUrls(validated.structured().content()),
+                        StructuredImagePolicy.TRAVEL_INFO);
+                scheduleContentImageCleanup(removedContentImages);
             }
 
             if (!lifecycleRegistered) {
@@ -562,7 +564,7 @@ public class TravelInfoService {
             throw notFound();
         }
         // 줄을 지운 뒤에 센다. 다른 글이 아직 쓰는 이미지는 남기고, 나머지는 commit 뒤에 지운다.
-        scheduleContentImageCleanup(unreferencedContentImages(contentImages));
+        scheduleContentImageCleanup(contentImages);
         if (!lifecycleRegistered) {
             deleteFilesSafely(previousThumbnailUrls);
         }
@@ -576,21 +578,8 @@ public class TravelInfoService {
         if (travelInfo.getContentFormat() != TravelInfoContentFormat.STRUCTURED) {
             return Set.of();
         }
-        return structuredContentService.collectImageUrls(
-                structuredContentService.readStored(travelInfo.getStructuredContent()));
-    }
-
-    /**
-     * 아직 어떤 STRUCTURED 글도 쓰지 않는 이미지만 고른다. 같은 트랜잭션에서 줄을 바꾸거나 지운 뒤에 불러야
-     * 자기 줄의 새 상태가 반영된다. 참조 확인은 넓게 잡는 쪽이라 틀려도 파일이 남을 뿐 지워지지 않는다.
-     */
-    private List<String> unreferencedContentImages(Set<String> candidates) {
-        if (candidates.isEmpty()) {
-            return List.of();
-        }
-        return candidates.stream()
-                .filter(url -> travelInfoMapper.countStructuredContentReferences(url) == 0)
-                .toList();
+        return StructuredContentImageCleanup.imageUrls(structuredContentService,
+                travelInfo.getStructuredContent(), StructuredImagePolicy.TRAVEL_INFO);
     }
 
     /**
@@ -598,30 +587,10 @@ public class TravelInfoService {
      * (업로드 API 와 저장 트랜잭션은 따로라, 실패한 저장이 이미 올린 새 이미지를 지우지도 않는다)
      * 트랜잭션 밖에서 불리면 썸네일과 같이 바로 지운다.
      */
-    private void scheduleContentImageCleanup(List<String> imageUrls) {
-        if (imageUrls.isEmpty()) {
-            return;
-        }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            deleteContentImagesSafely(imageUrls);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                deleteContentImagesSafely(imageUrls);
-            }
-        });
-    }
-
-    private void deleteContentImagesSafely(List<String> imageUrls) {
-        for (String imageUrl : imageUrls) {
-            try {
-                fileUploadService.deleteTravelInfoContentImage(imageUrl);
-            } catch (RuntimeException exception) {
-                log.warn("여행정보 본문 이미지 파일을 정리하지 못했습니다: {}", imageUrl, exception);
-            }
-        }
+    private void scheduleContentImageCleanup(Set<String> imageUrls) {
+        StructuredContentImageCleanup.afterCommit(imageUrls, StructuredImagePolicy.TRAVEL_INFO,
+                url -> travelInfoMapper.countStructuredContentReferences(url) == 0,
+                fileUploadService::deleteTravelInfoContentImage);
     }
 
     /**

@@ -7,7 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * 여행정보 저장·조회가 구조화 콘텐츠를 다룰 때 쓰는 입구. 읽기 → 검사 → 정규화 → 파생 content 를 한 번에 묶는다.
+ * 구조화 콘텐츠 저장·조회 입구. 도메인별 이미지 policy와 공용 읽기 → 검사 → 정규화 → 파생 content를 묶는다.
  *
  * <p>저장 규칙
  * <ul>
@@ -40,7 +40,11 @@ public class StructuredContentService {
 
     /** 관리자가 보낸 원문 블록 JSON 을 저장할 값으로 만든다. 잘못된 값이면 검증 예외다. */
     public PreparedContent prepareContent(String json) {
-        StructuredContent content = parser.parseContent(json);
+        return prepareContent(json, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public PreparedContent prepareContent(String json, StructuredImagePolicy imagePolicy) {
+        StructuredContent content = parser.parseContent(json, imagePolicy);
         return new PreparedContent(content, serializer.write(content), renderer.render(content));
     }
 
@@ -51,13 +55,18 @@ public class StructuredContentService {
      * @param languageLabel 오류 문구 앞에 붙일 언어 이름 (예: English)
      */
     public PreparedText prepareTranslation(StructuredContent base, String textJson, String languageLabel) {
+        return prepareTranslation(base, textJson, languageLabel, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public PreparedText prepareTranslation(StructuredContent base, String textJson, String languageLabel,
+                                            StructuredImagePolicy imagePolicy) {
         try {
             StructuredText aligned = localizer.alignToBase(base, parser.parseText(textJson));
             if (aligned.blocks().isEmpty()) {
                 return PreparedText.EMPTY;
             }
             StructuredContent localized = localizer.apply(base, aligned);
-            validator.validate(localized);
+            validator.validate(localized, imagePolicy);
             return new PreparedText(serializer.write(aligned), renderer.render(localized));
         } catch (StructuredContentValidationException exception) {
             throw new StructuredContentValidationException(StructuredContentValidator.TEXT_FIELD,
@@ -89,8 +98,12 @@ public class StructuredContentService {
      * 읽지 못하면 기록을 남기고 null 을 돌려준다. (화면은 파생 content 로 대신 보여 줄 수 있다)
      */
     public StructuredContent readStored(String storedJson) {
+        return readStored(storedJson, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public StructuredContent readStored(String storedJson, StructuredImagePolicy imagePolicy) {
         try {
-            return parser.parseContent(storedJson);
+            return parser.parseContent(storedJson, imagePolicy);
         } catch (StructuredContentValidationException exception) {
             log.warn("저장된 구조화 콘텐츠를 읽지 못했습니다: {}", exception.getMessage());
             return null;
@@ -102,7 +115,11 @@ public class StructuredContentService {
      * 다시 저장할 때 같은 검사로 걸러지므로 화면을 막지 않는다.
      */
     public String restoreContentJson(String storedJson) {
-        StructuredContent content = readStored(storedJson);
+        return restoreContentJson(storedJson, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public String restoreContentJson(String storedJson, StructuredImagePolicy imagePolicy) {
+        StructuredContent content = readStored(storedJson, imagePolicy);
         return content == null ? storedJson : serializer.write(content);
     }
 
@@ -125,13 +142,17 @@ public class StructuredContentService {
      * 원문 글을 그대로 보여 준다. (번역 하나 때문에 상세가 열리지 않으면 안 된다)
      */
     public StructuredContent localize(StructuredContent base, String storedTextJson) {
+        return localize(base, storedTextJson, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public StructuredContent localize(StructuredContent base, String storedTextJson, StructuredImagePolicy imagePolicy) {
         if (storedTextJson == null || storedTextJson.isBlank()) {
             return base;
         }
         try {
             StructuredText aligned = localizer.alignToBase(base, parser.parseText(storedTextJson));
             StructuredContent localized = localizer.apply(base, aligned);
-            validator.validate(localized);
+            validator.validate(localized, imagePolicy);
             return localized;
         } catch (StructuredContentValidationException exception) {
             log.warn("저장된 구조화 콘텐츠 번역을 읽지 못해 원문 글을 씁니다: {}", exception.getMessage());

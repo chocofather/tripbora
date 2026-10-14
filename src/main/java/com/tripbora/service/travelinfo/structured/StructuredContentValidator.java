@@ -73,6 +73,11 @@ public class StructuredContentValidator {
     }
 
     public void validate(StructuredContent content) {
+        validate(content, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public void validate(StructuredContent content, StructuredImagePolicy imagePolicy) {
+        Objects.requireNonNull(imagePolicy, "imagePolicy");
         if (content == null) {
             throw new StructuredContentValidationException("구조화 콘텐츠가 비어 있습니다.");
         }
@@ -96,7 +101,7 @@ public class StructuredContentValidator {
             if (!blockIds.add(block.id())) {
                 throw invalid(location, "블록 식별자가 중복되었습니다.");
             }
-            validateBlock(block, location);
+            validateBlock(block, location, imagePolicy);
         }
     }
 
@@ -139,7 +144,7 @@ public class StructuredContentValidator {
         }
     }
 
-    private void validateBlock(StructuredBlock block, String location) {
+    private void validateBlock(StructuredBlock block, String location, StructuredImagePolicy imagePolicy) {
         if (block instanceof StructuredBlock.SectionTitle sectionTitle) {
             requireText(sectionTitle.title(), TextField.TITLE, location);
         } else if (block instanceof StructuredBlock.RichText richText) {
@@ -148,7 +153,7 @@ public class StructuredContentValidator {
                 throw invalid(location, "본문 서식이 너무 많습니다. 서식을 줄여 주세요.");
             }
         } else if (block instanceof StructuredBlock.FullImage fullImage) {
-            requireImage(fullImage.image(), location);
+            requireImage(fullImage.image(), location, imagePolicy);
             // alt 는 선택이다. 비면 화면이 캡션 등으로 대신 채운다. (StructuredBlock.FullImage#effectiveAlt)
             optionalText(fullImage.alt(), TextField.ALT, location);
             optionalText(fullImage.caption(), TextField.CAPTION, location);
@@ -156,14 +161,14 @@ public class StructuredContentValidator {
             if (imageText.imagePosition() == null) {
                 throw invalid(location, "이미지 위치를 선택해 주세요.");
             }
-            requireImage(imageText.image(), location);
+            requireImage(imageText.image(), location, imagePolicy);
             optionalText(imageText.alt(), TextField.ALT, location);
             optionalText(imageText.title(), TextField.TITLE, location);
             requireText(imageText.text(), TextField.IMAGE_TEXT, location);
         } else if (block instanceof StructuredBlock.ImageSlider slider) {
-            validateSlider(slider, location);
+            validateSlider(slider, location, imagePolicy);
         } else if (block instanceof StructuredBlock.ImageGrid grid) {
-            validateGrid(grid, location);
+            validateGrid(grid, location, imagePolicy);
         } else if (block instanceof StructuredBlock.Callout callout) {
             requireText(callout.text(), TextField.CALLOUT, location);
         } else {
@@ -171,7 +176,7 @@ public class StructuredContentValidator {
         }
     }
 
-    private void validateSlider(StructuredBlock.ImageSlider slider, String location) {
+    private void validateSlider(StructuredBlock.ImageSlider slider, String location, StructuredImagePolicy imagePolicy) {
         optionalText(slider.title(), TextField.TITLE, location);
         List<StructuredBlock.SliderItem> items = slider.items();
         if (items.isEmpty()) {
@@ -180,11 +185,11 @@ public class StructuredContentValidator {
         if (items.size() > MAX_SLIDER_ITEMS) {
             throw invalid(location, "이미지는 " + MAX_SLIDER_ITEMS + "장까지 추가할 수 있습니다.");
         }
-        validateItems(items, location);
+        validateItems(items, location, imagePolicy);
     }
 
     /** 이미지 배치는 2칸 또는 3칸이고, 사진 수가 칸 수와 정확히 같아야 한다. */
-    private void validateGrid(StructuredBlock.ImageGrid grid, String location) {
+    private void validateGrid(StructuredBlock.ImageGrid grid, String location, StructuredImagePolicy imagePolicy) {
         Integer columns = grid.columns();
         if (columns == null || !GRID_COLUMNS.contains(columns)) {
             throw invalid(location, "이미지 배치는 2장 또는 3장만 선택할 수 있습니다.");
@@ -192,11 +197,11 @@ public class StructuredContentValidator {
         if (grid.items().size() != columns) {
             throw invalid(location, "이미지 " + columns + "장 배치에는 이미지가 정확히 " + columns + "장 있어야 합니다.");
         }
-        validateItems(grid.items(), location);
+        validateItems(grid.items(), location, imagePolicy);
     }
 
     /** 슬라이더·이미지 배치의 사진들. 이미지는 필수, 글(alt·제목·설명)은 선택이다. */
-    private void validateItems(List<StructuredBlock.SliderItem> items, String location) {
+    private void validateItems(List<StructuredBlock.SliderItem> items, String location, StructuredImagePolicy imagePolicy) {
         Set<String> itemIds = new HashSet<>();
         for (int index = 0; index < items.size(); index++) {
             StructuredBlock.SliderItem item = items.get(index);
@@ -205,18 +210,18 @@ public class StructuredContentValidator {
             if (!itemIds.add(item.id())) {
                 throw invalid(itemLocation, "이미지 식별자가 중복되었습니다.");
             }
-            requireImage(item.image(), itemLocation);
+            requireImage(item.image(), itemLocation, imagePolicy);
             optionalText(item.alt(), TextField.ALT, itemLocation);
             optionalText(item.title(), TextField.ITEM_TITLE, itemLocation);
             optionalText(item.caption(), TextField.CAPTION, itemLocation);
         }
     }
 
-    private void requireImage(StructuredImage image, String location) {
+    private void requireImage(StructuredImage image, String location, StructuredImagePolicy imagePolicy) {
         if (image == null || image.url() == null || image.url().isBlank()) {
             throw invalid(location, "이미지를 선택해 주세요.");
         }
-        if (!StructuredImage.URL_PATTERN.matcher(image.url()).matches()) {
+        if (!imagePolicy.allows(image.url())) {
             throw invalid(location, "이미지 경로가 올바르지 않습니다.");
         }
         if (!isValidDimension(image.width()) || !isValidDimension(image.height())) {

@@ -1,5 +1,5 @@
 /**
- * 여행정보 구조화 콘텐츠(STRUCTURED) 본문 사진 확대 모달. 공개 상세에서만 쓴다.
+ * 구조화 콘텐츠(STRUCTURED) 본문 사진 확대 모달. 공개 상세에서만 쓴다.
  *
  * <p>본문의 [data-structured-gallery-image] 사진(큰 이미지·이미지 + 글·슬라이더·이미지 배치)을 그려진 순서대로
  * 하나의 갤러리로 묶는다. 사진을 누르면(또는 포커스 후 Enter / Space) 그 사진부터 크게 보여 준다.
@@ -19,7 +19,7 @@
 (function () {
     'use strict';
 
-    const IMAGE_SELECTOR = '.travel-info-structured [data-structured-gallery-image]';
+    const IMAGE_SELECTOR = '.structured-content [data-structured-gallery-image]';
 
     function init() {
         const modal = document.querySelector('[data-structured-gallery]');
@@ -144,7 +144,7 @@
         }
 
         // 본문 사진: 누르기 / Enter / Space 로 연다. (이벤트 위임, 한 번만 건다)
-        const content = images[0].closest('.travel-info-structured') || document;
+        const content = images[0].closest('.structured-content') || document;
         content.addEventListener('click', event => {
             const image = event.target.closest('[data-structured-gallery-image]');
             if (image) open(images.indexOf(image));

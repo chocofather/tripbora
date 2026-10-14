@@ -1,6 +1,7 @@
 package com.tripbora.service.file;
 
 import com.tripbora.model.DiaryStickerType;
+import com.tripbora.service.travelinfo.structured.StructuredImagePolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -78,11 +79,10 @@ public class FileUploadService {
     static final int TRAVEL_INFO_CONTENT_IMAGE_MAX_EDGE = 2000;
     /** 펼치는 단계의 긴 변 상한. 썸네일과 같이 목표의 두 배라 한 걸음에 목표 크기가 된다. */
     static final int TRAVEL_INFO_CONTENT_IMAGE_DECODE_EDGE = 4000;
-    private static final String TRAVEL_INFO_CONTENT_IMAGE_DIRECTORY = "travel-info/content";
-    /** 구조화 콘텐츠 model(StructuredImage.URL_PREFIX)이 받는 경로와 같아야 한다. */
+    /** 검증과 저장이 같은 도메인 policy를 사용한다. */
     static final String TRAVEL_INFO_CONTENT_IMAGE_URL_PREFIX =
-            "/uploads/" + TRAVEL_INFO_CONTENT_IMAGE_DIRECTORY + "/";
-    /** 서버가 만든 이름(소문자 UUID + 판별한 확장자)만 관리 대상으로 본다. */
+            StructuredImagePolicy.TRAVEL_INFO.urlPrefix();
+    /** 일반 saveFile/deleteSavedFile의 UUID 파일 검증도 기존 규칙을 유지한다. */
     private static final Pattern MANAGED_CONTENT_IMAGE_NAME = Pattern.compile(
             "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:jpg|png|webp)$");
     public static final String EMPTY_IMAGE_MESSAGE = "이미지를 선택해 주세요.";
@@ -611,6 +611,11 @@ public class FileUploadService {
      * 아직 어떤 여행정보와도 이어지지 않으므로 DB 에는 아무것도 쓰지 않는다.
      */
     public StoredContentImage saveTravelInfoContentImage(MultipartFile file) {
+        return saveStructuredContentImage(file, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    /** 도메인 endpoint가 서버에서 정한 policy로 호출한다. policy는 업로드 요청에서 받지 않는다. */
+    public StoredContentImage saveStructuredContentImage(MultipartFile file, StructuredImagePolicy imagePolicy) {
         if (file == null || file.isEmpty()) {
             throw new UnsupportedImageFormatException(EMPTY_IMAGE_MESSAGE);
         }
@@ -640,7 +645,7 @@ public class FileUploadService {
             }
         }
 
-        Path directory = resolveContainedDirectory(TRAVEL_INFO_CONTENT_IMAGE_DIRECTORY, true,
+        Path directory = resolveContainedDirectory(imagePolicy.directory(), true,
                 "본문 이미지 저장 경로를 준비할 수 없습니다.");
         String savedName = UUID.randomUUID() + "." + format.extension;
         Path destination = directory.resolve(savedName).normalize();
@@ -655,7 +660,7 @@ public class FileUploadService {
             }
             throw new RuntimeException("본문 이미지 저장에 실패했습니다.", exception);
         }
-        return new StoredContentImage(TRAVEL_INFO_CONTENT_IMAGE_URL_PREFIX + savedName, size[0], size[1]);
+        return new StoredContentImage(imagePolicy.urlPrefix() + savedName, size[0], size[1]);
     }
 
     /**
@@ -665,8 +670,12 @@ public class FileUploadService {
      * 다시 보고, 실제 경로가 전용 폴더 안인지 확인한 뒤에만 지운다. 그 밖의 값은 예외다.
      */
     public boolean deleteTravelInfoContentImage(String imageUrl) {
-        String fileName = managedContentImageFileName(imageUrl);
-        Path directory = resolveContainedDirectory(TRAVEL_INFO_CONTENT_IMAGE_DIRECTORY, false,
+        return deleteStructuredContentImage(imageUrl, StructuredImagePolicy.TRAVEL_INFO);
+    }
+
+    public boolean deleteStructuredContentImage(String imageUrl, StructuredImagePolicy imagePolicy) {
+        String fileName = imagePolicy.fileName(imageUrl);
+        Path directory = resolveContainedDirectory(imagePolicy.directory(), false,
                 "본문 이미지 저장 경로를 확인할 수 없습니다.");
         if (directory == null) {
             return false;
@@ -682,17 +691,6 @@ public class FileUploadService {
 
     /** 저장한 본문 이미지. width / height 는 화면에 보이는(EXIF 회전을 반영한) 실제 크기다. */
     public record StoredContentImage(String url, int width, int height) {
-    }
-
-    private String managedContentImageFileName(String imageUrl) {
-        if (imageUrl == null || !imageUrl.startsWith(TRAVEL_INFO_CONTENT_IMAGE_URL_PREFIX)) {
-            throw new IllegalArgumentException("관리 대상이 아닌 본문 이미지 경로입니다.");
-        }
-        String fileName = imageUrl.substring(TRAVEL_INFO_CONTENT_IMAGE_URL_PREFIX.length());
-        if (!MANAGED_CONTENT_IMAGE_NAME.matcher(fileName).matches()) {
-            throw new IllegalArgumentException("올바르지 않은 본문 이미지 경로입니다.");
-        }
-        return fileName;
     }
 
     /** 크기 상한(10MB)을 이미 확인한 뒤라 통째로 읽어도 된다. */

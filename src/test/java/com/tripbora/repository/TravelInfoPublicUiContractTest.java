@@ -226,7 +226,7 @@ class TravelInfoPublicUiContractTest {
 
         // 본문 STRUCTURED 사진만 그려진 순서대로 모은다. 모달은 하나뿐이고 한 번만 초기화한다.
         assertThat(javascript)
-                .contains("const IMAGE_SELECTOR = '.travel-info-structured [data-structured-gallery-image]';")
+                .contains("const IMAGE_SELECTOR = '.structured-content [data-structured-gallery-image]';")
                 .contains("Array.from(document.querySelectorAll(IMAGE_SELECTOR))")
                 .contains("modal.dataset.galleryReady === 'true'")
                 .doesNotContain("innerHTML");

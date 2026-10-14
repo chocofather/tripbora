@@ -269,6 +269,48 @@ class TravelInfoStructuredDetailRenderingTest {
         assertThat(document.select(".structured-text").eachAttr("style")).allMatch(String::isEmpty);
     }
 
+    /** 서식을 쓴 일반 글은 정리된 HTML 을 그대로, 예전 일반 글은 지금처럼 escape 한 문단으로 그린다. */
+    @Test
+    void formattedRichTextRendersItsPresetsAndPlainTextStaysEscaped() throws Exception {
+        StructuredContent content = new StructuredContent(1, java.util.List.of(
+                new StructuredBlock.RichText("rich", null, null,
+                        "<h3>근정전</h3><p><strong>굵게</strong> <mark class=\"rt-point\">포인트</mark>"
+                                + " <a href=\"https://www.royalpalace.go.kr/\" onclick=\"x()\">홈페이지</a></p>"
+                                + "<p class=\"rt-size-small\">작은</p><p class=\"rt-size-large\">큰</p><h4>소제목</h4>"
+                                + "<p><span class=\"rt-font-sans\">고딕</span> <span class=\"rt-font-serif\">명조</span>"
+                                + " <span style=\"font-family: Comic\">임의</span></p>"
+                                + "<ul><li>하나</li></ul><blockquote>인용</blockquote><script>alert(1)</script>"),
+                new StructuredBlock.RichText("plain", null, "<b>글자 그대로</b>")));
+
+        Document document = render(structured(content), "ko");
+
+        Element rich = document.selectFirst("#structured-rich");
+        assertThat(rich).isNotNull();
+        assertThat(rich.className()).isEqualTo("structured-text is-rich");
+        assertThat(rich.select("h3").text()).isEqualTo("근정전");
+        // 크기·글꼴 프리셋은 class 그대로 남고, 프리셋이 아닌 span(style)은 글만 남는다.
+        assertThat(rich.select("p.rt-size-small").text()).isEqualTo("작은");
+        assertThat(rich.select("p.rt-size-large").text()).isEqualTo("큰");
+        assertThat(rich.select("h4").text()).isEqualTo("소제목");
+        assertThat(rich.select("span.rt-font-sans").text()).isEqualTo("고딕");
+        assertThat(rich.select("span.rt-font-serif").text()).isEqualTo("명조");
+        assertThat(rich.select("[style]")).isEmpty();
+        assertThat(rich.text()).contains("임의");
+        assertThat(rich.select("strong").text()).isEqualTo("굵게");
+        assertThat(rich.select("mark.rt-point").text()).isEqualTo("포인트");
+        assertThat(rich.select("ul li").text()).isEqualTo("하나");
+        assertThat(rich.select("blockquote").text()).isEqualTo("인용");
+        Element link = rich.selectFirst("a");
+        assertThat(link.attr("href")).isEqualTo("https://www.royalpalace.go.kr/");
+        assertThat(link.attr("rel")).isEqualTo("noopener noreferrer nofollow");
+        assertThat(link.hasAttr("onclick")).isFalse();
+        assertThat(rich.select("script")).isEmpty();
+        Element plain = document.selectFirst("#structured-plain");
+        assertThat(plain.className()).isEqualTo("structured-text");
+        assertThat(plain.select("b")).isEmpty();
+        assertThat(plain.select("p").text()).isEqualTo("<b>글자 그대로</b>");
+    }
+
     @Test
     void sectionTitleUsesALeftAccentLineAndTextBlocksShareTheContentStartLine() throws IOException {
         String css;
@@ -624,7 +666,7 @@ class TravelInfoStructuredDetailRenderingTest {
                 "/templates/admin/travel-info/detail.html")) {
             try (InputStream input = getClass().getResourceAsStream(template)) {
                 assertThat(new String(input.readAllBytes(), StandardCharsets.UTF_8)).as(template)
-                        .contains("/css/travel-info-structured.css?v=20261006-gallery");
+                        .contains("/css/travel-info-structured.css?v=20261014-rich-text-2");
             }
         }
     }

@@ -27,16 +27,27 @@ public record StructuredText(Map<String, BlockText> blocks) {
     /**
      * 한 블록의 번역 글. 블록 종류마다 쓰는 칸만 채운다.
      * 섹션 제목의 짧은 소개(lead)는 없어졌다. 예전 번역 JSON 의 lead 키는 읽고 버린다. (다시 저장하면 남지 않는다)
+     *
+     * <p>html 은 일반 글(RICH_TEXT) 번역의 서식 본문이다. 원문 {@link StructuredBlock.RichText} 와 같은 허용 목록으로
+     * 만들어질 때마다 정리한다. 일반 글 번역에 html 이 있으면 text 보다 html 을 쓴다.
+     * (다른 블록 종류에는 서식이 없어 원문과 합치는 단계에서 html 을 뺀다)
      */
     @JsonIgnoreProperties({"lead"})
     public record BlockText(String title, String text, String caption, String alt,
-                            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, ItemText> items) {
+                            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, ItemText> items,
+                            String html) {
         public BlockText {
             title = StructuredJson.blankToNull(title);
             text = StructuredJson.blankToNull(text);
+            html = StructuredRichTextHtml.sanitize(html);
             caption = StructuredJson.blankToNull(caption);
             alt = StructuredJson.blankToNull(alt);
             items = items == null ? Map.of() : Map.copyOf(items);
+        }
+
+        /** 서식 없는 번역 글. */
+        public BlockText(String title, String text, String caption, String alt, Map<String, ItemText> items) {
+            this(title, text, caption, alt, items, null);
         }
 
         /**
@@ -45,7 +56,7 @@ public record StructuredText(Map<String, BlockText> blocks) {
          */
         public boolean hasOverrides() {
             return title != null || text != null || caption != null || alt != null
-                    || !items.isEmpty();
+                    || html != null || !items.isEmpty();
         }
     }
 

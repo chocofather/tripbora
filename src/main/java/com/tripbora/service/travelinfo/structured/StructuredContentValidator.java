@@ -27,6 +27,8 @@ public class StructuredContentValidator {
     static final int MAX_ID_LENGTH = 40;
     /** 이미지 배치 블록의 칸 수. */
     static final Set<Integer> GRID_COLUMNS = Set.of(2, 3);
+    /** 일반 글 서식 본문(html)의 길이. 글 자체는 RICH_TEXT 한도로 보고, 이 값은 태그가 지나치게 많은 값만 막는다. */
+    static final int MAX_RICH_TEXT_HTML_LENGTH = 20000;
 
     /** 번역 글을 받는 폼 필드. (언어별 번역 슬롯) */
     static final String TEXT_FIELD = "translations";
@@ -113,6 +115,13 @@ public class StructuredContentValidator {
             StructuredText.BlockText block = entry.getValue();
             optionalText(block.title(), TextField.TITLE, location, TEXT_FIELD);
             optionalText(block.text(), TextField.RICH_TEXT, location, TEXT_FIELD);
+            if (block.html() != null) {
+                optionalText(StructuredRichTextHtml.plainText(block.html()), TextField.RICH_TEXT, location, TEXT_FIELD);
+                if (block.html().length() > MAX_RICH_TEXT_HTML_LENGTH) {
+                    throw new StructuredContentValidationException(TEXT_FIELD,
+                            location + ": 본문 서식이 너무 많습니다. 서식을 줄여 주세요.");
+                }
+            }
             optionalText(block.caption(), TextField.CAPTION, location, TEXT_FIELD);
             optionalText(block.alt(), TextField.ALT, location, TEXT_FIELD);
 
@@ -135,6 +144,9 @@ public class StructuredContentValidator {
             requireText(sectionTitle.title(), TextField.TITLE, location);
         } else if (block instanceof StructuredBlock.RichText richText) {
             requireText(richText.text(), TextField.RICH_TEXT, location);
+            if (richText.html() != null && richText.html().length() > MAX_RICH_TEXT_HTML_LENGTH) {
+                throw invalid(location, "본문 서식이 너무 많습니다. 서식을 줄여 주세요.");
+            }
         } else if (block instanceof StructuredBlock.FullImage fullImage) {
             requireImage(fullImage.image(), location);
             // alt 는 선택이다. 비면 화면이 캡션 등으로 대신 채운다. (StructuredBlock.FullImage#effectiveAlt)

@@ -605,6 +605,260 @@
     outline-offset: 2px;
 }
 
+/*
+  ---- 일반 글 서식 ----
+  툴바는 편집 칸 위에 붙은 한 줄짜리 작은 도구 모음이다. 편집 칸보다 눈에 띄지 않게 버튼을 낮고 옅게 둔다.
+  편집 칸 안의 프리셋 모양은 공개 화면(travel-info-structured.css 의 .structured-text.is-rich)과 같은 뜻으로 맞춘다.
+*/
+.admin-structured-richtext-box {
+    min-width: 0;
+}
+
+.admin-structured-richtext-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid #d8dfeb;
+    border-bottom: 0;
+    border-radius: 9px 9px 0 0;
+    background: #f6f7fa;
+}
+
+.admin-structured-richtext-button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: none;
+    color: #3d4962;
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.admin-structured-richtext-button:hover {
+    background: #eceff5;
+}
+
+.admin-structured-richtext-button.is-history {
+    min-width: 26px;
+    padding: 0 5px;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.admin-structured-richtext-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.admin-structured-richtext-button:disabled:hover {
+    background: none;
+}
+
+.admin-structured-richtext-link-hint {
+    flex-basis: 100%;
+    color: #717b91;
+    font-size: 0.78rem;
+}
+
+.admin-structured-richtext-button[aria-pressed="true"] {
+    border-color: #d6cdee;
+    background: var(--admin-blue-soft, #f3efff);
+    color: var(--admin-blue-dark, #6042b0);
+}
+
+.admin-structured-richtext-button:focus-visible,
+.admin-structured-editor .admin-structured-richtext-select:focus-visible {
+    outline: 2px solid #7892f5;
+    outline-offset: 1px;
+}
+
+.admin-structured-richtext-button.is-bold {
+    font-weight: 800;
+}
+
+.admin-structured-richtext-button.is-italic {
+    font-style: italic;
+    font-family: Georgia, serif;
+}
+
+.admin-structured-richtext-button.is-underline {
+    text-decoration: underline;
+}
+
+.admin-structured-richtext-button.is-mark {
+    background: #f1ebfb;
+}
+
+.admin-structured-richtext-button.is-point {
+    color: var(--admin-blue, #7657c8);
+    font-weight: 700;
+}
+
+.admin-structured-editor .admin-structured-richtext-select {
+    width: auto;
+    min-width: 0;
+    height: 28px;
+    min-height: 0;
+    padding: 0 6px;
+    border: 1px solid #d8dfeb;
+    border-radius: 5px;
+    background: #fff;
+    color: #3d4962;
+    font-size: 0.8rem;
+}
+
+.admin-structured-richtext-divider {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: #dde2ec;
+}
+
+.admin-structured-richtext-link {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid #d8dfeb;
+    border-bottom: 0;
+    background: #fbfcfe;
+}
+
+.admin-structured-richtext-link[hidden] {
+    display: none;
+}
+
+/* 관리자 공통 입력(.admin-form-card input[type="text"])보다 낮은 한 줄 입력으로 둔다. */
+.admin-structured-editor .admin-structured-richtext-link input.admin-structured-richtext-link-input {
+    flex: 1 1 240px;
+    width: auto;
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 0.86rem;
+}
+
+.admin-structured-richtext-surface {
+    min-height: 168px;
+    max-height: 560px;
+    overflow-y: auto;
+    padding: 12px 14px;
+    border: 1px solid #d8dfeb;
+    border-radius: 0 0 9px 9px;
+    background: #fbfcfe;
+    color: #35415a;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+}
+
+.admin-structured-richtext-surface:focus {
+    background: #fff;
+    border-color: #7892f5;
+    outline: 3px solid rgba(66, 101, 247, 0.11);
+}
+
+.admin-structured-richtext-surface.is-invalid {
+    border-color: #d77;
+}
+
+.admin-structured-richtext-surface > * {
+    margin: 0;
+}
+
+.admin-structured-richtext-surface > * + * {
+    margin-top: 0.8em;
+}
+
+.admin-structured-richtext-surface :is(h3, h4) {
+    color: #1d2430;
+    font-weight: 700;
+}
+
+/* 크기 단계는 공개 화면(travel-info-structured.css)과 같은 비율이다. */
+.admin-structured-richtext-surface h3 {
+    font-size: 1.53em;
+    line-height: 1.4;
+}
+
+.admin-structured-richtext-surface h4 {
+    font-size: 1.3em;
+    line-height: 1.45;
+}
+
+.admin-structured-richtext-surface .rt-size-small {
+    color: #6b7180;
+    font-size: 0.82em;
+}
+
+.admin-structured-richtext-surface .rt-size-large {
+    font-size: 1.18em;
+}
+
+.admin-structured-richtext-surface :is(ul, ol) {
+    padding-left: 1.4em;
+}
+
+/* 블록 목록(ol) 안에 들어 있어 브라우저가 고르는 중첩 목록 기호 대신 공개 화면과 같은 기호를 쓴다. */
+.admin-structured-richtext-surface ul {
+    list-style: disc;
+}
+
+.admin-structured-richtext-surface ol {
+    list-style: decimal;
+}
+
+.admin-structured-richtext-surface blockquote {
+    padding-left: 14px;
+    border-left: 2px solid #e6e4ea;
+    color: #6b7180;
+}
+
+.admin-structured-richtext-surface mark {
+    padding: 0 2px;
+    border-radius: 2px;
+    background: #f1ebfb;
+    color: inherit;
+}
+
+.admin-structured-richtext-surface mark.rt-point {
+    padding: 0;
+    background: none;
+    color: var(--admin-blue, #7657c8);
+    font-weight: 650;
+}
+
+.admin-structured-richtext-surface a {
+    color: var(--admin-blue, #7657c8);
+    text-decoration: underline;
+}
+
+.admin-structured-richtext-surface .rt-font-sans {
+    font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Hiragino Sans", "Yu Gothic",
+        "PingFang SC", "PingFang TC", "Microsoft YaHei", "Microsoft JhengHei", sans-serif;
+}
+
+.admin-structured-richtext-surface .rt-font-serif {
+    font-family: "Noto Serif KR", "Nanum Myeongjo", AppleMyungjo, Batang, "Hiragino Mincho ProN", "Yu Mincho",
+        "Songti SC", "Songti TC", SimSun, PMingLiU, Georgia, serif;
+}
+
+.admin-structured-richtext-status {
+    margin: 0;
+    color: #b54747;
+    font-size: 0.82rem;
+}
+
+.admin-structured-richtext-status:empty {
+    display: none;
+}
+
 @media (max-width: 860px) {
     /* 이미지 카드는 모두 한 칸. 이미지 자리는 [미리보기 | 버튼] 가로로 두어 카드 길이를 줄인다. */
     .admin-structured-image-card {

@@ -63,13 +63,23 @@ public sealed interface StructuredBlock {
     }
 
     /**
-     * 일반 텍스트 본문. HTML 이 아니며, 줄바꿈과 빈 줄(문단)만 의미가 있다.
-     * layout 은 본문 폭 프리셋이다. 예전 JSON 처럼 값이 없으면 기본(DEFAULT)으로 본다.
+     * 일반 글 본문. layout 은 본문 폭 프리셋이다. 예전 JSON 처럼 값이 없으면 기본(DEFAULT)으로 본다.
+     *
+     * <p>서식이 없으면 text 만 있다. text 는 HTML 이 아니며 줄바꿈과 빈 줄(문단)만 의미가 있다.
+     * 서식(문단 스타일·굵게·강조·링크·목록·인용·글꼴 프리셋)을 쓰면 html 에 제한형 HTML 이 들어간다.
+     * html 은 만들어질 때마다 {@link StructuredRichTextHtml} 이 허용 목록대로 정리하고,
+     * 그때 text 는 html 의 글로 다시 만든다. (통합검색·요약·길이 검사는 언제나 text 를 본다)
      */
-    record RichText(String id, RichTextLayout layout, String text) implements StructuredBlock {
+    record RichText(String id, RichTextLayout layout, String text, String html) implements StructuredBlock {
         public RichText {
             layout = layout == null ? RichTextLayout.DEFAULT : layout;
-            text = StructuredJson.blankToNull(text);
+            html = StructuredRichTextHtml.sanitize(html);
+            text = html != null ? StructuredRichTextHtml.plainText(html) : StructuredJson.blankToNull(text);
+        }
+
+        /** 서식 없는 본문. */
+        public RichText(String id, RichTextLayout layout, String text) {
+            this(id, layout, text, null);
         }
 
         /** 기본 폭 본문. */

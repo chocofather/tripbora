@@ -260,8 +260,8 @@ class StructuredEditorCreditContractTest {
     void adminFormLoadsTheNewEditorVersion() throws IOException {
         // 바꾼 JS·CSS 는 버전을 올려 캐시에 남은 예전 판(credit 을 버리는 readImage)과 섞이지 않게 한다.
         assertThat(resource("/templates/admin/travel-info/form.html"))
-                .contains("/js/admin-structured-editor.js?v=20261013-common-credit")
-                .contains("/css/admin-structured-editor.css?v=20261013-common-credit");
+                .contains("/js/admin-structured-editor.js?v=20261014-rich-text-2")
+                .contains("/css/admin-structured-editor.css?v=20261014-rich-text-2");
     }
 
     /**

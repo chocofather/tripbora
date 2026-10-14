@@ -606,7 +606,7 @@ class AdminTravelInfoControllerTest {
         assertThat(document.select(".structured-media-credit a").eachAttr("href"))
                 .containsExactly("https://commons.wikimedia.org/wiki/File:A.jpg");
         assertThat(document.select(".structured-media-credit a").attr("rel")).isEqualTo("noopener noreferrer nofollow");
-        assertThat(document.select("link[href='/css/travel-info-structured.css?v=20261006-gallery']")).hasSize(1);
+        assertThat(document.select("link[href='/css/travel-info-structured.css?v=20261014-rich-text-2']")).hasSize(1);
         // 확대 모달은 공개 상세 전용이다. 관리자 미리보기에는 모달·스크립트를 두지 않는다.
         assertThat(document.select("[data-structured-gallery]")).isEmpty();
         assertThat(document.select("script[src^=/js/structured-gallery.js]")).isEmpty();

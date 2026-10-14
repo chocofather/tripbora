@@ -61,7 +61,13 @@ public class StructuredContentLocalizer {
         if (block instanceof StructuredBlock.SectionTitle) {
             return blockText(override.title(), null, null, null, Map.of());
         }
-        if (block instanceof StructuredBlock.RichText || block instanceof StructuredBlock.Callout) {
+        if (block instanceof StructuredBlock.RichText) {
+            // 일반 글 번역은 서식 본문(html)도 받는다. html 이 있으면 그것만 남긴다. (글은 html 에서 나온다)
+            return override.html() != null
+                    ? new StructuredText.BlockText(null, null, null, null, Map.of(), override.html())
+                    : blockText(null, override.text(), null, null, Map.of());
+        }
+        if (block instanceof StructuredBlock.Callout) {
             return blockText(null, override.text(), null, null, Map.of());
         }
         if (block instanceof StructuredBlock.FullImage) {
@@ -99,9 +105,14 @@ public class StructuredContentLocalizer {
                     pick(override.title(), sectionTitle.title()));
         }
         if (block instanceof StructuredBlock.RichText richText) {
-            // 본문 폭은 원문 공통이다.
-            return new StructuredBlock.RichText(richText.id(), richText.layout(),
-                    pick(override.text(), richText.text()));
+            // 본문 폭은 원문 공통이다. 번역 글이 있으면 원문 서식이 아니라 번역 글(서식 본문 또는 일반 글)을 쓴다.
+            if (override.html() != null) {
+                return new StructuredBlock.RichText(richText.id(), richText.layout(), null, override.html());
+            }
+            if (override.text() != null) {
+                return new StructuredBlock.RichText(richText.id(), richText.layout(), override.text());
+            }
+            return richText;
         }
         if (block instanceof StructuredBlock.FullImage fullImage) {
             return new StructuredBlock.FullImage(fullImage.id(), fullImage.image(),

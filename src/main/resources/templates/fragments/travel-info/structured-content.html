@@ -21,10 +21,18 @@
         <h2 th:text="${block.title()}">경복궁</h2>
       </header>
 
-      <!-- 본문 폭 프리셋: DEFAULT 는 콘텐츠 폭 왼쪽 기준선, FOCUSED 는 좁은 단을 가운데 둔다. -->
+      <!--
+        본문 폭 프리셋: DEFAULT 는 콘텐츠 폭 왼쪽 기준선, FOCUSED 는 좁은 단을 가운데 둔다.
+        서식을 쓴 글(html)은 model 이 만들어질 때 허용 목록(StructuredRichTextHtml)으로 정리한 HTML 이라 그대로 그린다.
+        서식이 없는 예전 글은 지금처럼 문단마다 th:text 로 escape 해서 그린다.
+      -->
       <div class="structured-text" th:case="'RICH_TEXT'" th:id="${'structured-' + block.id()}"
-           th:classappend="${block.layout().name() == 'FOCUSED'} ? 'is-focused'">
-        <p th:each="paragraph : ${block.paragraphs()}" th:text="${paragraph}">본문</p>
+           th:classappend="${#strings.trim((block.layout().name() == 'FOCUSED' ? 'is-focused ' : '')
+                            + (block.html() != null ? 'is-rich' : ''))}">
+        <th:block th:if="${block.html() != null}" th:utext="${block.html()}"></th:block>
+        <th:block th:if="${block.html() == null}">
+          <p th:each="paragraph : ${block.paragraphs()}" th:text="${paragraph}">본문</p>
+        </th:block>
       </div>
 
       <figure class="structured-figure" th:case="'FULL_IMAGE'" th:id="${'structured-' + block.id()}"

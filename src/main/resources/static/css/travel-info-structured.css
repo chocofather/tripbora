@@ -113,6 +113,107 @@
     margin-top: 1.1em;
 }
 
+/*
+  서식을 쓴 일반 글(is-rich). 관리자 에디터의 프리셋만 그린다. (StructuredRichTextHtml 이 허용한 태그·class)
+  글자 크기는 본문 기준 em 이라 휴대폰에서 본문이 줄면 함께 줄어든다.
+*/
+.structured-text.is-rich > * {
+    margin: 0;
+}
+
+.structured-text.is-rich > * + * {
+    margin-top: 1.1em;
+}
+
+.structured-text.is-rich :is(h3, h4) {
+    color: var(--structured-ink);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+/* 크기 단계 (본문 17px 기준): 작은 글씨 ≈14px · 본문 17px · 큰 글씨 ≈20px · 소제목 ≈22px · 중제목 ≈26px */
+.structured-text.is-rich h3 {
+    font-size: 1.53em;
+    line-height: 1.4;
+}
+
+.structured-text.is-rich h4 {
+    font-size: 1.3em;
+    line-height: 1.45;
+}
+
+.structured-text.is-rich > * + :is(h3, h4) {
+    margin-top: 1.6em;
+}
+
+.structured-text.is-rich > :is(h3, h4) + * {
+    margin-top: 0.5em;
+}
+
+.structured-text.is-rich .rt-size-small {
+    color: var(--structured-muted);
+    font-size: 0.82em;
+}
+
+.structured-text.is-rich .rt-size-large {
+    color: var(--structured-ink);
+    font-size: 1.18em;
+}
+
+.structured-text.is-rich :is(ul, ol) {
+    padding-left: 1.4em;
+}
+
+.structured-text.is-rich li + li {
+    margin-top: 0.3em;
+}
+
+.structured-text.is-rich blockquote {
+    padding: 2px 0 2px 18px;
+    border-left: 2px solid var(--structured-line);
+    color: var(--structured-muted);
+}
+
+.structured-text.is-rich > * + blockquote,
+.structured-text.is-rich > blockquote + * {
+    margin-top: 1.4em;
+}
+
+.structured-text.is-rich strong {
+    color: var(--structured-ink);
+    font-weight: 700;
+}
+
+.structured-text.is-rich mark {
+    padding: 0 2px;
+    border-radius: 2px;
+    background: #f1ebfb;
+    color: inherit;
+}
+
+.structured-text.is-rich mark.rt-point {
+    padding: 0;
+    background: none;
+    color: var(--structured-accent);
+    font-weight: 650;
+}
+
+.structured-text.is-rich a {
+    color: var(--structured-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.structured-text.is-rich .rt-font-sans {
+    font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Hiragino Sans", "Yu Gothic",
+        "PingFang SC", "PingFang TC", "Microsoft YaHei", "Microsoft JhengHei", sans-serif;
+}
+
+.structured-text.is-rich .rt-font-serif {
+    font-family: "Noto Serif KR", "Nanum Myeongjo", AppleMyungjo, Batang, "Hiragino Mincho ProN", "Yu Mincho",
+        "Songti SC", "Songti TC", SimSun, PMingLiU, Georgia, serif;
+}
+
 /* ---- FULL_IMAGE ---- */
 .structured-figure {
     margin-inline: 0;

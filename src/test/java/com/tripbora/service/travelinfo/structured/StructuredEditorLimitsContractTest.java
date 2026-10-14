@@ -25,6 +25,7 @@ class StructuredEditorLimitsContractTest {
                 Map.entry("sliderItems", StructuredContentValidator.MAX_SLIDER_ITEMS),
                 Map.entry("title", StructuredContentValidator.TextField.TITLE.maxLength()),
                 Map.entry("richText", StructuredContentValidator.TextField.RICH_TEXT.maxLength()),
+                Map.entry("richTextHtml", StructuredContentValidator.MAX_RICH_TEXT_HTML_LENGTH),
                 Map.entry("imageText", StructuredContentValidator.TextField.IMAGE_TEXT.maxLength()),
                 Map.entry("caption", StructuredContentValidator.TextField.CAPTION.maxLength()),
                 Map.entry("alt", StructuredContentValidator.TextField.ALT.maxLength()),

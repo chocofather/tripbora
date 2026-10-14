@@ -168,37 +168,82 @@ class DestinationListLocalizationTest {
         assertThat(localizedCard.getRegionName()).isEqualTo("Seoul Jongno-gu");
     }
 
-    /** 해외 카드와 광역지역 자체에 등록된 국내 카드는 지금처럼 지역명만 둔다. */
+    /**
+     * 해외 카드는 대륙 바로 아래 국가를 요청 언어 이름으로 앞에 붙인다(후쿠오카 → Japan Fukuoka).
+     * 국가 자체에 등록된 해외 카드, 국가와 도시 이름이 같은 카드, 광역지역 자체에 등록된 국내 카드는 이름을 한 번만 둔다.
+     */
     @Test
-    void overseasAndProvinceLevelCardsKeepTheirRegionName() {
+    void overseasCardsShowTheCountryOnceBeforeTheLowestRegion() {
         CountryCategory asia = region(2L, "아시아", 1, null);
         CountryCategory japan = region(50L, "일본", 2, 2L);
         CountryCategory fukuoka = region(51L, "후쿠오카", 3, 50L);
-        when(countryCategoryService.getById(2L)).thenReturn(asia);
-        when(countryCategoryService.getById(50L)).thenReturn(japan);
-        when(countryCategoryService.getById(51L)).thenReturn(fukuoka);
-        when(countryCategoryService.getById(38L)).thenReturn(seoul);
+        CountryCategory singapore = region(60L, "싱가포르", 2, 2L);
+        CountryCategory singaporeCity = region(61L, "싱가포르", 3, 60L);
+        for (CountryCategory category : List.of(asia, japan, fukuoka, singapore, singaporeCity, seoul)) {
+            when(countryCategoryService.getById(category.getId())).thenReturn(category);
+        }
+        when(countryCategoryService.getOverseasRootIds()).thenReturn(List.of(2L));
         when(countryCategoryService.getSubregions(7L, 3)).thenReturn(List.of(seoul));
         destination.setRegionId(51L);
-        Destination provinceLevel = new Destination();
-        provinceLevel.setId(16L);
-        provinceLevel.setRegionId(38L);
-        DestinationDto provinceCard = new DestinationDto();
-        provinceCard.setId(16L);
-        provinceCard.setRegionName("Seoul");
+        Destination countryLevel = destinationIn(17L, 60L);
+        Destination sameNameCity = destinationIn(18L, 61L);
+        Destination provinceLevel = destinationIn(16L, 38L);
         localizedCard.setRegionName("Fukuoka");
+        DestinationDto countryCard = card(17L, "Singapore");
+        DestinationDto sameNameCityCard = card(18L, "Singapore");
+        DestinationDto provinceCard = card(16L, "Seoul");
+        List<Destination> destinations = List.of(destination, countryLevel, sameNameCity, provinceLevel);
         when(destinationService.getDestinationsByRegionIdsPaged(
                 List.of(7L, 38L, 235L), List.of(), 0, 12, "default"))
-                .thenReturn(List.of(destination, provinceLevel));
+                .thenReturn(destinations);
         when(destinationService.convertToLocalizedDtoWithBookmark(
-                eq(List.of(destination, provinceLevel)), eq(null), eq(SupportedLanguage.ENGLISH), anyMap()))
-                .thenReturn(List.of(localizedCard, provinceCard));
+                eq(destinations), eq(null), eq(SupportedLanguage.ENGLISH), anyMap()))
+                .thenReturn(List.of(localizedCard, countryCard, sameNameCityCard, provinceCard));
+        when(referenceNameLocalizationService.localizeCountryCategoryNames(
+                anyMap(), eq(SupportedLanguage.ENGLISH)))
+                .thenReturn(Map.of(38L, "Seoul", 50L, "Japan", 51L, "Fukuoka",
+                        60L, "Singapore", 61L, "Singapore"));
 
         Model model = new ExtendedModelMap();
         controller.destinationList("domestic", null, 1, 12, "default", null, null, request, model);
 
-        assertThat(localizedCard.getRegionName()).isEqualTo("Fukuoka");
+        assertThat(localizedCard.getRegionName()).isEqualTo("Japan Fukuoka");
+        assertThat(countryCard.getRegionName()).isEqualTo("Singapore");
+        assertThat(sameNameCityCard.getRegionName()).isEqualTo("Singapore");
         assertThat(provinceCard.getRegionName()).isEqualTo("Seoul");
+    }
+
+    /** 지역 이름이 비어 있는 카드는 접두 없이 그대로 둔다(예외 없음). */
+    @Test
+    void cardsWithoutRegionNameAreLeftAlone() {
+        CountryCategory asia = region(2L, "아시아", 1, null);
+        CountryCategory japan = region(50L, "일본", 2, 2L);
+        CountryCategory fukuoka = region(51L, "후쿠오카", 3, 50L);
+        for (CountryCategory category : List.of(asia, japan, fukuoka)) {
+            when(countryCategoryService.getById(category.getId())).thenReturn(category);
+        }
+        when(countryCategoryService.getOverseasRootIds()).thenReturn(List.of(2L));
+        destination.setRegionId(51L);
+        localizedCard.setRegionName(null);
+
+        Model model = new ExtendedModelMap();
+        controller.destinationList("domestic", null, 1, 12, "default", null, null, request, model);
+
+        assertThat(localizedCard.getRegionName()).isNull();
+    }
+
+    private Destination destinationIn(Long id, Long regionId) {
+        Destination destination = new Destination();
+        destination.setId(id);
+        destination.setRegionId(regionId);
+        return destination;
+    }
+
+    private DestinationDto card(Long id, String regionName) {
+        DestinationDto card = new DestinationDto();
+        card.setId(id);
+        card.setRegionName(regionName);
+        return card;
     }
 
     private CountryCategory region(Long id, String name, int depth, Long parentId) {

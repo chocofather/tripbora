@@ -59,6 +59,11 @@
        th:data-comment-invalid-location-response="#{course.detail.comment.invalidLocationResponse}"></div>
 
   <main class="course-detail-container">
+    <nav class="course-breadcrumb" aria-label="Breadcrumb">
+      <a th:href="@{/board/list(boardType='course')}" th:text="#{search.type.course}">여행코스</a>
+      <span aria-hidden="true">/</span>
+      <span th:text="#{course.detail.label}">나만의 여행 코스</span>
+    </nav>
     <article class="course-summary" data-title-content-translation
              th:data-translation-url="@{/course/{id}/translation(id=${course.id})}"
              th:data-translation-show="#{destination.detail.comment.translate}"
@@ -142,6 +147,13 @@
         </div>
       </header>
 
+      <figure class="course-hero" data-course-hero
+              th:if="${course.representativeImageUrl != null and !#strings.isEmpty(course.representativeImageUrl) and course.representativeImageUrl != '/images/default.png'}">
+        <img class="course-hero-image" data-course-hero-image
+             th:src="${course.representativeImageUrl}" th:alt="${course.title}"
+             fetchpriority="high" />
+      </figure>
+
       <section class="course-introduction">
         <h2 th:text="#{course.detail.section.introduction}">코스 소개</h2>
         <div id="course-translation-content"
@@ -153,17 +165,81 @@
 
     <section class="course-route" aria-labelledby="course-route-title">
       <div class="course-route-heading">
-        <p>TRAVEL ROUTE</p>
         <h2 id="course-route-title" th:text="#{course.detail.route.title}">여행 동선</h2>
       </div>
 
-      <div class="course-timeline" th:if="${course.stops != null and !course.stops.isEmpty()}">
+      <!-- JS가 꺼져 있으면 모든 Day가 순서대로 읽히고, 작동하지 않는 필터만 숨긴다. -->
+      <nav class="course-day-nav" data-course-day-nav hidden
+           th:if="${course.days != null and course.days.size() > 1}"
+           th:aria-label="#{course.detail.route.title}">
+        <button type="button" data-course-day-filter="all" aria-pressed="true"
+                th:text="#{course.detail.route.allDays}">전체 일정</button>
+        <button type="button" th:each="day : ${course.days}"
+                th:data-course-day-filter="${day.dayNumber}" aria-pressed="false"
+                th:aria-controls="|course-day-${day.dayNumber}|"
+                th:text="|Day ${day.dayNumber}|">Day 1</button>
+      </nav>
+
+      <section class="course-day-route" th:each="day : ${course.days}"
+               th:id="|course-day-${day.dayNumber}|" th:data-course-day="${day.dayNumber}"
+               th:aria-labelledby="|course-day-title-${day.dayNumber}|">
+        <h3 class="course-day-route-title" th:id="|course-day-title-${day.dayNumber}|">
+          <span class="course-day-number" th:text="|Day ${day.dayNumber}|">Day 1</span>
+          <span th:if="${day.title != null and !#strings.isEmpty(day.title)}" th:text="${day.title}"></span>
+        </h3>
+        <div class="course-timeline">
+          <article class="course-stop" th:each="stop : ${day.items}">
+            <div class="course-stop-marker" th:text="${stop.visitOrder}">1</div>
+            <div class="course-stop-card">
+              <h3 class="course-stop-heading">
+                <span class="course-item-time" th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}"
+                      th:text="${stop.startTime}"></span>
+                <span class="course-item-time-separator" aria-hidden="true"
+                      th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}">·</span>
+                <a class="course-stop-title-link" th:href="@{/destinations/{id}(id=${stop.destinationId})}"
+                   th:text="${stop.name}">장소명</a>
+              </h3>
+              <a class="course-stop-image-wrap" th:href="@{/destinations/{id}(id=${stop.destinationId})}">
+                <img class="course-stop-image"
+                     th:classappend="${stop.imageNoDerivatives} ? 'is-no-derivatives'"
+                     th:src="${stop.imageUrl != null and !#strings.isEmpty(stop.imageUrl) ? stop.imageUrl : '/images/default.png'}"
+                     th:alt="#{course.detail.stop.imageAlt(${stop.name})}" loading="lazy" />
+              </a>
+              <div class="course-stop-body">
+                <span class="course-item-type"
+                      th:text="${stop.itemType == 'STAY' ? '숙소' : (stop.itemType == 'FOOD' ? '음식' : '장소')}">장소</span>
+                <p class="course-stop-description"
+                   th:if="${stop.shortDescription != null and !#strings.isEmpty(#strings.trim(stop.shortDescription))}"
+                   th:text="${stop.shortDescription}"></p>
+                <details class="course-item-memo" th:if="${stop.memo != null and !#strings.isEmpty(stop.memo)}">
+                  <summary><span th:text="${stop.memo}"></span></summary>
+                </details>
+                <p class="course-stop-region">
+                  <span th:text="#{course.detail.stop.region}">지역</span>
+                  <strong th:text="${stop.regionName}">지역명</strong>
+                </p>
+              </div>
+            </div>
+          </article>
+        </div>
+        <p class="course-route-empty" th:if="${day.items == null or day.items.isEmpty()}"
+           th:text="#{course.detail.route.empty}">등록된 여행지가 없습니다.</p>
+      </section>
+
+      <div class="course-timeline" th:if="${(course.days == null or course.days.isEmpty()) and course.stops != null and !course.stops.isEmpty()}">
         <article th:each="stop : ${course.stops}"
                  class="course-stop">
           <div class="course-stop-marker" th:text="${stop.visitOrder}">1</div>
 
           <a class="course-stop-card"
              th:href="@{/destinations/{id}(id=${stop.destinationId})}">
+            <h3 class="course-stop-heading">
+              <span class="course-item-time" th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}"
+                    th:text="${stop.startTime}"></span>
+              <span class="course-item-time-separator" aria-hidden="true"
+                    th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}">·</span>
+              <span class="course-stop-title-link" th:text="${stop.name}">장소명</span>
+            </h3>
             <div class="course-stop-image-wrap">
               <img class="course-stop-image"
                    th:classappend="${stop.imageNoDerivatives} ? 'is-no-derivatives'"
@@ -173,7 +249,6 @@
             </div>
 
             <div class="course-stop-body">
-              <h3 th:text="${stop.name}">장소명</h3>
               <p class="course-stop-description"
                  th:if="${stop.shortDescription != null and !#strings.isEmpty(#strings.trim(stop.shortDescription))}"
                  th:text="${stop.shortDescription}">간단 설명</p>
@@ -187,7 +262,7 @@
       </div>
 
       <p class="course-route-empty"
-         th:if="${course.stops == null or course.stops.isEmpty()}"
+         th:if="${(course.days == null or course.days.isEmpty()) and (course.stops == null or course.stops.isEmpty())}"
          th:text="#{course.detail.route.empty}">등록된 여행지가 없습니다.</p>
     </section>
 

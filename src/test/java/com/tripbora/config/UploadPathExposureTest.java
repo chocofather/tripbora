@@ -62,7 +62,7 @@ class UploadPathExposureTest {
     void thePublicContentFoldersAreStillMapped() {
         assertThat(WebConfig.PUBLIC_UPLOAD_DIRECTORIES).contains(
                 "events", "destinations", "travel-info", "posts", "editor",
-                "comments", "post-comments", "course-comments",
+                "comments", "post-comments", "course-comments", "course/cover",
                 "profiles", "diary-stickers", "icons");
     }
 
@@ -90,7 +90,7 @@ class UploadPathExposureTest {
     @Test
     void thePublicImageUrlsAreStillReachableWithoutLogin() throws Exception {
         for (String directory : List.of("destinations", "events", "profiles",
-                "posts", "diary-stickers", "icons")) {
+                "posts", "diary-stickers", "icons", "course/cover")) {
             mockMvc.perform(get("/uploads/" + directory + "/sample.jpg"))
                     .andExpect(status().isNotFound());
         }

@@ -1,6 +1,8 @@
 package com.tripbora.service.course;
 
 import com.tripbora.dto.CourseDestinationSnapshotDto;
+import com.tripbora.dto.CourseDayForm;
+import com.tripbora.dto.CourseItemForm;
 import com.tripbora.dto.CourseStopDto;
 import com.tripbora.model.CourseCountry;
 import com.tripbora.model.CourseDay;
@@ -15,41 +17,82 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** 기존 Course 쓰기 트랜잭션에 참여하는 Phase 2의 단일 snapshot/sync 경계. */
+/** Course 쓰기 트랜잭션에 참여하는 일정/snapshot 저장 경계. */
 @Service
 @RequiredArgsConstructor
 public class CourseStructureService {
     private final CourseStructureMapper mapper;
 
+    public List<CourseDay> findDays(Long courseId) {
+        return mapper.findDays(courseId);
+    }
+
+    public List<CourseStopDto> findCourseStops(Long courseId) {
+        return mapper.findCourseStops(courseId);
+    }
+
+    public List<CourseDestinationSnapshotDto> findDestinationSnapshots(List<Long> destinationIds) {
+        return destinationIds.isEmpty() ? List.of() : mapper.findDestinationSnapshots(destinationIds);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
-    public void synchronizeDayOne(Long courseId, Long countryId, List<Long> destinationIds) {
+    public void replaceSchedule(Long courseId, Long countryId, List<CourseDayForm> days) {
+        List<Long> destinationIds = CourseScheduleValidator.validate(days);
         Map<Long, CourseDestinationSnapshotDto> sources = mapper.findDestinationSnapshots(destinationIds)
                 .stream().collect(Collectors.toMap(CourseDestinationSnapshotDto::getDestinationId,
                         Function.identity()));
-        if (sources.size() != destinationIds.size()
-                || !sources.keySet().containsAll(destinationIds)) {
+        if (sources.size() != destinationIds.size() || !sources.keySet().containsAll(destinationIds)) {
             throw new IllegalStateException("코스 여행지 snapshot을 확인할 수 없습니다.");
         }
-        CourseDay day = mapper.findDayOne(courseId);
-        if (day == null) {
-            day = new CourseDay();
-            day.setCourseId(courseId);
-            day.setDayNumber(1);
-            if (mapper.insertDay(day) != 1 || day.getId() == null) {
-                throw new IllegalStateException("코스 Day 저장에 실패했습니다.");
+        List<CourseDay> existing = mapper.findDays(courseId);
+        Map<Long, CourseDay> existingById = existing.stream()
+                .collect(Collectors.toMap(CourseDay::getId, Function.identity()));
+        Set<Long> retained = new HashSet<>();
+        for (CourseDayForm day : days) {
+            if (day.getId() != null && (!existingById.containsKey(day.getId()) || !retained.add(day.getId()))) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "유효하지 않은 Day가 포함되어 있습니다.");
             }
         }
-        // CourseService가 Course 행을 잠근 뒤 호출한다. Day ID는 보존하고 UNIQUE 순서는 비운 뒤 채운다.
-        mapper.deleteDayItems(day.getId());
-        for (int index = 0; index < destinationIds.size(); index++) {
-            CourseItem item = snapshot(sources.get(destinationIds.get(index)));
-            item.setCourseDayId(day.getId());
-            item.setDisplayOrder(index + 1);
-            if (mapper.insertItem(item) != 1) {
-                throw new IllegalStateException("코스 Item 저장에 실패했습니다.");
+        // 삭제될 Day만 제거한다. 그 Day의 Item은 FK CASCADE로 같은 트랜잭션에서 제거된다.
+        for (CourseDay old : existing) {
+            if (!retained.contains(old.getId()) && mapper.deleteDay(courseId, old.getId()) != 1) {
+                throw new IllegalStateException("코스 Day 삭제에 실패했습니다.");
+            }
+        }
+        if (!retained.isEmpty()) {
+            int maximum = existing.stream().mapToInt(CourseDay::getDayNumber).max().orElse(0);
+            int offset = Math.addExact(maximum, days.size());
+            Math.addExact(maximum, offset); // INT 범위를 넘는 비정상 데이터는 쓰기 전에 실패한다.
+            mapper.parkDayNumbers(courseId, offset);
+        }
+        for (CourseDayForm form : days) {
+            CourseDay day = new CourseDay();
+            day.setId(form.getId());
+            day.setCourseId(courseId);
+            day.setDayNumber(form.getDayNumber());
+            day.setTitle(form.getTitle() == null || form.getTitle().isBlank() ? null : form.getTitle());
+            if (day.getId() == null) {
+                if (mapper.insertDay(day) != 1 || day.getId() == null) {
+                    throw new IllegalStateException("코스 Day 저장에 실패했습니다.");
+                }
+            } else {
+                if (mapper.updateDay(day) != 1) throw new IllegalStateException("코스 Day 수정에 실패했습니다.");
+                mapper.deleteDayItems(day.getId());
+            }
+            for (CourseItemForm input : form.getItems()) {
+                CourseItem item = snapshot(sources.get(input.getDestinationId()));
+                item.setCourseDayId(day.getId());
+                item.setDisplayOrder(input.getDisplayOrder());
+                item.setStartTime(CourseScheduleValidator.parseTime(input.getStartTime()));
+                item.setEndTime(null);
+                item.setMemo(input.getMemo() == null || input.getMemo().isBlank() ? null : input.getMemo());
+                if (mapper.insertItem(item) != 1) throw new IllegalStateException("코스 Item 저장에 실패했습니다.");
             }
         }
         mapper.deleteCountries(courseId);
@@ -57,13 +100,7 @@ public class CourseStructureService {
         country.setCourseId(courseId);
         country.setCountryId(countryId);
         country.setDisplayOrder(1);
-        if (mapper.insertCountry(country) != 1) {
-            throw new IllegalStateException("코스 국가 저장에 실패했습니다.");
-        }
-    }
-
-    public List<CourseStopDto> findDayOneStops(Long courseId) {
-        return mapper.findDayOneStops(courseId);
+        if (mapper.insertCountry(country) != 1) throw new IllegalStateException("코스 국가 저장에 실패했습니다.");
     }
 
     private CourseItem snapshot(CourseDestinationSnapshotDto source) {
@@ -71,15 +108,18 @@ public class CourseStructureService {
         item.setDestinationId(source.getDestinationId());
         item.setCountryId(source.getCountryId());
         item.setPlaceName(source.getPlaceName());
-        DestinationType type = source.getType();
-        item.setItemType(type == DestinationType.ACCOMMODATION ? "STAY"
-                : type == DestinationType.RESTAURANTS || type == DestinationType.CAFE ? "FOOD" : "PLACE");
+        item.setItemType(itemType(source.getType()));
         // Phase 1 CHECK/backfill과 동일: 한쪽 누락 또는 범위 이탈이면 둘 다 NULL.
         if (inRange(source.getLatitude(), -90, 90) && inRange(source.getLongitude(), -180, 180)) {
             item.setLatitude(source.getLatitude());
             item.setLongitude(source.getLongitude());
         }
         return item;
+    }
+
+    public static String itemType(DestinationType type) {
+        return type == DestinationType.ACCOMMODATION ? "STAY"
+                : type == DestinationType.RESTAURANTS || type == DestinationType.CAFE ? "FOOD" : "PLACE";
     }
 
     private boolean inRange(BigDecimal value, int minimum, int maximum) {

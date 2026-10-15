@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="coverInput" class="form-group course-cover-input" data-course-cover
+     th:attr="data-existing-cover=${course != null ? course.coverImageUrl : ''}">
+  <span class="write-mobile-field-label">대표 이미지</span>
+  <div class="course-cover-preview" data-cover-preview hidden>
+    <img data-cover-image alt="대표 이미지 미리보기" />
+  </div>
+  <input type="file" name="coverImage" id="course-cover-file" accept="image/jpeg,image/png,image/webp"
+         class="course-cover-file" aria-describedby="course-cover-help" />
+  <input type="hidden" name="removeCoverImage" data-cover-remove-value
+         th:value="${course != null and course.removeCoverImage ? 'true' : 'false'}" />
+  <div class="course-cover-actions">
+    <button type="button" class="btn btn-secondary" data-cover-select>이미지 선택</button>
+    <button type="button" class="btn btn-secondary" data-cover-remove hidden>이미지 삭제</button>
+  </div>
+  <p id="course-cover-help" class="course-field-help">대표 이미지를 등록하지 않으면 첫 번째 여행지 이미지가 자동으로 사용됩니다. JPG·PNG·WEBP, 최대 10MB.</p>
+  <p class="course-field-help" role="status" data-cover-message></p>
+  <p class="course-field-help" th:if="${formError}">새 대표 이미지를 선택했다면 다시 선택해 주세요.</p>
+</div>
+</body>
+</html>

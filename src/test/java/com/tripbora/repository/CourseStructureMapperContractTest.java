@@ -66,11 +66,22 @@ class CourseStructureMapperContractTest {
 
     @Test
     void structuredReadPreservesItemOrderAndNullLinkedSnapshotsWithoutDependingOnLegacy() throws Exception {
-        String sql = sql("findDayOneStops", Map.of("courseId", 10L));
+        String sql = sql("findCourseStops", Map.of("courseId", 10L));
         assertThat(sql).contains("FROM course_days day", "JOIN course_items item",
                 "LEFT JOIN destinations d", "item.place_name", "item.country_id",
-                "day.day_number = 1", "ORDER BY item.display_order ASC, item.id ASC");
+                "TIME_FORMAT(item.start_time, '%H:%i')", "item.memo",
+                "ORDER BY day.day_number ASC, item.display_order ASC, item.id ASC");
         assertThat(sql).doesNotContain("course_destinations", "updated_at");
+    }
+
+    @Test
+    void dayReplacementUsesCourseOwnershipAndCollisionFreeNumberParking() throws Exception {
+        assertThat(sql("parkDayNumbers", Map.of("courseId", 10L, "offset", 92)))
+                .contains("day_number = day_number + ?", "WHERE course_id = ?", "ORDER BY day_number DESC");
+        assertThat(sql("deleteDay", Map.of("courseId", 10L, "dayId", 50L)))
+                .contains("WHERE id = ? AND course_id = ?");
+        assertThat(sql("findDays", Map.of("courseId", 10L)))
+                .contains("ORDER BY day_number ASC, id ASC");
     }
 
     private String sql(String id, Object params) throws Exception {

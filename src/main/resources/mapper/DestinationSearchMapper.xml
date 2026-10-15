@@ -8,6 +8,7 @@
     <resultMap id="DestinationSearchResultMap" type="com.tripbora.dto.DestinationSearchResultDto">
         <id property="id" column="destination_id"/>
         <result property="name" column="destination_name"/>
+        <result property="type" column="type"/>
         <result property="shortDescription" column="short_description"/>
         <result property="thumbnailUrl" column="thumbnail_url"/>
         <result property="regionName" column="region_name"/>
@@ -60,6 +61,7 @@
         SELECT
             d.id AS destination_id,
             dt.name AS destination_name,
+            d.type,
             dt.short_description,
             di.image_url AS thumbnail_url,
             cc.region_name,

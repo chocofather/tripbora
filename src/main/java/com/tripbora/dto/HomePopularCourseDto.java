@@ -15,6 +15,8 @@ public class HomePopularCourseDto {
     private boolean writerWithdrawn;
     private int views;
     private int totalDestinationCount;
+    /** 표지 또는 Day 1의 첫 연결 여행지 사진. 없으면 서비스의 기본 이미지를 사용한다. */
+    private String representativeImageUrl;
     private List<String> previewDestinationNames = new ArrayList<>();
     private List<String> previewImageUrls = new ArrayList<>();
 

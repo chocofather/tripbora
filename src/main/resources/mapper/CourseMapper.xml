@@ -11,6 +11,7 @@
         <result property="title" column="course_title"/>
         <result property="titleSourceLanguage" column="title_source_language"/>
         <result property="content" column="course_content"/>
+        <result property="coverImageUrl" column="cover_image_url"/>
         <result property="contentSourceLanguage" column="content_source_language"/>
         <result property="nickname" column="writer_nickname"/>
         <!-- 최종 탈퇴 회원의 익명 nickname 대신 공통 문구를 쓸지 판단하는 플래그. -->
@@ -41,6 +42,7 @@
         <result property="writerWithdrawn" column="writer_withdrawn"/>
         <result property="views" column="course_views"/>
         <result property="totalDestinationCount" column="destination_count"/>
+        <result property="representativeImageUrl" column="representative_image_url"/>
     </resultMap>
 
     <resultMap id="HomePopularCourseStopMap" type="com.tripbora.dto.HomePopularCourseStopDto">
@@ -66,6 +68,7 @@
             c.title AS course_title,
             c.title_source_language,
             c.content AS course_content,
+            c.cover_image_url,
             c.content_source_language,
             u.nickname AS writer_nickname,
             (u.status = 'DEACTIVATED') AS writer_withdrawn,
@@ -103,6 +106,7 @@
                c.title_source_language,
                c.content,
                c.content_source_language,
+               c.cover_image_url,
                c.updated_at
         FROM courses c
         LEFT JOIN country_categories country ON country.id = c.country_id
@@ -112,7 +116,7 @@
 
     <select id="findActiveCourseForUpdate" resultType="com.tripbora.model.Course">
         SELECT id, user_id, country_id, course_kind, status, title, title_source_language,
-               content, content_source_language, updated_at
+               content, content_source_language, cover_image_url, updated_at
         FROM courses
         WHERE id = #{courseId}
           AND deleted = 0
@@ -251,6 +255,27 @@
         ORDER BY cd.visit_order ASC, cd.id ASC
     </select>
 
+    <!-- 새 item이 어느 Day에든 있으면 legacy를 섞지 않는다. 빈 Day만 있으면 fallback한다. -->
+    <sql id="HomeCourseStopSource">
+        SELECT day.course_id, item.destination_id, day.day_number,
+               item.display_order, item.id AS stop_id
+        FROM course_days day
+        JOIN course_items item ON item.course_day_id = day.id
+        JOIN destinations linked ON linked.id = item.destination_id
+
+        UNION ALL
+
+        SELECT cd.course_id, cd.destination_id, 1 AS day_number,
+               cd.visit_order AS display_order, cd.id AS stop_id
+        FROM course_destinations cd
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM course_days existing_day
+            JOIN course_items existing_item ON existing_item.course_day_id = existing_day.id
+            WHERE existing_day.course_id = cd.course_id
+        )
+    </sql>
+
     <select id="findPopularCourses" resultMap="HomePopularCourseMap">
         SELECT
             c.id AS course_id,
@@ -258,23 +283,41 @@
             u.nickname AS writer_nickname,
             (u.status = 'DEACTIVATED') AS writer_withdrawn,
             c.views AS course_views,
-            COUNT(cd.id) AS destination_count
+            COUNT(stops.destination_id) AS destination_count,
+            COALESCE(
+                NULLIF(TRIM(c.cover_image_url), ''),
+                (
+                    SELECT di.image_url
+                    FROM destination_images di
+                    WHERE di.destination_id = (
+                        SELECT representative.destination_id
+                        FROM (<include refid="HomeCourseStopSource"/>) representative
+                        WHERE representative.course_id = c.id
+                          AND representative.day_number = 1
+                        ORDER BY representative.display_order ASC, representative.stop_id ASC
+                        LIMIT 1
+                    )
+                    ORDER BY CASE WHEN di.is_main = 1 THEN 0 ELSE 1 END,
+                             di.order_index ASC, di.id ASC
+                    LIMIT 1
+                )
+            ) AS representative_image_url
         FROM courses c
         JOIN users u ON u.id = c.user_id
-        JOIN course_destinations cd ON cd.course_id = c.id
+        LEFT JOIN (<include refid="HomeCourseStopSource"/>) stops ON stops.course_id = c.id
         WHERE c.deleted = 0
           AND c.status = 'PUBLISHED'
           AND c.deleted_at IS NULL
-        GROUP BY c.id, c.title, u.nickname, u.status, c.views, c.created_at
+        GROUP BY c.id, c.title, u.nickname, u.status, c.views, c.created_at, c.cover_image_url
         ORDER BY c.views DESC, c.created_at DESC, c.id DESC
         LIMIT #{limit}
     </select>
 
     <select id="findPopularCourseStops" resultMap="HomePopularCourseStopMap">
         SELECT
-            cd.course_id,
-            cd.destination_id,
-            cd.visit_order,
+            stops.course_id,
+            stops.destination_id,
+            stops.display_order AS visit_order,
             COALESCE(dt.name, '이름 없는 여행지') AS destination_name,
             COALESCE(
                 (
@@ -293,17 +336,18 @@
                     LIMIT 1
                 )
             ) AS image_url
-        FROM course_destinations cd
-        JOIN destinations d ON d.id = cd.destination_id
-        JOIN courses c ON c.id = cd.course_id AND c.deleted = 0 AND c.status = 'PUBLISHED'
+        FROM (<include refid="HomeCourseStopSource"/>) stops
+        JOIN destinations d ON d.id = stops.destination_id
+        JOIN courses c ON c.id = stops.course_id AND c.deleted = 0 AND c.status = 'PUBLISHED'
         LEFT JOIN destination_translations dt
           ON dt.destination_id = d.id
          AND dt.language_code = 'ko'
-        WHERE cd.course_id IN
+        WHERE c.deleted_at IS NULL
+          AND stops.course_id IN
         <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">
             #{courseId}
         </foreach>
-        ORDER BY cd.course_id ASC, cd.visit_order ASC, cd.id ASC
+        ORDER BY stops.course_id ASC, stops.day_number ASC, stops.display_order ASC, stops.stop_id ASC
     </select>
 
     <select id="countExistingDestinations" resultType="int">
@@ -365,10 +409,10 @@
     <insert id="insertCourse" parameterType="com.tripbora.model.Course" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO courses (
             title, title_source_language, user_id, country_id,
-            content, content_source_language, course_kind, status, created_at, deleted
+            content, content_source_language, cover_image_url, course_kind, status, created_at, deleted
         ) VALUES (
                      #{title}, #{titleSourceLanguage}, #{userId}, #{countryId},
-                     #{content}, #{contentSourceLanguage}, #{courseKind}, #{status}, NOW(), 0
+                     #{content}, #{contentSourceLanguage}, #{coverImageUrl}, #{courseKind}, #{status}, NOW(), 0
                  )
     </insert>
 
@@ -380,6 +424,11 @@
                      #{courseId}, #{destinationId}, #{visitOrder}
                  )
     </insert>
+
+    <update id="updateCoverImage">
+        UPDATE courses SET cover_image_url = #{coverImageUrl}
+        WHERE id = #{courseId} AND user_id = #{userId} AND deleted = 0
+    </update>
 
     <update id="updateCourse">
         UPDATE courses

@@ -15,6 +15,57 @@ class CourseTimelineUiContractTest {
     private static final Path RESOURCES = Path.of("src/main/resources");
 
     @Test
+    void dayFilterEnhancesReadableDaysAndHeroUsesTheExistingRepresentativeImage() throws IOException {
+        var document = Jsoup.parse(resource("templates/course/detail.html"));
+        var nav = document.selectFirst("[data-course-day-nav]");
+        assertThat(nav).isNotNull();
+        assertThat(nav.hasAttr("hidden")).isTrue();
+        assertThat(nav.select("button[data-course-day-filter=all][aria-pressed=true]")).hasSize(1);
+        assertThat(nav.select("button").stream().filter(button -> button.hasAttr("th:each"))).hasSize(1);
+        var day = document.selectFirst("section.course-day-route");
+        assertThat(day.hasAttr("hidden")).isFalse();
+        assertThat(day.attr("th:data-course-day")).isEqualTo("${day.dayNumber}");
+        var hero = document.selectFirst("[data-course-hero]");
+        assertThat(hero.attr("th:if")).contains("course.representativeImageUrl", "'/images/default.png'");
+        assertThat(hero.selectFirst("img").attr("th:src")).isEqualTo("${course.representativeImageUrl}");
+        assertThat(document.select(".course-breadcrumb a")).hasSize(1);
+        assertThat(resource("static/css/course-detail.css"))
+                .contains(".course-detail-container .course-hero-image", "object-fit: cover", "object-position: center")
+                .contains(".course-detail-container .course-day-route[hidden]");
+    }
+
+    @Test
+    void multiDayRouteKeepsDayOrderAndEscapesUserTitlesAndMemos() throws IOException {
+        String template = resource("templates/course/detail.html");
+
+        assertThat(template)
+                .contains("th:each=\"day : ${course.days}\"")
+                .contains("th:each=\"stop : ${day.items}\"")
+                .contains("th:text=\"${day.title}\"")
+                .contains("th:text=\"${stop.memo}\"")
+                .contains("th:text=\"${stop.startTime}\"")
+                .doesNotContain("stop.endTime")
+                .contains("stop.itemType == 'STAY'", "stop.itemType == 'FOOD'")
+                .doesNotContain("th:utext=\"${day.title}\"", "th:utext=\"${stop.memo}\"");
+    }
+
+    @Test
+    void memoCanExpandWithoutJavascriptAndKeepsDestinationLinksSeparate() throws IOException {
+        var document = Jsoup.parse(resource("templates/course/detail.html"));
+        var row = document.selectFirst(".course-day-route .course-stop-card");
+        assertThat(row.tagName()).isEqualTo("div");
+        assertThat(row.select("a.course-stop-image-wrap")).hasSize(1);
+        assertThat(row.select("a.course-stop-title-link")).hasSize(1);
+        var memo = row.selectFirst("details.course-item-memo");
+        assertThat(memo).isNotNull();
+        assertThat(memo.selectFirst("summary span").attr("th:text")).isEqualTo("${stop.memo}");
+        assertThat(memo.parents().stream().anyMatch(parent -> parent.tagName().equals("a"))).isFalse();
+        assertThat(resource("static/css/course-detail.css"))
+                .contains(".course-item-memo[open] > summary > span", "-webkit-line-clamp: 2")
+                .contains("-webkit-line-clamp: unset");
+    }
+
+    @Test
     void templateKeepsStopDomOrderAndAllExistingCardInformation() throws IOException {
         String template = resource("templates/course/detail.html");
 
@@ -56,59 +107,45 @@ class CourseTimelineUiContractTest {
     }
 
     @Test
-    void desktopUsesThreeColumnSixStopSnakeWithoutCssOrder() throws IOException {
+    void everyViewportUsesCompactRowsInNaturalStopOrder() throws IOException {
         String css = resource("static/css/course-detail.css");
 
         assertThat(css)
-                .contains("grid-template-columns: repeat(3, minmax(0, 1fr))")
-                .contains("grid-auto-flow: row dense")
-                .contains(".course-stop:nth-of-type(6n + 1)")
-                .contains(".course-stop:nth-of-type(6n + 2)")
-                .contains(".course-stop:nth-of-type(6n + 3)")
-                .contains(".course-stop:nth-of-type(6n + 4)")
-                .contains(".course-stop:nth-of-type(6n + 5)")
-                .contains(".course-stop:nth-of-type(6n)")
-                .contains("grid-column: 1")
-                .contains("grid-column: 2")
-                .contains("grid-column: 3")
+                .contains(".course-detail-container .course-route .course-timeline")
+                .contains("flex-direction: column")
+                .contains("grid-template-columns: 120px minmax(0, 1fr)")
+                .contains("--route-marker-size: 24px")
+                .doesNotContain("nth-of-type", "grid-auto-flow: row dense", "repeat(3,")
                 .doesNotContain("flex-direction: row-reverse")
                 .doesNotContain("\n    order:");
     }
 
     @Test
-    void connectorsStopAtLastCardAndTurnAtEachRowEnd() throws IOException {
+    void straightConnectorsStopAtLastRowAndSurviveSharedMobileRules() throws IOException {
         String css = resource("static/css/course-detail.css");
 
         assertThat(css)
-                .contains(".course-stop::before")
-                .contains(".course-stop::after")
-                .contains(":not(:last-child)::before")
-                .contains(".course-stop:nth-of-type(6n + 3):not(:last-child)::after")
-                .contains(".course-stop:nth-of-type(6n):not(:last-child)::after")
-                .contains("--route-line-color: var(--tripbora-border)")
-                .contains("height: calc(100% + var(--route-row-gap))")
-                .contains("z-index: 2")
-                .contains("align-items: stretch");
+                .contains(".course-detail-container .course-route .course-timeline > .course-stop:not(:last-child)::before")
+                .contains("display: block", "top: var(--route-marker-size)", "bottom: 0", "width: 1px")
+                .contains("background: var(--route-line-color)")
+                .contains(".course-detail-container .course-route .course-timeline > .course-stop:last-child::before")
+                .doesNotContain(".course-stop::after", "--route-turn-offset");
     }
 
     @Test
-    void mobileFullyResetsSnakeAndProvidesResponsiveCardSizes() throws IOException {
+    void mobileKeepsCompactThumbnailsAndShrinkableTextColumns() throws IOException {
         String css = resource("static/css/course-detail.css");
-        int mobileStart = css.indexOf("@media (max-width: 900px)");
+        int mobileStart = css.indexOf("@media (max-width: 600px)");
         String mobile = css.substring(mobileStart);
 
         assertThat(mobileStart).isNotNegative();
         assertThat(mobile)
-                .contains("display: flex")
-                .contains("flex-direction: column")
-                .contains(".course-stop:nth-of-type(n)")
-                .contains("grid-column: auto")
-                .contains(".course-timeline > .course-stop:nth-of-type(n):not(:last-child)::before")
-                .contains("height: calc(100% + var(--route-row-gap))")
+                .contains(".course-detail-container .course-route .course-stop-card")
+                .contains("grid-template-columns: 80px minmax(0, 1fr)")
+                .contains("width: 80px; height: 68px")
                 .doesNotContain("linear-gradient")
-                .contains("@media (max-width: 480px)")
-                .contains("@media (max-width: 320px)")
                 .contains("minmax(0, 1fr)");
+        assertThat(css).contains("min-width: 0", "overflow-wrap: anywhere");
     }
 
     private String resource(String relativePath) throws IOException {

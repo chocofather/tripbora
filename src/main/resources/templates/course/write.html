@@ -20,6 +20,7 @@
   <script src="/js/quill-editor-init.js" defer></script>
   <script src="/js/country-combobox.js" defer></script>
   <script src="/js/course-write.js" defer></script>
+  <script src="/js/course-cover.js" defer></script>
 </th:block>
 
 <th:block th:fragment="body">
@@ -29,8 +30,13 @@
     <form id="course-form"
           th:action="@{/course/write}"
           method="post"
+          enctype="multipart/form-data"
           class="write-form"
-          data-country-restriction="true">
+          data-country-restriction="true"
+          data-initial-content-id="initial-content"
+          th:attr="data-initial-country-name=${course != null ? course.countryName : ''}">
+
+      <p class="course-write-message is-error" role="alert" th:if="${formError}" th:text="${formError}"></p>
 
       <!-- 제목 -->
       <h2 class="write-mobile-section-title">기본 정보</h2>
@@ -39,11 +45,14 @@
         <input type="text"
                id="course-title"
                name="title"
+               th:value="${course != null ? course.title : ''}"
                placeholder="코스 제목을 입력하세요"
                maxlength="255"
                required
                class="input-text" />
       </div>
+
+      <div th:replace="~{course/fragments/cover-input :: coverInput}"></div>
 
       <!-- 에디터 -->
       <div class="form-group editor-group">
@@ -52,6 +61,20 @@
           <div id="editor" class="course-editor quill-editor"></div>
         </div>
         <input type="hidden" name="content" id="content-input" />
+        <textarea id="initial-content" hidden th:if="${course != null}" th:text="${course.content}"></textarea>
+      </div>
+
+      <div hidden aria-hidden="true" th:if="${course != null}">
+        <div th:each="day : ${course.days}" data-initial-day
+             th:attr="data-day-id=${day.id},data-title=${day.title}">
+          <span th:each="stop : ${day.items}" data-initial-destination
+                th:attr="data-destination-id=${stop.destinationId},data-name=${stop.name},
+                         data-region-name=${stop.regionName},data-country-id=${stop.countryId},
+                         data-country-name=${stop.countryName},data-thumbnail-url=${stop.imageUrl},
+                         data-image-no-derivatives=${stop.imageNoDerivatives},
+                         data-start-time=${stop.startTime},
+                         data-memo=${stop.memo},data-item-type=${stop.itemType}"></span>
+        </div>
       </div>
 
       <section class="course-country-picker" aria-labelledby="course-country-title">
@@ -73,7 +96,8 @@
                     aria-pressed="false">해외</button>
           </div>
 
-          <input type="hidden" id="course-country-id" name="countryId" />
+          <input type="hidden" id="course-country-id" name="countryId"
+                 th:value="${course != null ? course.countryId : null}" />
 
           <div id="overseas-country-field" class="overseas-country-field" hidden>
             <label for="overseas-country-input">해외 국가 선택 <span aria-hidden="true">*</span></label>
@@ -108,42 +132,49 @@
         </div>
       </section>
 
-      <section class="course-destination-picker" aria-labelledby="destination-search-title">
-        <div class="picker-heading">
-          <h2 id="destination-search-title">여행지 검색</h2>
-          <p>방문할 장소를 검색해 코스에 추가하세요.</p>
-        </div>
-
-        <div class="destination-search-controls">
-          <label for="destination-search-input" class="sr-only">여행지 검색어</label>
-          <input type="search"
-                 id="destination-search-input"
-                 placeholder="장소명이나 지역을 검색하세요"
-                 autocomplete="off" />
-          <button type="button" id="destination-search-button" class="btn btn-secondary">검색</button>
-        </div>
-
-        <p id="course-write-message" class="course-write-message" role="status" aria-live="polite"></p>
-        <div id="destination-search-results" class="destination-search-results" aria-live="polite"></div>
-      </section>
-
       <section class="selected-course-section" aria-labelledby="selected-course-title">
-        <div class="picker-heading">
-          <h2 id="selected-course-title">선택한 코스</h2>
-          <span class="write-mobile-selection-count" id="selected-course-count" aria-live="polite">현재 0곳</span>
-          <p>위·아래 버튼으로 실제 방문 순서를 정하세요.</p>
+        <div class="picker-heading course-schedule-heading">
+          <h2 id="selected-course-title">여행 일정</h2>
+          <span class="write-mobile-selection-count" id="selected-course-count" aria-live="polite">1일 · 0곳</span>
+          <p>하루씩 일정을 채워보세요. 여행지를 누르면 바로 아래에서 시간과 메모를 편집할 수 있어요.</p>
         </div>
-        <ol id="selected-destinations" class="selected-destinations"></ol>
+        <div class="course-day-navigation">
+          <div id="course-day-tabs" class="course-day-tabs" role="tablist" aria-label="여행 Day 선택"></div>
+          <button type="button" id="course-add-day" class="btn btn-secondary">+ Day</button>
+        </div>
+        <div id="selected-destinations" class="course-days"></div>
+        <section id="course-search-panel" class="course-search-inline" hidden aria-labelledby="destination-search-title">
+          <div class="course-search-heading">
+            <h3 id="destination-search-title">여행지 검색</h3>
+            <p id="course-search-target"></p>
+          </div>
+          <div class="destination-search-controls">
+            <label for="destination-search-input" class="sr-only">여행지 검색어</label>
+            <input type="search" id="destination-search-input" placeholder="장소명이나 지역 검색" autocomplete="off" />
+            <button type="button" id="destination-search-button" class="btn btn-secondary">검색</button>
+          </div>
+          <p id="course-search-message" class="course-write-message" role="status" aria-live="polite"></p>
+          <div id="destination-search-results" class="destination-search-results" aria-label="여행지 검색 결과" tabindex="0"></div>
+          <div class="course-search-footer">
+            <span>여러 여행지를 이어서 추가할 수 있어요.</span>
+            <button type="button" id="course-search-close" class="btn btn-secondary">검색 닫기</button>
+          </div>
+        </section>
+        <p class="course-day-help">최대 90일 · Day당 50곳 · 각 Day에 한 곳 이상 필요합니다.</p>
+        <p id="course-write-message" class="course-write-message" role="status" aria-live="polite"></p>
         <div id="destination-id-inputs"></div>
       </section>
 
+
+
       <!-- 버튼 그룹 -->
-      <div class="button-group">
+      <div class="button-group course-save-bar">
         <button type="submit" id="course-submit-button" class="btn btn-primary">코스 등록</button>
         <a th:href="@{/board/list?boardType=course}"
            class="btn btn-secondary">취소</a>
       </div>
     </form>
+
   </div>
 
 </th:block>

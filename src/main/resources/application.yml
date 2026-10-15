@@ -124,6 +124,9 @@ server:
   address: 127.0.0.1
   port: 8081
   tomcat:
+    # Course 일정 최대 90일 × 50곳의 nested 입력(약 2.3만 필드)과 UTF-8 메모를 수용한다.
+    max-parameter-count: 30000
+    max-http-form-post-size: 64MB
     # 실제 등록폼 494 parts(카테고리·편의시설 체크박스 표시 필드 포함) + 사진별 출처 입력 7 parts.
     # 기본 50개 제한은 이미지 없이도 413을 낸다. 600개면 현재 폼에 사진 약 15장 여유가 있다.
     # 업로드 크기는 spring.servlet.multipart 의 한도(파일 20MB, 요청 25MB)를 따른다.

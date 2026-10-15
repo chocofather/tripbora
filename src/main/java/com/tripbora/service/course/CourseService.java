@@ -26,6 +26,9 @@ public interface CourseService {
 
     void deleteCourse(Long courseId, Long userId);
 
+    CourseEditDto prepareFormForRetry(String title, String content, Long countryId,
+                                     List<com.tripbora.dto.CourseDayForm> days);
+
     /**
      * 그 여행지를 담고 있는 코스 번호들.
      *

@@ -11,6 +11,11 @@ import java.util.List;
 
 @Mapper
 public interface CourseStructureMapper {
+    List<CourseDay> findDays(@Param("courseId") Long courseId);
+    List<CourseStopDto> findCourseStops(@Param("courseId") Long courseId);
+    int parkDayNumbers(@Param("courseId") Long courseId, @Param("offset") int offset);
+    int updateDay(CourseDay day);
+    int deleteDay(@Param("courseId") Long courseId, @Param("dayId") Long dayId);
     CourseDay findDayOne(@Param("courseId") Long courseId);
     int insertDay(CourseDay day);
     int deleteDayItems(@Param("courseDayId") Long courseDayId);

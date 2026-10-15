@@ -69,7 +69,8 @@ class CourseStopResequenceTest {
                 new ReferenceNameLocalizationService(countryCategoryMapper, categoryMapper,
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
                 new LocalContentLanguageDetector(), destinationImageService,
-                org.mockito.Mockito.mock(CourseStructureService.class));
+                org.mockito.Mockito.mock(CourseStructureService.class),
+                org.mockito.Mockito.mock(CourseCoverStorageService.class));
     }
 
     @Test

@@ -3,12 +3,13 @@ package com.tripbora.service.course;
 import com.tripbora.dto.CourseCreateRequest;
 import com.tripbora.dto.CourseDetailDto;
 import com.tripbora.dto.CourseDestinationCountryDto;
+import com.tripbora.dto.CourseDayForm;
+import com.tripbora.dto.CourseItemForm;
 import com.tripbora.dto.CourseStopDto;
 import com.tripbora.dto.CourseUpdateRequest;
 import com.tripbora.dto.HomePopularCourseDto;
 import com.tripbora.dto.HomePopularCourseStopDto;
 import com.tripbora.model.Course;
-import com.tripbora.model.CourseDestination;
 import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.repository.category.CategoryMapper;
 import com.tripbora.repository.category.CountryCategoryMapper;
@@ -24,8 +25,9 @@ import com.tripbora.service.translation.LocalContentLanguageDetector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
-import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,7 +68,8 @@ class CourseServiceImplTest {
                 new DestinationLocalizationService(destinationMapper),
                 new ReferenceNameLocalizationService(countryCategoryMapper, categoryMapper,
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
-                new LocalContentLanguageDetector(), destinationImageService, courseStructureService);
+                new LocalContentLanguageDetector(), destinationImageService, courseStructureService,
+                org.mockito.Mockito.mock(CourseCoverStorageService.class));
     }
 
     @Test
@@ -144,7 +148,6 @@ class CourseServiceImplTest {
                 .thenReturn(destinationCountries(List.of(12L), 7L, "대한민국"));
         when(courseMapper.updateCourse(10L, 5L, 7L,
                 request.getTitle(), current.getContent(), "en", "ja")).thenReturn(1);
-        when(courseMapper.insertCourseDestination(any())).thenReturn(1);
 
         service.updateCourse(10L, 5L, request);
 
@@ -166,7 +169,6 @@ class CourseServiceImplTest {
                 .thenReturn(destinationCountries(List.of(12L), 7L, "대한민국"));
         when(courseMapper.updateCourse(10L, 5L, 7L,
                 current.getTitle(), changedContent, "ja", "en")).thenReturn(1);
-        when(courseMapper.insertCourseDestination(any())).thenReturn(1);
 
         service.updateCourse(10L, 5L, request);
 
@@ -199,7 +201,7 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void createsCourseAndDestinationsInRequestOrder() {
+    void createsCourseAndPassesScheduleInRequestOrderWithoutLegacyWrites() {
         CourseCreateRequest request = request("  서울 여행  ", "<p>코스 소개</p>", List.of(12L, 7L, 30L));
         when(courseMapper.countExistingDestinations(List.of(12L, 7L, 30L))).thenReturn(3);
         when(courseMapper.findDestinationCountries(List.of(12L, 7L, 30L)))
@@ -215,21 +217,19 @@ class CourseServiceImplTest {
             course.setId(100L);
             return 1;
         });
-        when(courseMapper.insertCourseDestination(any(CourseDestination.class))).thenReturn(1);
 
         Long courseId = service.createCourse(request, 5L);
 
         assertThat(courseId).isEqualTo(100L);
-        ArgumentCaptor<CourseDestination> captor = ArgumentCaptor.forClass(CourseDestination.class);
-        verify(courseMapper, org.mockito.Mockito.times(3)).insertCourseDestination(captor.capture());
-        assertThat(captor.getAllValues())
-                .extracting(CourseDestination::getDestinationId)
+        verify(courseStructureService).replaceSchedule(100L, 7L, request.getDays());
+        assertThat(request.getDays().get(0).getItems())
+                .extracting(CourseItemForm::getDestinationId)
                 .containsExactly(12L, 7L, 30L);
-        assertThat(captor.getAllValues())
-                .extracting(CourseDestination::getVisitOrder)
+        assertThat(request.getDays().get(0).getItems())
+                .extracting(CourseItemForm::getDisplayOrder)
                 .containsExactly(1, 2, 3);
-        assertThat(captor.getAllValues())
-                .allSatisfy(destination -> assertThat(destination.getCourseId()).isEqualTo(100L));
+        verify(courseMapper, never()).insertCourseDestination(any());
+        verify(courseMapper, never()).deleteCourseDestinations(any());
     }
 
     @Test
@@ -246,7 +246,6 @@ class CourseServiceImplTest {
             course.setId(102L);
             return 1;
         });
-        when(courseMapper.insertCourseDestination(any(CourseDestination.class))).thenReturn(1);
 
         assertThat(service.createCourse(request, 5L)).isEqualTo(102L);
     }
@@ -264,7 +263,6 @@ class CourseServiceImplTest {
             course.setId(100L);
             return 1;
         });
-        when(courseMapper.insertCourseDestination(any(CourseDestination.class))).thenReturn(1);
 
         assertThat(service.createCourse(request, 5L)).isEqualTo(100L);
     }
@@ -282,14 +280,12 @@ class CourseServiceImplTest {
             course.setId(101L);
             return 1;
         });
-        when(courseMapper.insertCourseDestination(any(CourseDestination.class))).thenReturn(1);
 
         assertThat(service.createCourse(request, 5L)).isEqualTo(101L);
 
-        ArgumentCaptor<CourseDestination> captor = ArgumentCaptor.forClass(CourseDestination.class);
-        verify(courseMapper, org.mockito.Mockito.times(2)).insertCourseDestination(captor.capture());
-        assertThat(captor.getAllValues())
-                .extracting(CourseDestination::getDestinationId)
+        verify(courseStructureService).replaceSchedule(101L, 8L, request.getDays());
+        assertThat(request.getDays().get(0).getItems())
+                .extracting(CourseItemForm::getDestinationId)
                 .containsExactly(71L, 72L);
     }
 
@@ -382,7 +378,6 @@ class CourseServiceImplTest {
         assertBadRequest(request("제목", "<p>소개</p>", null));
         assertBadRequest(request("제목", "<p>소개</p>", List.of()));
         assertBadRequest(request("제목", "<p>소개</p>", java.util.Arrays.asList(1L, null)));
-        assertBadRequest(request("제목", "<p>소개</p>", List.of(1L, 1L)));
 
         verify(courseMapper, never()).insertCourse(any());
     }
@@ -424,7 +419,7 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void destinationInsertFailureRaisesRuntimeExceptionForRollback() {
+    void scheduleWriteFailureRaisesRuntimeExceptionForRollback() {
         CourseCreateRequest request = request("제목", "<p>소개</p>", List.of(1L, 2L));
         when(courseMapper.countExistingDestinations(List.of(1L, 2L))).thenReturn(2);
         when(courseMapper.findDestinationCountries(List.of(1L, 2L)))
@@ -434,9 +429,8 @@ class CourseServiceImplTest {
             course.setId(100L);
             return 1;
         });
-        when(courseMapper.insertCourseDestination(any(CourseDestination.class)))
-                .thenReturn(1)
-                .thenReturn(0);
+        doThrow(new IllegalStateException("schedule write failed"))
+                .when(courseStructureService).replaceSchedule(100L, 7L, request.getDays());
 
         assertThatThrownBy(() -> service.createCourse(request, 5L))
                 .isInstanceOf(IllegalStateException.class);
@@ -476,7 +470,7 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void updatesCourseAndReplacesDestinationsInRequestOrder() {
+    void updatesCourseAndReplacesScheduleWithoutLegacyWrites() {
         CourseUpdateRequest request = updateRequest("  수정 제목  ", "<p>수정 소개</p>", List.of(30L, 12L));
         when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(activeCourse(10L, 5L));
         when(courseMapper.countExistingDestinations(List.of(30L, 12L))).thenReturn(2);
@@ -484,32 +478,58 @@ class CourseServiceImplTest {
                 .thenReturn(destinationCountries(List.of(30L, 12L), 7L, "대한민국"));
         when(courseMapper.updateCourse(10L, 5L, 7L,
                 "수정 제목", "<p>수정 소개</p>", "ko", "ko")).thenReturn(1);
-        when(courseMapper.deleteCourseDestinations(10L)).thenReturn(0);
-        when(courseMapper.insertCourseDestination(any())).thenReturn(1);
 
         service.updateCourse(10L, 5L, request);
 
-        verify(courseMapper).deleteCourseDestinations(10L);
-        ArgumentCaptor<CourseDestination> captor = ArgumentCaptor.forClass(CourseDestination.class);
-        verify(courseMapper, org.mockito.Mockito.times(2)).insertCourseDestination(captor.capture());
-        assertThat(captor.getAllValues()).extracting(CourseDestination::getDestinationId)
+        verify(courseStructureService).replaceSchedule(10L, 7L, request.getDays());
+        assertThat(request.getDays().get(0).getItems()).extracting(CourseItemForm::getDestinationId)
                 .containsExactly(30L, 12L);
-        assertThat(captor.getAllValues()).extracting(CourseDestination::getVisitOrder)
+        assertThat(request.getDays().get(0).getItems()).extracting(CourseItemForm::getDisplayOrder)
                 .containsExactly(1, 2);
+        verify(courseMapper, never()).deleteCourseDestinations(any());
+        verify(courseMapper, never()).insertCourseDestination(any());
         verify(courseMapper).updateCourse(10L, 5L, 7L,
                 "수정 제목", "<p>수정 소개</p>", "ko", "ko");
     }
 
-    @Test
-    void updateValidatesAllDestinationsBeforeDeletingConnections() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void createRejectsRepeatVisitsBeforeAnyWrite(boolean acrossDays) {
+        CourseCreateRequest request = request("제목", "<p>소개</p>", List.of(1L, 1L));
+        if (acrossDays) {
+            request.setDays(repeatedDestinationAcrossDays());
+        }
+
+        assertBadRequest(request);
+
+        verify(courseMapper, never()).countExistingDestinations(any());
+        verify(courseMapper, never()).findDestinationCountries(any());
+        verify(courseMapper, never()).insertCourse(any());
+        verify(courseMapper, never()).insertCourseDestination(any());
+        verify(courseMapper, never()).deleteCourseDestinations(any());
+        verify(courseStructureService, never()).replaceSchedule(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void updateRejectsRepeatVisitsBeforeLockingOrAnyWrite(boolean acrossDays) {
         CourseUpdateRequest request = updateRequest("제목", "<p>소개</p>", List.of(1L, 1L));
-        when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(activeCourse(10L, 5L));
+        if (acrossDays) {
+            request.setDays(repeatedDestinationAcrossDays());
+        }
 
         assertThatThrownBy(() -> service.updateCourse(10L, 5L, request))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode())
+                        .isEqualTo(HttpStatus.BAD_REQUEST));
 
+        verify(courseMapper, never()).findActiveCourseForUpdate(any());
+        verify(courseMapper, never()).countExistingDestinations(any());
+        verify(courseMapper, never()).findDestinationCountries(any());
         verify(courseMapper, never()).updateCourse(any(), any(), any(), any(), any(), any(), any());
         verify(courseMapper, never()).deleteCourseDestinations(any());
+        verify(courseMapper, never()).insertCourseDestination(any());
+        verify(courseStructureService, never()).replaceSchedule(any(), any(), any());
     }
 
     @Test
@@ -561,7 +581,8 @@ class CourseServiceImplTest {
                 .thenReturn(destinationCountries(List.of(1L, 2L), 7L, "대한민국"));
         when(courseMapper.updateCourse(10L, 5L, 7L, "제목", "<p>소개</p>", "ko", "ko"))
                 .thenReturn(1);
-        when(courseMapper.insertCourseDestination(any())).thenReturn(1, 0);
+        doThrow(new IllegalStateException("schedule write failed"))
+                .when(courseStructureService).replaceSchedule(10L, 7L, request.getDays());
 
         assertThatThrownBy(() -> service.updateCourse(10L, 5L, request))
                 .isInstanceOf(IllegalStateException.class);
@@ -615,13 +636,13 @@ class CourseServiceImplTest {
                 .thenReturn(destinationCountries(List.of(71L, 72L), 8L, "일본"));
         when(courseMapper.updateCourse(10L, 5L, 8L,
                 "일본 코스", "<p>도쿄와 오사카</p>", "ko", "ko")).thenReturn(1);
-        when(courseMapper.insertCourseDestination(any())).thenReturn(1);
 
         service.updateCourse(10L, 5L, request);
 
         verify(courseMapper).updateCourse(10L, 5L, 8L,
                 "일본 코스", "<p>도쿄와 오사카</p>", "ko", "ko");
-        verify(courseMapper).deleteCourseDestinations(10L);
+        verify(courseStructureService).replaceSchedule(10L, 8L, request.getDays());
+        verify(courseMapper, never()).deleteCourseDestinations(any());
     }
 
     @Test
@@ -638,7 +659,9 @@ class CourseServiceImplTest {
     @Test
     void homePopularCoursesUseAtMostThreeCoursesAndThreeOrderedPreviewStops() {
         HomePopularCourseDto first = homeCourse(10L, 5);
+        first.setRepresentativeImageUrl("/images/gyeongbokgung.jpg");
         HomePopularCourseDto second = homeCourse(20L, 2);
+        second.setRepresentativeImageUrl("/images/haeundae.jpg");
         HomePopularCourseDto third = homeCourse(30L, 1);
         HomePopularCourseDto unexpectedFourth = homeCourse(40L, 1);
         when(courseMapper.findPopularCourses(3))
@@ -672,6 +695,39 @@ class CourseServiceImplTest {
                 .containsExactly("/images/haeundae.jpg", "/images/gwangalli.jpg");
         assertThat(third.getPreviewImageUrls()).containsExactly("/images/default.png");
         verify(courseMapper).findPopularCourseStops(List.of(10L, 20L, 30L));
+    }
+
+    @Test
+    void homePopularCourseUsesCoverBeforeStopPreviewImages() {
+        HomePopularCourseDto course = homeCourse(10L, 2);
+        course.setRepresentativeImageUrl("/uploads/course-cover.jpg");
+        when(courseMapper.findPopularCourses(3)).thenReturn(List.of(course));
+        when(courseMapper.findPopularCourseStops(List.of(10L))).thenReturn(List.of(
+                homeStop(10L, 1, "첫 장소", "/images/first.jpg"),
+                homeStop(10L, 2, "다음 장소", "/images/second.jpg")));
+
+        service.getPopularCoursesForHome(SupportedLanguage.KOREAN);
+
+        assertThat(course.getPreviewImageUrls()).containsExactly(
+                "/uploads/course-cover.jpg", "/images/first.jpg", "/images/second.jpg");
+    }
+
+    @Test
+    void homePopularCourseWithNoFirstStopImageKeepsDefaultDespiteLaterImages() {
+        HomePopularCourseDto missing = homeCourse(10L, 2);
+        HomePopularCourseDto blank = homeCourse(20L, 2);
+        blank.setRepresentativeImageUrl("   ");
+        when(courseMapper.findPopularCourses(3)).thenReturn(List.of(missing, blank));
+        when(courseMapper.findPopularCourseStops(List.of(10L, 20L))).thenReturn(List.of(
+                homeStop(10L, 1, "사진 없는 첫 장소", null),
+                homeStop(10L, 2, "사진 있는 다음 장소", "/images/later.jpg"),
+                homeStop(20L, 1, "사진 없는 첫 장소", "   "),
+                homeStop(20L, 2, "사진 있는 다음 장소", "/images/another-later.jpg")));
+
+        service.getPopularCoursesForHome(SupportedLanguage.KOREAN);
+
+        assertThat(missing.getPreviewImageUrls()).containsExactly("/images/default.png");
+        assertThat(blank.getPreviewImageUrls()).containsExactly("/images/default.png");
     }
 
     @Test
@@ -720,7 +776,7 @@ class CourseServiceImplTest {
         request.setCountryId(7L);
         request.setTitle(title);
         request.setContent(content);
-        request.setDestinationIds(destinationIds);
+        request.setDays(days(destinationIds));
         return request;
     }
 
@@ -745,8 +801,32 @@ class CourseServiceImplTest {
         request.setCountryId(7L);
         request.setTitle(title);
         request.setContent(content);
-        request.setDestinationIds(destinationIds);
+        request.setDays(days(destinationIds));
         return request;
+    }
+
+    private List<CourseDayForm> repeatedDestinationAcrossDays() {
+        CourseDayForm first = days(List.of(1L)).get(0);
+        CourseDayForm second = days(List.of(1L)).get(0);
+        second.setDayNumber(2);
+        return List.of(first, second);
+    }
+
+    private List<CourseDayForm> days(List<Long> destinationIds) {
+        if (destinationIds == null) {
+            return null;
+        }
+        CourseDayForm day = new CourseDayForm();
+        day.setDayNumber(1);
+        java.util.ArrayList<CourseItemForm> items = new java.util.ArrayList<>();
+        for (Long destinationId : destinationIds) {
+            CourseItemForm item = new CourseItemForm();
+            item.setDestinationId(destinationId);
+            item.setDisplayOrder(items.size() + 1);
+            items.add(item);
+        }
+        day.setItems(items);
+        return List.of(day);
     }
 
     private void assertBadRequest(CourseCreateRequest request) {

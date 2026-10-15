@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tripbora.repository.course.CourseStructureMapper">
+    <select id="findDays" resultType="com.tripbora.model.CourseDay">
+        SELECT id, course_id, day_number, title, created_at, updated_at
+        FROM course_days WHERE course_id = #{courseId}
+        ORDER BY day_number ASC, id ASC
+    </select>
+
+    <!-- retained Day 번호를 기존/새 번호와 겹치지 않는 범위로 옮긴 뒤 1..N으로 되돌린다. -->
+    <update id="parkDayNumbers">
+        UPDATE course_days SET day_number = day_number + #{offset}
+        WHERE course_id = #{courseId}
+        ORDER BY day_number DESC
+    </update>
+    <update id="updateDay">
+        UPDATE course_days SET day_number = #{dayNumber}, title = #{title}
+        WHERE id = #{id} AND course_id = #{courseId}
+    </update>
+    <delete id="deleteDay">
+        DELETE FROM course_days WHERE id = #{dayId} AND course_id = #{courseId}
+    </delete>
     <select id="findDayOne" resultType="com.tripbora.model.CourseDay">
         SELECT id, course_id, day_number, title, created_at, updated_at
         FROM course_days WHERE course_id = #{courseId} AND day_number = 1
@@ -75,9 +94,11 @@
         LEFT JOIN resolved_countries country ON country.source_region_id = d.region_id
     </select>
 
-    <!-- LEFT JOIN은 SET NULL된 snapshot도 반환한다. 없어져서 빈 구조인 경우와 구별한다. -->
-    <select id="findDayOneStops" resultType="com.tripbora.dto.CourseStopDto">
-        SELECT d.id AS destination_id, item.display_order AS visit_order,
+    <sql id="structuredStops">
+        SELECT item.id AS item_id, day.id AS course_day_id, item.item_type,
+               TIME_FORMAT(item.start_time, '%H:%i') AS start_time,
+               TIME_FORMAT(item.end_time, '%H:%i') AS end_time, item.memo,
+               d.id AS destination_id, item.display_order AS visit_order,
                COALESCE(NULLIF(TRIM(dt.name), ''), item.place_name, '이름 없는 여행지') AS name,
                dt.short_description, region.id AS region_id, region.region_name,
                item.country_id, country.region_name AS country_name,
@@ -95,7 +116,17 @@
         LEFT JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
         LEFT JOIN country_categories region ON region.id = d.region_id
         LEFT JOIN country_categories country ON country.id = item.country_id
-        WHERE day.course_id = #{courseId} AND day.day_number = 1
+        WHERE day.course_id = #{courseId}
+    </sql>
+
+    <!-- LEFT JOIN은 SET NULL된 snapshot도 반환해 구조 존재 여부를 보존한다. -->
+    <select id="findCourseStops" resultType="com.tripbora.dto.CourseStopDto">
+        <include refid="structuredStops"/>
+        ORDER BY day.day_number ASC, item.display_order ASC, item.id ASC
+    </select>
+    <select id="findDayOneStops" resultType="com.tripbora.dto.CourseStopDto">
+        <include refid="structuredStops"/>
+          AND day.day_number = 1
         ORDER BY item.display_order ASC, item.id ASC
     </select>
 </mapper>

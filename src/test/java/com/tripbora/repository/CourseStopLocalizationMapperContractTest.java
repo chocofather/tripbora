@@ -31,9 +31,9 @@ class CourseStopLocalizationMapperContractTest {
 
         assertThat(xml)
                 .contains("<select id=\"findPopularCourseStops\"")
-                .contains("cd.destination_id,")
+                .contains("stops.destination_id,")
                 .contains("<foreach collection=\"courseIds\"")
-                .contains("ORDER BY cd.course_id ASC, cd.visit_order ASC, cd.id ASC");
+                .contains("ORDER BY stops.course_id ASC, stops.day_number ASC, stops.display_order ASC, stops.stop_id ASC");
     }
 
     private String mapperXml() throws IOException {

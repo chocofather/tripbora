@@ -27,4 +27,30 @@
             window.location.href = `/login?redirect=${redirect}`;
         });
     });
+
+    const days = Array.from(document.querySelectorAll('[data-course-day]'));
+    document.querySelectorAll('[data-course-day-nav]').forEach(nav => {
+        if (days.length < 2) return;
+        const buttons = Array.from(nav.querySelectorAll('[data-course-day-filter]'));
+        const selectDay = selected => {
+            days.forEach(day => {
+                day.hidden = selected !== 'all' && day.dataset.courseDay !== selected;
+            });
+            buttons.forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.courseDayFilter === selected));
+            });
+        };
+        buttons.forEach(button => button.addEventListener('click', () => selectDay(button.dataset.courseDayFilter)));
+        selectDay('all');
+        nav.hidden = false;
+    });
+
+    document.querySelectorAll('[data-course-hero-image]').forEach(image => {
+        const hideFailedHero = () => {
+            const hero = image.closest('[data-course-hero]');
+            if (hero) hero.hidden = true;
+        };
+        image.addEventListener('error', hideFailedHero);
+        if (image.complete && image.naturalWidth === 0) hideFailedHero();
+    });
 })();

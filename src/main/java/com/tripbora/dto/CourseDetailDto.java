@@ -20,6 +20,9 @@ public class CourseDetailDto {
     private Timestamp updatedAt;
     private Integer views;
     private List<CourseStopDto> stops;
+    private List<CourseDayDto> days;
+    private String coverImageUrl;
+    private String representativeImageUrl;
     private boolean myCourse;
     private boolean bookmarked;
     private boolean translationAvailable;

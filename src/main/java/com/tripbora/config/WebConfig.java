@@ -32,6 +32,7 @@ public class WebConfig implements WebMvcConfigurer {
             "comments",        // 여행지 댓글 이미지
             "post-comments",   // 게시글 댓글 이미지
             "course-comments", // 여행 코스 댓글 이미지
+            "course/cover",    // 공개 Course 대표 이미지 전용
             "profiles",        // 프로필 이미지 (공개 프로필이 비로그인 공개다)
             "diary-stickers",  // 관리자 스티커 카탈로그 (공용 asset)
             "icons");          // 사이트 아이콘과 편의시설 아이콘(icons/amenities)

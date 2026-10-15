@@ -6,6 +6,7 @@ import lombok.Data;
 public class DestinationSearchResultDto {
     private Long id; // 여행지 PK (상세 페이지 이동용)
     private String name; // 여행지명
+    private String type; // Course Item의 표시용 타입. 저장 시에는 서버가 다시 조회한다.
     private String shortDescription; // 간략설명
     private String regionName; // 소속 지역명 (예: 종로구)
     private String parentRegionName; // 상위 지역명 (예: 서울)

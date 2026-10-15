@@ -11,6 +11,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CourseQuillUiContractTest {
 
     @Test
+    void dayFormsRestoreNestedValuesAndKeepSelectionLimits() throws IOException {
+        for (String name : new String[]{"write", "edit"}) {
+            String template = resource("/templates/course/" + name + ".html");
+            assertThat(template)
+                    .contains("id=\"course-day-tabs\"", "id=\"course-add-day\"")
+                    .contains("id=\"course-search-panel\"", "class=\"course-search-inline\" hidden")
+                    .doesNotContain("<dialog", "role=\"dialog\"", "aria-modal", "course-item-dialog")
+                    .contains("class=\"button-group course-save-bar\"")
+                    .doesNotContain("id=\"destination-target-day\"")
+                    .contains("th:each=\"day : ${course.days}\"")
+                    .contains("th:each=\"stop : ${day.items}\"")
+                    .contains("data-memo=${stop.memo}")
+                    .contains("th:text=\"${formError}\"");
+        }
+        assertThat(resource("/static/js/course-write.js"))
+                .contains("title.maxLength = 100", "input.maxLength = 1000", "input.type = 'time'")
+                .contains("days.length >= 90", "items.length >= 50")
+                .contains("name.textContent = destination.name")
+                .doesNotContain(".innerHTML", "addInput(`${itemPrefix}.itemType`");
+    }
+
+    @Test
     void writeAndEditUseSharedQuillAssetsAndKeepTheHtmlContentField() throws IOException {
         String write = resource("/templates/course/write.html");
         String edit = resource("/templates/course/edit.html");
@@ -19,7 +41,8 @@ class CourseQuillUiContractTest {
         assertCourseEditorTemplate(edit);
 
         assertThat(write)
-                .doesNotContain("initial-content");
+                .contains("data-initial-content-id=\"initial-content\"")
+                .contains("th:if=\"${course != null}\" th:text=\"${course.content}\"");
         assertThat(edit)
                 .contains("data-initial-content-id=\"initial-content\"")
                 .contains("id=\"initial-content\" hidden th:text=\"${course.content}\"");
@@ -35,13 +58,19 @@ class CourseQuillUiContractTest {
                 .contains("form.dataset.initialContentId || undefined")
                 .contains("async function searchDestinations()")
                 .contains("function addDestination(destination)")
-                .contains("selectedDestinations.some(")
-                .contains("이미 선택한 여행지입니다.")
-                .contains("function moveDestination(index, offset)")
-                .contains("function removeDestination(index)")
-                .contains("hidden.name = 'destinationIds'")
-                .contains("if (selectedDestinations.length === 0)")
-                .contains("여행지를 한 곳 이상 선택해 주세요.")
+                .contains("function moveDestination(dayIndex, index, offset)")
+                .contains("function removeDestination(dayIndex, index)")
+                .contains("`days[${dayIndex}]`")
+                .contains("`${prefix}.items[${itemIndex}]`")
+                .contains("days.some(day => day.items.length === 0)")
+                .contains("각 Day에 여행지를 한 곳 이상 추가해 주세요.")
+                .contains("이미 선택한 여행지입니다.", "isDestinationSelected(destination)")
+                .contains("selected ? '추가됨' : '추가'", "course-item-time-range", "course-day-tab")
+                .contains("course-item-inline-editor", "aria-expanded", "aria-controls")
+                .doesNotContain("showModal", "itemDialog", "searchDialog", "aria-haspopup", "overflow = 'hidden'")
+                .contains("setAttribute('role', 'tabpanel')", "setAttribute('aria-selected'")
+                .doesNotContain("day.collapsed", "course-day-toggle", "targetDaySelect")
+                .doesNotContain("hidden.name = 'destinationIds'")
                 .contains("if (event.defaultPrevented) return")
                 .contains("submitButton.disabled = true")
                 .doesNotContain(
@@ -74,8 +103,15 @@ class CourseQuillUiContractTest {
                 .contains(".course-write-wrapper .write-form")
                 .contains("max-width: 1120px")
                 .contains(".course-editor-shell")
-                .contains("--quill-editor-min-height: 440px")
+                .contains("--quill-editor-min-height: 180px", "--quill-editor-min-height: 160px")
+                .contains(".course-write-wrapper .course-editor-shell.quill-editor-shell")
                 .contains("box-sizing: border-box")
+                .contains("max-height: 360px", "overflow-y: auto", "minmax(0, 1fr)")
+                .contains(".course-day-tabs", "overflow-x: auto")
+                .contains(".course-write-wrapper .course-day-menu .order-control")
+                .contains(".course-item-inline-editor[hidden]", ".course-save-bar", "env(safe-area-inset-bottom)")
+                .doesNotContain("::backdrop", ".course-dialog", "position: fixed")
+                .contains(".course-item-time-range")
                 .doesNotContain(".editor-group #editor");
 
         assertThat(detail)

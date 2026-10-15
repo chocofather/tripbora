@@ -160,7 +160,7 @@ class CourseCountryContractTest {
                 .contains("params.set('countryId', String(countryId))")
                 .contains("selectedCountryId !== destinationCountryId")
                 .contains("국가를 변경하면 현재 선택한 여행지가 모두 제거됩니다. 변경하시겠습니까?")
-                .contains("selectedDestinations.splice(0, selectedDestinations.length)")
+                .contains("days.forEach(day => day.items.splice(0, day.items.length))")
                 .contains("const initialCountryId = selectedCourseCountryId()")
                 .contains("domesticCountryButton ? 'domestic' : 'overseas'")
                 .contains("window.CountryCombobox?.init({");

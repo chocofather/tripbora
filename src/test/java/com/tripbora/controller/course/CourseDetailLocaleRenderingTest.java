@@ -8,11 +8,13 @@ import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.config.i18n.TripBoraLocaleResolver;
 import com.tripbora.dto.CourseDetailDto;
 import com.tripbora.dto.CourseStopDto;
+import com.tripbora.dto.CourseDayDto;
 import com.tripbora.repository.user.UserMapper;
 import com.tripbora.service.category.CountryCategoryService;
 import com.tripbora.service.course.CourseService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,31 +59,31 @@ class CourseDetailLocaleRenderingTest {
         return Stream.of(
                 Arguments.of(SupportedLanguage.KOREAN,
                         new String[]{"나만의 여행 코스", "작성자", "작성일", "수정일", "조회수",
-                                "코스 소개", "총 2개의 여행지", "여행 동선", "지역",
+                                "코스 소개", "총 2개의 여행지", "여행 일정", "지역",
                                 "수정", "삭제", "댓글", "최신순", "등록", "코스 목록으로",
                                 "댓글을 작성하려면 로그인하세요."},
                         "이 여행 코스를 삭제하시겠습니까?"),
                 Arguments.of(SupportedLanguage.ENGLISH,
                         new String[]{"My Travel Course", "Author", "Posted", "Updated", "Views",
-                                "Course Overview", "2 destinations in total", "Travel Route", "Area",
+                                "Course Overview", "2 destinations in total", "Itinerary", "Area",
                                 "Edit", "Delete", "Comments", "Newest", "Post", "Back to course list",
                                 "Log in to leave a comment."},
                         "Delete this travel course?"),
                 Arguments.of(SupportedLanguage.JAPANESE,
                         new String[]{"わたしだけの旅行コース", "投稿者", "投稿日", "更新日", "閲覧数",
-                                "コース紹介", "全2カ所の旅行スポット", "旅行ルート", "地域",
+                                "コース紹介", "全2カ所の旅行スポット", "旅行日程", "地域",
                                 "編集", "削除", "コメント", "新着順", "投稿", "コース一覧へ",
                                 "コメントするにはログインしてください。"},
                         "この旅行コースを削除しますか？"),
                 Arguments.of(SupportedLanguage.CHINESE_SIMPLIFIED,
                         new String[]{"我的旅行路线", "作者", "发布日期", "更新日期", "浏览量",
-                                "路线简介", "共 2 个旅行地", "旅行路线", "地区",
+                                "路线简介", "共 2 个旅行地", "旅行行程", "地区",
                                 "编辑", "删除", "评论", "最新", "发布", "返回路线列表",
                                 "请登录后发表评论。"},
                         "确定要删除这条旅行路线吗？"),
                 Arguments.of(SupportedLanguage.CHINESE_TRADITIONAL,
                         new String[]{"我的旅行路線", "作者", "發布日期", "更新日期", "瀏覽次數",
-                                "路線簡介", "共 2 個旅遊景點", "旅行路線", "地區",
+                                "路線簡介", "共 2 個旅遊景點", "旅遊行程", "地區",
                                 "編輯", "刪除", "留言", "最新", "發布", "返回路線列表",
                                 "請登入後留言。"},
                         "確定要刪除這條旅行路線嗎？"));
@@ -116,6 +118,125 @@ class CourseDetailLocaleRenderingTest {
                 .doesNotContain("href=\"/login?redirect=/course/7\"");
         // 없는 메시지 키가 남아 있지 않다.
         assertThat(body).doesNotContain("??");
+    }
+
+    @Test
+    void multiDayScheduleRendersTimesAndEscapesDayTitlesAndMemos() throws Exception {
+        CourseDetailDto course = course();
+        CourseDayDto first = new CourseDayDto();
+        first.setDayNumber(1);
+        first.setTitle("<script>첫날 제목</script>");
+        CourseStopDto stop = course.getStops().get(0);
+        stop.setStartTime("23:00");
+        stop.setEndTime("01:00");
+        stop.setItemType("STAY");
+        stop.setMemo("<img src=x onerror=alert(1)> 메모");
+        first.setItems(List.of(stop));
+        CourseDayDto second = new CourseDayDto();
+        second.setDayNumber(2);
+        second.setTitle("둘째 날");
+        second.setItems(List.of(course.getStops().get(1)));
+        course.setDays(List.of(first, second));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+
+        String body = mockMvc.perform(get("/course/7"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("Day 1", "Day 2", "23:00", "숙소", "둘째 날",
+                "&lt;script&gt;첫날 제목&lt;/script&gt;", "&lt;img src=x onerror=alert(1)&gt; 메모")
+                .doesNotContain("01:00", "<script>첫날 제목</script>", "<img src=x onerror=alert(1)>");
+        var document = org.jsoup.Jsoup.parse(body);
+        var memo = document.selectFirst(".course-day-route details.course-item-memo");
+        assertThat(memo).isNotNull();
+        assertThat(memo.selectFirst("summary").text()).isEqualTo("<img src=x onerror=alert(1)> 메모");
+        assertThat(memo.parents().stream().anyMatch(parent -> parent.tagName().equals("a"))).isFalse();
+        assertThat(document.select(".course-day-route a[href='/destinations/15']")).hasSize(2);
+        var rows = document.select(".course-day-route .course-stop");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).selectFirst(".course-stop-heading").text()).isEqualTo("23:00 · 경복궁");
+        assertThat(rows.get(1).selectFirst(".course-stop-heading").text()).isEqualTo("북촌한옥마을");
+        assertThat(rows.select(".course-stop-body h3, .course-stop-body .course-item-time")).isEmpty();
+        assertThat(rows.get(1).select(".course-item-memo")).isEmpty();
+        assertThat(document.select(".course-day-route > .course-timeline > .course-stop:last-child")).hasSize(2);
+    }
+
+    static Stream<Arguments> optionalScheduleTimes() {
+        return Stream.of(
+                Arguments.of("09:00", null, "09:00"),
+                Arguments.of(null, "18:00", null),
+                Arguments.of("23:00", "01:00", "23:00"),
+                Arguments.of(null, null, null));
+    }
+
+    @Test
+    void representativeImagePrecedesIntroductionAndDaysStayReadableWithoutJavascript() throws Exception {
+        CourseDetailDto course = course();
+        course.setRepresentativeImageUrl("/uploads/course/cover.jpg");
+        CourseDayDto first = new CourseDayDto();
+        first.setDayNumber(1);
+        first.setItems(List.of(course.getStops().get(0)));
+        CourseDayDto second = new CourseDayDto();
+        second.setDayNumber(2);
+        second.setItems(List.of(course.getStops().get(1)));
+        course.setDays(List.of(first, second));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+
+        String body = mockMvc.perform(get("/course/7"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var document = org.jsoup.Jsoup.parse(body);
+        assertThat(document.selectFirst("[data-course-hero-image]").attr("src"))
+                .isEqualTo("/uploads/course/cover.jpg");
+        assertThat(body.indexOf("data-course-hero")).isLessThan(body.indexOf("class=\"course-introduction\""));
+        assertThat(document.select("section[data-course-day]")).hasSize(2);
+        assertThat(document.select("section[data-course-day][hidden]")).isEmpty();
+        assertThat(document.select("[data-course-day-nav][hidden] button")).hasSize(3);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = "/images/default.png")
+    void absentAndDefaultRepresentativeImagesDoNotReserveABlankHero(String imageUrl) throws Exception {
+        CourseDetailDto course = course();
+        course.setRepresentativeImageUrl(imageUrl);
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/course/7"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(org.jsoup.Jsoup.parse(body).select("[data-course-hero]")).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("optionalScheduleTimes")
+    void optionalTimesOnlyRenderTheirEnteredValues(String start, String end, String expected)
+            throws Exception {
+        CourseDetailDto course = course();
+        CourseStopDto stop = course.getStops().get(0);
+        stop.setName("줄바꿈이 필요한 아주 긴 여행지 이름 산굼부리와 주변 탐방로");
+        stop.setStartTime(start);
+        stop.setEndTime(end);
+        CourseDayDto day = new CourseDayDto();
+        day.setDayNumber(1);
+        day.setItems(List.of(stop));
+        course.setDays(List.of(day));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+
+        String body = mockMvc.perform(get("/course/7"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var document = org.jsoup.Jsoup.parse(body);
+        var row = document.selectFirst(".course-day-route .course-stop");
+        var header = row.selectFirst(".course-stop-heading");
+        assertThat(header).isNotNull();
+        assertThat(header.selectFirst(".course-stop-title-link").text()).isEqualTo(stop.getName());
+        assertThat(row.select(".course-stop-title-link")).hasSize(1);
+        assertThat(row.select(".course-stop-body h3, .course-stop-body .course-item-time")).isEmpty();
+        var times = header.select(".course-item-time");
+        if (expected == null) {
+            assertThat(times).isEmpty();
+            assertThat(header.select(".course-item-time-separator")).isEmpty();
+        } else {
+            assertThat(times).hasSize(1);
+            assertThat(times.first().text()).isEqualTo(expected);
+            assertThat(times.first().select("span:empty")).isEmpty();
+            assertThat(header.text()).isEqualTo(expected + " · " + stop.getName());
+        }
     }
 
     private CourseDetailDto course() {

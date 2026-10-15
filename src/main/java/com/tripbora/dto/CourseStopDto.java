@@ -5,6 +5,12 @@ import lombok.Data;
 @Data
 public class CourseStopDto {
     private Long courseDestinationId;
+    private Long itemId;
+    private Long courseDayId;
+    private String itemType;
+    private String startTime;
+    private String endTime;
+    private String memo;
     private Long destinationId;
     private Integer visitOrder;
     private String name;

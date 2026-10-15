@@ -67,6 +67,9 @@ public interface CourseMapper {
     // 코스 등록
     int insertCourse(Course course);
 
+    int updateCoverImage(@Param("courseId") Long courseId, @Param("userId") Long userId,
+                        @Param("coverImageUrl") String coverImageUrl);
+
     // 코스-여행지 연결 등록
     int insertCourseDestination(CourseDestination courseDestination);
 

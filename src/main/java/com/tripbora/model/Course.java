@@ -9,6 +9,7 @@ import java.sql.Timestamp;
 @Data
 @NoArgsConstructor
 public class Course {
+    private String coverImageUrl;
     private Long id; // 코스번호
     private Long userId; // 작성자 id
     private String courseKind;

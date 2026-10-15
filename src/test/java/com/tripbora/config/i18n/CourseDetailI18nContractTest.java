@@ -38,6 +38,7 @@ class CourseDetailI18nContractTest {
                 .contains("#{course.detail.section.introduction}")
                 .contains("#{course.detail.stopCount(${course.stops.size()})}")
                 .contains("#{course.detail.route.title}")
+                .contains("#{course.detail.route.allDays}")
                 .contains("#{course.detail.route.empty}")
                 .contains("#{course.detail.stop.region}")
                 .contains("#{course.detail.stop.imageAlt(${stop.name})}")
@@ -115,11 +116,16 @@ class CourseDetailI18nContractTest {
         messages.setDefaultEncoding(StandardCharsets.UTF_8.name());
         messages.setFallbackToSystemLocale(false);
 
-        assertThat(message(messages, "course.detail.route.title", "ko")).isEqualTo("여행 동선");
-        assertThat(message(messages, "course.detail.route.title", "en")).isEqualTo("Travel Route");
-        assertThat(message(messages, "course.detail.route.title", "ja")).isEqualTo("旅行ルート");
-        assertThat(message(messages, "course.detail.route.title", "zh-CN")).isEqualTo("旅行路线");
-        assertThat(message(messages, "course.detail.route.title", "zh-TW")).isEqualTo("旅行路線");
+        assertThat(message(messages, "course.detail.route.title", "ko")).isEqualTo("여행 일정");
+        assertThat(message(messages, "course.detail.route.title", "en")).isEqualTo("Itinerary");
+        assertThat(message(messages, "course.detail.route.title", "ja")).isEqualTo("旅行日程");
+        assertThat(message(messages, "course.detail.route.title", "zh-CN")).isEqualTo("旅行行程");
+        assertThat(message(messages, "course.detail.route.title", "zh-TW")).isEqualTo("旅遊行程");
+        assertThat(message(messages, "course.detail.route.allDays", "ko")).isEqualTo("전체 일정");
+        assertThat(message(messages, "course.detail.route.allDays", "en")).isEqualTo("Full itinerary");
+        assertThat(message(messages, "course.detail.route.allDays", "ja")).isEqualTo("全日程");
+        assertThat(message(messages, "course.detail.route.allDays", "zh-CN")).isEqualTo("全部行程");
+        assertThat(message(messages, "course.detail.route.allDays", "zh-TW")).isEqualTo("全部行程");
 
         // STOP 카드의 "지역" 라벨
         assertThat(message(messages, "course.detail.stop.region", "ko")).isEqualTo("지역");

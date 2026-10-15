@@ -16,6 +16,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ui.ExtendedModelMap;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.beans.MutablePropertyValues;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
@@ -42,7 +47,8 @@ class CourseControllerTest {
         when(userDetails.getId()).thenReturn(5L);
         when(courseService.createCourse(request, 5L)).thenReturn(100L);
 
-        String view = controller.submitCourse(request, userDetails);
+        String view = controller.submitCourse(request,
+                new BeanPropertyBindingResult(request, "request"), userDetails, new ExtendedModelMap());
 
         verify(courseService).createCourse(request, 5L);
         assertThat(view).isEqualTo("redirect:/course/100");
@@ -54,7 +60,8 @@ class CourseControllerTest {
         CourseUpdateRequest request = new CourseUpdateRequest();
         when(userDetails.getId()).thenReturn(5L);
 
-        String view = controller.updateCourse(100L, request, userDetails);
+        String view = controller.updateCourse(100L, request,
+                new BeanPropertyBindingResult(request, "request"), userDetails, new ExtendedModelMap());
 
         verify(courseService).updateCourse(100L, 5L, request);
         assertThat(view).isEqualTo("redirect:/course/100");
@@ -142,6 +149,54 @@ class CourseControllerTest {
         country.setRegionName(name);
         country.setParentId(parentId);
         return country;
+    }
+
+    @Test
+    void validationErrorRedisplaysTheSubmittedScheduleWithMessage() {
+        CourseController controller = new CourseController(courseService, countryCategoryService);
+        CourseCreateRequest request = new CourseCreateRequest();
+        request.setTitle("작성 중 제목");
+        when(userDetails.getId()).thenReturn(5L);
+        when(courseService.createCourse(request, 5L))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Day 2에 장소를 추가해 주세요."));
+        CourseEditDto retry = new CourseEditDto();
+        retry.setTitle(request.getTitle());
+        when(courseService.prepareFormForRetry(request.getTitle(), null, null, null)).thenReturn(retry);
+        when(countryCategoryService.getCourseCountries()).thenReturn(List.of());
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        assertThat(controller.submitCourse(request, new BeanPropertyBindingResult(request, "request"),
+                userDetails, model)).isEqualTo("course/write");
+        assertThat(model.get("course")).isSameAs(retry);
+        assertThat(model.get("formError")).isEqualTo("Day 2에 장소를 추가해 주세요.");
+    }
+
+    @Test
+    void nestedBindingKeepsLastAllowedDayAndIgnoresClientSnapshotFields() {
+        CourseController controller = new CourseController(courseService, countryCategoryService);
+        CourseCreateRequest request = new CourseCreateRequest();
+        WebDataBinder binder = new WebDataBinder(request);
+        controller.configureCourseBinding(binder);
+        MutablePropertyValues values = new MutablePropertyValues();
+        values.add("days[89].dayNumber", "90");
+        values.add("days[89].items[49].destinationId", "12");
+        values.add("days[89].items[49].displayOrder", "50");
+        values.add("days[89].items[49].memo", "마지막 방문 메모");
+        values.add("days[89].items[49].startTime", "09:00");
+        values.add("days[89].items[49].endTime", "10:30");
+        values.add("coverImageUrl", "/uploads/course/cover/99/forged.jpg");
+        values.add("days[89].items[49].placeName", "가짜 장소");
+        values.add("days[89].items[49].countryId", "999");
+        binder.bind(values);
+        assertThat(binder.getBindingResult().hasErrors()).isFalse();
+        assertThat(request.getDays()).hasSize(90);
+        assertThat(request.getDays().get(89).getItems()).hasSize(50);
+        assertThat(request.getDays().get(89).getItems().get(49).getDestinationId()).isEqualTo(12L);
+        assertThat(request.getDays().get(89).getItems().get(49).getStartTime()).isEqualTo("09:00");
+        assertThat(request.getDays().get(89).getItems().get(49).getEndTime()).isNull();
+        assertThat(binder.getBindingResult().getSuppressedFields())
+                .containsExactlyInAnyOrder("days[89].items[49].placeName", "days[89].items[49].countryId",
+                        "days[89].items[49].endTime", "coverImageUrl");
     }
 
     private CourseStopDto stop(Long destinationId, int visitOrder, String name) {

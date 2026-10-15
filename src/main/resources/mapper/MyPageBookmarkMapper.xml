@@ -104,6 +104,7 @@
         WHERE b.user_id = #{userId}
           AND b.target_type = 'COURSE'
           AND c.deleted = 0
+          AND c.status = 'PUBLISHED'
           AND c.deleted_at IS NULL
     </sql>
 

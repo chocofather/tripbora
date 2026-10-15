@@ -74,6 +74,21 @@ public class BoardServiceImpl implements BoardService {
         return boardMapper.countBoardByUserId(userId, filter.boardType(), filter.postType());
     }
 
+    @Override
+    public List<BoardListDto> getPublicBoardListByUserId(Long userId, String type, int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = clampSize(size);
+        ProfileFilter filter = profileFilter(type);
+        return boardMapper.findPublicBoardListByUserId(userId, filter.boardType(), filter.postType(),
+                (long) (safePage - 1) * safeSize, safeSize);
+    }
+
+    @Override
+    public int getPublicBoardCountByUserId(Long userId, String type) {
+        ProfileFilter filter = profileFilter(type);
+        return boardMapper.countPublicBoardByUserId(userId, filter.boardType(), filter.postType());
+    }
+
     private int clampSize(int size) {
         return Math.min(Math.max(size, 1), 100);
     }

@@ -56,6 +56,8 @@ class CourseServiceImplTest {
     private InfoCategoryMapper infoCategoryMapper;
 
     private CourseServiceImpl service;
+    @Mock
+    private CourseStructureService courseStructureService;
 
     @BeforeEach
     void setUp() {
@@ -63,7 +65,7 @@ class CourseServiceImplTest {
                 new DestinationLocalizationService(destinationMapper),
                 new ReferenceNameLocalizationService(countryCategoryMapper, categoryMapper,
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
-                new LocalContentLanguageDetector(), destinationImageService);
+                new LocalContentLanguageDetector(), destinationImageService, courseStructureService);
     }
 
     @Test

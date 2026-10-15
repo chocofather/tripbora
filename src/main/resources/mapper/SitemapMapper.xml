@@ -58,6 +58,7 @@
         SELECT c.id
         FROM courses c
         WHERE c.deleted = 0
+          AND c.status = 'PUBLISHED'
           AND NOT EXISTS (
             SELECT 1
             FROM content_moderations cm

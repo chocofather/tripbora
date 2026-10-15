@@ -126,6 +126,7 @@
 
     <sql id="courseWhere">
         WHERE c.deleted = 0
+          AND c.status = 'PUBLISHED'
           AND c.deleted_at IS NULL
           AND (
               c.title LIKE CONCAT('%', #{keywordPattern}, '%') ESCAPE '!'

@@ -32,7 +32,7 @@ class PublicProfileContractTest {
     void authorBoardQueryFiltersBothUnionBranchesAndDoesNotReadBookmarks() throws IOException {
         String mapper = resource("mapper/BoardMapper.xml");
         String union = between(mapper, "<sql id=\"unifiedBoardSelectByUserId\"", "</sql>");
-        String list = between(mapper, "<select id=\"findBoardListByUserId\"", "</select>");
+        String list = between(mapper, "<sql id=\"userBoardList\"", "</sql>");
 
         assertThat(union)
                 .contains("WHERE p.user_id = #{userId}")

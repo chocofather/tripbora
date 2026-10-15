@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.course.CourseStructureMapper">
+    <select id="findDayOne" resultType="com.tripbora.model.CourseDay">
+        SELECT id, course_id, day_number, title, created_at, updated_at
+        FROM course_days WHERE course_id = #{courseId} AND day_number = 1
+    </select>
+
+    <insert id="insertDay" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO course_days (course_id, day_number, title)
+        VALUES (#{courseId}, #{dayNumber}, #{title})
+    </insert>
+
+    <delete id="deleteDayItems">
+        DELETE FROM course_items WHERE course_day_id = #{courseDayId}
+    </delete>
+
+    <insert id="insertItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO course_items (course_day_id, display_order, item_type, destination_id,
+            country_id, place_name, address, latitude, longitude, start_time, end_time, memo)
+        VALUES (#{courseDayId}, #{displayOrder}, #{itemType}, #{destinationId},
+            #{countryId}, #{placeName}, #{address}, #{latitude}, #{longitude}, #{startTime}, #{endTime}, #{memo})
+    </insert>
+
+    <delete id="deleteCountries">
+        DELETE FROM course_countries WHERE course_id = #{courseId}
+    </delete>
+
+    <insert id="insertCountry">
+        INSERT INTO course_countries (course_id, country_id, display_order)
+        VALUES (#{courseId}, #{countryId}, #{displayOrder})
+    </insert>
+
+    <!-- V20261015_001과 같은 ancestry/국가 형태/모호성 정책. 순환 ancestry도 종료한다. -->
+    <select id="findDestinationSnapshots" resultType="com.tripbora.dto.CourseDestinationSnapshotDto">
+        WITH RECURSIVE selected_destinations AS (
+            SELECT id, region_id, type, latitude, longitude FROM destinations
+            WHERE id IN
+            <foreach collection="destinationIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ), ancestry AS (
+            SELECT region.id AS source_region_id, region.id AS region_id, region.parent_id,
+                   SUBSTRING_INDEX(region.code, '-', 1) AS country_code
+            FROM country_categories region
+            WHERE region.id IN (SELECT region_id FROM selected_destinations)
+            UNION DISTINCT
+            SELECT ancestry.source_region_id, parent.id, parent.parent_id, ancestry.country_code
+            FROM ancestry JOIN country_categories parent ON parent.id = ancestry.parent_id
+        ), resolved_countries AS (
+            SELECT ancestry.source_region_id, MIN(region.id) AS country_id
+            FROM ancestry
+            JOIN country_categories region ON region.id = ancestry.region_id
+            LEFT JOIN country_categories parent ON parent.id = region.parent_id
+            WHERE region.code = ancestry.country_code
+              AND region.code NOT LIKE '%-%'
+              AND (
+                  (region.parent_id IS NULL AND EXISTS (
+                      SELECT 1 FROM country_categories child
+                      WHERE child.parent_id = region.id AND child.code LIKE CONCAT(region.code, '-%')
+                  ))
+                  OR (region.parent_id IS NOT NULL AND parent.id IS NOT NULL AND parent.parent_id IS NULL)
+              )
+            GROUP BY ancestry.source_region_id
+            HAVING COUNT(DISTINCT region.id) = 1
+        )
+        SELECT d.id AS destination_id, d.type, country.country_id, d.latitude, d.longitude,
+               (SELECT dt.name FROM destination_translations dt
+                WHERE dt.destination_id = d.id AND NULLIF(TRIM(dt.name), '') IS NOT NULL
+                ORDER BY CASE dt.language_code
+                    WHEN 'ko' THEN 1 WHEN 'en' THEN 2 WHEN 'ja' THEN 3
+                    WHEN 'zh-CN' THEN 4 WHEN 'zh-TW' THEN 5 ELSE 6
+                END, BINARY dt.language_code, dt.id
+                LIMIT 1) AS place_name
+        FROM selected_destinations d
+        LEFT JOIN resolved_countries country ON country.source_region_id = d.region_id
+    </select>
+
+    <!-- LEFT JOIN은 SET NULL된 snapshot도 반환한다. 없어져서 빈 구조인 경우와 구별한다. -->
+    <select id="findDayOneStops" resultType="com.tripbora.dto.CourseStopDto">
+        SELECT d.id AS destination_id, item.display_order AS visit_order,
+               COALESCE(NULLIF(TRIM(dt.name), ''), item.place_name, '이름 없는 여행지') AS name,
+               dt.short_description, region.id AS region_id, region.region_name,
+               item.country_id, country.region_name AS country_name,
+               COALESCE(
+                   (SELECT di.image_url FROM destination_images di
+                    WHERE di.destination_id = d.id AND di.is_main = 1
+                    ORDER BY di.order_index ASC, di.id ASC LIMIT 1),
+                   (SELECT di.image_url FROM destination_images di
+                    WHERE di.destination_id = d.id
+                    ORDER BY di.order_index ASC, di.id ASC LIMIT 1)
+               ) AS image_url
+        FROM course_days day
+        JOIN course_items item ON item.course_day_id = day.id
+        LEFT JOIN destinations d ON d.id = item.destination_id
+        LEFT JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
+        LEFT JOIN country_categories region ON region.id = d.region_id
+        LEFT JOIN country_categories country ON country.id = item.country_id
+        WHERE day.course_id = #{courseId} AND day.day_number = 1
+        ORDER BY item.display_order ASC, item.id ASC
+    </select>
+</mapper>

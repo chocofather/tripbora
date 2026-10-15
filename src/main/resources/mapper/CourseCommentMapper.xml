@@ -91,6 +91,7 @@
             FROM courses
             WHERE id = #{courseId}
               AND deleted = 0
+              AND status = 'PUBLISHED'
         )
     </select>
 
@@ -240,6 +241,7 @@
         JOIN courses c
           ON c.id = target.course_id
          AND c.deleted = 0
+         AND c.status = 'PUBLISHED'
          AND c.deleted_at IS NULL
         WHERE target.id = #{commentId}
           AND target.course_id = #{courseId}
@@ -372,6 +374,7 @@
         JOIN courses c
           ON c.id = cc.course_id
          AND c.deleted = 0
+         AND c.status = 'PUBLISHED'
         WHERE cc.id = #{id}
           AND cc.deleted = 0
           AND cc.content IS NOT NULL
@@ -388,6 +391,7 @@
         JOIN courses c
           ON c.id = cc.course_id
          AND c.deleted = 0
+         AND c.status = 'PUBLISHED'
         WHERE cc.id = #{id}
           AND cc.deleted = 0
           AND cc.content IS NOT NULL
@@ -400,6 +404,7 @@
         JOIN courses c
           ON c.id = cc.course_id
          AND c.deleted = 0
+         AND c.status = 'PUBLISHED'
         SET cc.source_language = #{sourceLanguage},
             cc.updated_at = cc.updated_at
         WHERE cc.id = #{id}

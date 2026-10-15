@@ -58,7 +58,8 @@ class CourseStopLocalizationTest {
                 new DestinationLocalizationService(destinationMapper),
                 new ReferenceNameLocalizationService(countryCategoryMapper, categoryMapper,
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
-                new LocalContentLanguageDetector(), destinationImageService);
+                new LocalContentLanguageDetector(), destinationImageService,
+                org.mockito.Mockito.mock(CourseStructureService.class));
     }
 
     @Test

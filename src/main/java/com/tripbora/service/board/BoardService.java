@@ -12,9 +12,13 @@ public interface BoardService {
     // 전체 글 수(페이징)
     int getBoardCount(String boardType, String postType, String scope, Long countryId);
 
-    // 공개 프로필용 작성자 콘텐츠 목록
+    // My Page용 작성자 콘텐츠 목록 (비공개 상태 포함)
     List<BoardListDto> getBoardListByUserId(Long userId, String type, int page, int size);
 
-    // 공개 프로필용 작성자 콘텐츠 수
+    // My Page용 작성자 콘텐츠 수
     int getBoardCountByUserId(Long userId, String type);
+
+    List<BoardListDto> getPublicBoardListByUserId(Long userId, String type, int page, int size);
+
+    int getPublicBoardCountByUserId(Long userId, String type);
 }

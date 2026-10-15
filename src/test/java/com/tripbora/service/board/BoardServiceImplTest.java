@@ -82,4 +82,12 @@ class BoardServiceImplTest {
         verify(boardMapper).countBoardByUserId(7L, "course", null);
         verify(boardMapper).countBoardByUserId(7L, null, null);
     }
+
+    @Test
+    void publicProfileUsesPublishedQueriesWithTheSameFiltersAndPagination() {
+        service.getPublicBoardListByUserId(7L, "COURSE", 2, 10);
+        service.getPublicBoardCountByUserId(7L, "COURSE");
+        verify(boardMapper).findPublicBoardListByUserId(7L, "course", null, 10L, 10);
+        verify(boardMapper).countPublicBoardByUserId(7L, "course", null);
+    }
 }

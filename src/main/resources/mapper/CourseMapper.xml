@@ -56,6 +56,7 @@
         SET views = views + 1
         WHERE id = #{courseId}
           AND deleted = 0
+          AND status = 'PUBLISHED'
     </update>
 
     <select id="findCourseDetail" resultMap="CourseDetailMap">
@@ -88,12 +89,15 @@
         JOIN users u ON u.id = c.user_id
         WHERE c.id = #{courseId}
           AND c.deleted = 0
+          AND c.status = 'PUBLISHED'
     </select>
 
     <select id="findActiveCourse" resultType="com.tripbora.model.Course">
         SELECT c.id,
                c.user_id,
                c.country_id,
+               c.course_kind,
+               c.status,
                country.region_name AS country_name,
                c.title,
                c.title_source_language,
@@ -107,7 +111,7 @@
     </select>
 
     <select id="findActiveCourseForUpdate" resultType="com.tripbora.model.Course">
-        SELECT id, user_id, country_id, title, title_source_language,
+        SELECT id, user_id, country_id, course_kind, status, title, title_source_language,
                content, content_source_language, updated_at
         FROM courses
         WHERE id = #{courseId}
@@ -137,6 +141,7 @@
         WHERE c.id = #{courseId}
           AND c.deleted = 0
           AND NOT <include refid="ActiveCourseModeration"/>
+          AND c.status = 'PUBLISHED'
     </select>
 
     <select id="findVisibleTranslationSourceForUpdate"
@@ -151,6 +156,7 @@
         WHERE c.id = #{courseId}
           AND c.deleted = 0
           AND NOT <include refid="ActiveCourseModeration"/>
+          AND c.status = 'PUBLISHED'
         FOR UPDATE
     </select>
 
@@ -257,6 +263,7 @@
         JOIN users u ON u.id = c.user_id
         JOIN course_destinations cd ON cd.course_id = c.id
         WHERE c.deleted = 0
+          AND c.status = 'PUBLISHED'
           AND c.deleted_at IS NULL
         GROUP BY c.id, c.title, u.nickname, u.status, c.views, c.created_at
         ORDER BY c.views DESC, c.created_at DESC, c.id DESC
@@ -288,6 +295,7 @@
             ) AS image_url
         FROM course_destinations cd
         JOIN destinations d ON d.id = cd.destination_id
+        JOIN courses c ON c.id = cd.course_id AND c.deleted = 0 AND c.status = 'PUBLISHED'
         LEFT JOIN destination_translations dt
           ON dt.destination_id = d.id
          AND dt.language_code = 'ko'
@@ -357,10 +365,10 @@
     <insert id="insertCourse" parameterType="com.tripbora.model.Course" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO courses (
             title, title_source_language, user_id, country_id,
-            content, content_source_language, created_at, deleted
+            content, content_source_language, course_kind, status, created_at, deleted
         ) VALUES (
                      #{title}, #{titleSourceLanguage}, #{userId}, #{countryId},
-                     #{content}, #{contentSourceLanguage}, NOW(), 0
+                     #{content}, #{contentSourceLanguage}, #{courseKind}, #{status}, NOW(), 0
                  )
     </insert>
 

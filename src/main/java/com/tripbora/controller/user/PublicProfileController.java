@@ -39,9 +39,9 @@ public class PublicProfileController {
         int safeSize = clampSize(size);
 
         PublicUserProfileDto profile = publicProfileService.getPublicProfile(userId);
-        List<BoardListDto> contents = boardService.getBoardListByUserId(
+        List<BoardListDto> contents = boardService.getPublicBoardListByUserId(
                 userId, safeType, safePage, safeSize);
-        int totalCount = boardService.getBoardCountByUserId(userId, safeType);
+        int totalCount = boardService.getPublicBoardCountByUserId(userId, safeType);
         int totalPages = (int) Math.ceil((double) totalCount / safeSize);
 
         model.addAttribute("profile", profile);

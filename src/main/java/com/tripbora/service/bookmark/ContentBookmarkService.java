@@ -1,6 +1,7 @@
 package com.tripbora.service.bookmark;
 
 import com.tripbora.model.BookmarkTargetType;
+import com.tripbora.model.Course;
 import com.tripbora.repository.bookmark.BookmarkMapper;
 import com.tripbora.repository.course.CourseMapper;
 import com.tripbora.repository.post.PostMapper;
@@ -65,7 +66,8 @@ public class ContentBookmarkService {
     }
 
     private void requireActiveCourse(Long courseId) {
-        if (courseId == null || courseMapper.findActiveCourseForUpdate(courseId) == null) {
+        Course course = courseId == null ? null : courseMapper.findActiveCourseForUpdate(courseId);
+        if (course == null || !"PUBLISHED".equals(course.getStatus())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "여행 코스를 찾을 수 없습니다.");
         }
     }

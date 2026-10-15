@@ -144,6 +144,7 @@
         <include refid="courseCommentCount"/>
         <include refid="courseBookmarkCount"/>
         WHERE c.deleted = 0
+          AND c.status = 'PUBLISHED'
         <include refid="courseCountryFilters"/>
     </sql>
 
@@ -238,6 +239,7 @@
                 SELECT COUNT(*)
                 FROM courses c
                 WHERE c.deleted = 0
+                  AND c.status = 'PUBLISHED'
                 <include refid="courseCountryFilters"/>
                 <if test="postType != null">
                     AND 1 = 0
@@ -256,7 +258,7 @@
                 -->
                 SELECT
                     (SELECT COUNT(*) FROM user_posts p WHERE p.deleted = 0)
-                  + (SELECT COUNT(*) FROM courses c WHERE c.deleted = 0)
+                  + (SELECT COUNT(*) FROM courses c WHERE c.deleted = 0 AND c.status = 'PUBLISHED')
             </otherwise>
         </choose>
     </select>
@@ -325,6 +327,9 @@
         WHERE c.user_id = #{userId}
           AND c.deleted = 0
           AND c.deleted_at IS NULL
+        <if test="publishedOnly">
+          AND c.status = 'PUBLISHED'
+        </if>
     </sql>
 
     <sql id="boardFilters">
@@ -337,7 +342,7 @@
         </if>
     </sql>
 
-    <select id="findBoardListByUserId" resultType="com.tripbora.dto.BoardListDto">
+    <sql id="userBoardList">
         SELECT
             board.id,
             board.userId,
@@ -356,15 +361,33 @@
         <include refid="boardFilters"/>
         ORDER BY board.createdAt DESC, board.boardType ASC, board.id DESC
         LIMIT #{offset}, #{limit}
-    </select>
+    </sql>
 
-    <select id="countBoardByUserId" resultType="int">
+    <sql id="userBoardCount">
         SELECT COUNT(*)
         FROM (
             <include refid="unifiedBoardSelectByUserId"/>
         ) board
         WHERE 1 = 1
         <include refid="boardFilters"/>
+    </sql>
+
+    <!-- My Page는 본인의 비공개 상태도 유지하고, 공개 프로필만 PUBLISHED로 제한한다. -->
+    <select id="findBoardListByUserId" resultType="com.tripbora.dto.BoardListDto">
+        <bind name="publishedOnly" value="false"/>
+        <include refid="userBoardList"/>
+    </select>
+    <select id="countBoardByUserId" resultType="int">
+        <bind name="publishedOnly" value="false"/>
+        <include refid="userBoardCount"/>
+    </select>
+    <select id="findPublicBoardListByUserId" resultType="com.tripbora.dto.BoardListDto">
+        <bind name="publishedOnly" value="true"/>
+        <include refid="userBoardList"/>
+    </select>
+    <select id="countPublicBoardByUserId" resultType="int">
+        <bind name="publishedOnly" value="true"/>
+        <include refid="userBoardCount"/>
     </select>
 
 </mapper>

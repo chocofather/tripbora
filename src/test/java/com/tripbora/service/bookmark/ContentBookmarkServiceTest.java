@@ -83,7 +83,7 @@ class ContentBookmarkServiceTest {
 
     @Test
     void bookmarksActiveCourseWithServerFixedCourseType() {
-        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(new Course());
+        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(publishedCourse());
         when(bookmarkMapper.insertIgnore(7L, "COURSE", 20L)).thenReturn(1);
 
         service.bookmarkCourse(20L, 7L);
@@ -94,7 +94,7 @@ class ContentBookmarkServiceTest {
 
     @Test
     void duplicateCourseBookmarkInsertIsSuccessfulNoop() {
-        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(new Course());
+        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(publishedCourse());
         when(bookmarkMapper.insertIgnore(7L, "COURSE", 20L)).thenReturn(0);
 
         service.bookmarkCourse(20L, 7L);
@@ -104,7 +104,7 @@ class ContentBookmarkServiceTest {
 
     @Test
     void unbookmarksCourseIdempotentlyAfterActiveTargetLock() {
-        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(new Course());
+        when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(publishedCourse());
 
         service.unbookmarkCourse(20L, 7L);
 
@@ -119,6 +119,17 @@ class ContentBookmarkServiceTest {
 
         verify(bookmarkMapper, never()).insertIgnore(any(), any(), any());
         verify(bookmarkMapper, never()).delete(any(), any(), any());
+    }
+
+    @Test
+    void unpublishedCourseCannotBeBookmarked() {
+        for (String status : java.util.List.of("DRAFT", "HIDDEN")) {
+            Course course = new Course();
+            course.setStatus(status);
+            when(courseMapper.findActiveCourseForUpdate(20L)).thenReturn(course);
+            assertNotFound(() -> service.bookmarkCourse(20L, 7L));
+        }
+        verify(bookmarkMapper, never()).insertIgnore(any(), any(), any());
     }
 
     @Test
@@ -157,5 +168,11 @@ class ContentBookmarkServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode())
                         .isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    private Course publishedCourse() {
+        Course course = new Course();
+        course.setStatus("PUBLISHED");
+        return course;
     }
 }

@@ -52,6 +52,7 @@ public class CourseServiceImpl implements CourseService {
     private final ReferenceNameLocalizationService referenceNameLocalizationService;
     private final LocalContentLanguageDetector languageDetector;
     private final DestinationImageService destinationImageService;
+    private final CourseStructureService courseStructureService;
 
     @Override
     @Transactional
@@ -68,7 +69,7 @@ public class CourseServiceImpl implements CourseService {
 
         course.setContent(postContentSanitizer.sanitize(course.getContent()));
         applyTranslationMetadata(course, requestedLanguage);
-        course.setStops(localizeStopNames(courseMapper.findCourseStops(courseId), requestedLanguage));
+        course.setStops(localizeStopNames(readTransitionStops(courseId), requestedLanguage));
         course.setMyCourse(currentUserId != null && Objects.equals(course.getUserId(), currentUserId));
         return course;
     }
@@ -85,7 +86,7 @@ public class CourseServiceImpl implements CourseService {
         edit.setCountryName(course.getCountryName());
         edit.setTitle(course.getTitle());
         edit.setContent(postContentSanitizer.sanitize(course.getContent()));
-        edit.setStops(localizeStopNames(courseMapper.findCourseStops(courseId), requestedLanguage));
+        edit.setStops(localizeStopNames(readTransitionStops(courseId), requestedLanguage));
         return edit;
     }
 
@@ -225,6 +226,8 @@ public class CourseServiceImpl implements CourseService {
         course.setContentSourceLanguage(detectContentLanguage(validated.content()));
         course.setUserId(userId);
         course.setCountryId(countryId);
+        course.setCourseKind("TRAVELER");
+        course.setStatus("PUBLISHED");
 
         if (courseMapper.insertCourse(course) != 1 || course.getId() == null) {
             throw new IllegalStateException("여행 코스 저장에 실패했습니다.");
@@ -239,6 +242,7 @@ public class CourseServiceImpl implements CourseService {
                 throw new IllegalStateException("코스 여행지 저장에 실패했습니다.");
             }
         }
+        courseStructureService.synchronizeDayOne(course.getId(), countryId, validated.destinationIds());
         return course.getId();
     }
 
@@ -268,6 +272,7 @@ public class CourseServiceImpl implements CourseService {
 
         courseMapper.deleteCourseDestinations(courseId);
         insertCourseDestinations(courseId, validated.destinationIds());
+        courseStructureService.synchronizeDayOne(courseId, countryId, validated.destinationIds());
     }
 
     @Override
@@ -338,6 +343,24 @@ public class CourseServiceImpl implements CourseService {
             }
             visitOrder++;
         }
+    }
+
+    private List<CourseStopDto> readTransitionStops(Long courseId) {
+        List<CourseStopDto> structured = courseStructureService.findDayOneStops(courseId);
+        if (structured == null || structured.isEmpty()) {
+            // Day 1 또는 Item 자체가 없는 transition 데이터에만 legacy를 사용한다.
+            return courseMapper.findCourseStops(courseId);
+        }
+        // SET NULL된 snapshot은 보존하되, 기존 UI는 현재 등록된 여행지만 보여 준다.
+        // snapshot만 남은 정상 구조를 legacy로 덮어쓰지 않는다.
+        List<CourseStopDto> visible = new ArrayList<>();
+        for (CourseStopDto stop : structured) {
+            if (stop.getDestinationId() != null) {
+                stop.setVisitOrder(visible.size() + 1);
+                visible.add(stop);
+            }
+        }
+        return visible;
     }
 
     private ValidatedCourse validateBasic(String requestedTitle, String content, List<Long> destinationIds) {

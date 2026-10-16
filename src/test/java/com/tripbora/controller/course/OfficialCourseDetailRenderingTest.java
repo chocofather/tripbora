@@ -46,11 +46,11 @@ class OfficialCourseDetailRenderingTest {
         var day = new CourseDayDto(); day.setDayNumber(1);
         course.setDays(List.of(day)); course.setStops(List.of());
         when(courses.getCourseDetail(eq(40L), isNull(), any())).thenReturn(course);
-        var html = mvc.perform(get("/course/40")).andExpect(status().isOk())
+        var html = mvc.perform(get("/courses/40")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         var document = Jsoup.parse(html);
         assertThat(document.select(".course-official-badge")).hasSize(1);
-        assertThat(document.select(".course-official-badge").text()).isEqualTo("✓ TripBora 검증 코스");
+        assertThat(document.select(".course-official-badge").text()).isEqualTo("TripBora 추천 코스");
         assertThat(document.select(".course-official-summary").text()).isEqualTo("핵심 일정 소개");
         assertThat(document.select("meta[name=description]").attr("content")).contains("핵심 일정 소개");
         assertThat(document.select(".course-meta").text()).contains("TripBora");
@@ -58,7 +58,9 @@ class OfficialCourseDetailRenderingTest {
         assertThat(document.select(".course-day-route")).hasSize(1);
         assertThat(document.select(".structured-content, [data-structured-gallery], .course-introduction")).isEmpty();
         assertThat(document.select("script[src*='structured'], link[href*='structured']")).isEmpty();
-        assertThat(document.select(".course-breadcrumb").text()).doesNotContain("검증", "공식");
+        assertThat(document.select(".course-breadcrumb a").eachAttr("href")).containsExactly("/", "/courses");
+        assertThat(document.select(".course-breadcrumb").text()).contains(course.getTitle());
+        assertThat(document.select(".course-breadcrumb .course-official-badge")).isEmpty();
         assertThat(html).doesNotContain("개인관리자닉네임", "기존 본문은 노출하지 않음", "/users/1");
         assertThat(document.select("[data-bookmark-url='/bookmarks/courses/40']")).isNotEmpty();
         assertThat(document.select("#course-comments")).isNotEmpty();
@@ -73,7 +75,7 @@ class OfficialCourseDetailRenderingTest {
         course.setCreatedAt(Timestamp.valueOf("2026-10-17 00:00:00")); course.setViews(0);
         course.setDays(List.of()); course.setStops(List.of());
         when(courses.getCourseDetail(eq(41L), isNull(), any())).thenReturn(course);
-        var html = mvc.perform(get("/course/41")).andExpect(status().isOk())
+        var html = mvc.perform(get("/courses/41")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         var page = Jsoup.parse(html);
         assertThat(page.select(".course-official-badge")).isEmpty();

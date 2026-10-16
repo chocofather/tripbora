@@ -88,7 +88,7 @@ class ContentBookmarkDetailUiTest {
         when(courseService.getCourseDetail(eq(id), isNull(), any()))
                 .thenReturn(course(id, bookmarked));
 
-        String body = mockMvc.perform(get("/course/{id}", id))
+        String body = mockMvc.perform(get("/courses/{id}", id))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -110,7 +110,7 @@ class ContentBookmarkDetailUiTest {
         detail.setMyCourse(myCourse);
         when(courseService.getCourseDetail(eq(20L), isNull(), any())).thenReturn(detail);
 
-        String body = mockMvc.perform(get("/course/20"))
+        String body = mockMvc.perform(get("/courses/20"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         var document = Jsoup.parse(body);
@@ -121,9 +121,9 @@ class ContentBookmarkDetailUiTest {
             var menu = menus.first();
             assertThat(menu.selectFirst("summary").attr("aria-label"))
                     .isNotBlank().doesNotContain("#{");
-            assertThat(menu.selectFirst(".course-edit-button").attr("href")).isEqualTo("/course/20/edit");
+            assertThat(menu.selectFirst(".course-edit-button").attr("href")).isEqualTo("/courses/20/edit");
             var form = menu.selectFirst("form");
-            assertThat(form.attr("action")).isEqualTo("/course/20/delete");
+            assertThat(form.attr("action")).isEqualTo("/courses/20/delete");
             assertThat(form.attr("method")).isEqualTo("post");
             assertThat(form.attr("data-confirm")).isNotBlank();
             assertThat(form.selectFirst("input[name=_csrf]").attr("value")).isNotBlank();
@@ -165,7 +165,7 @@ class ContentBookmarkDetailUiTest {
         String postBody = mockMvc.perform(get("/post/10"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        String courseBody = mockMvc.perform(get("/course/20"))
+        String courseBody = mockMvc.perform(get("/courses/20"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 

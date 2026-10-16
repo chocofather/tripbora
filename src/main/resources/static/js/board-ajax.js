@@ -62,33 +62,6 @@ function loadBoardList(page, sort, updateHistory = true, size) {
         });
 }
 
-function changeBoardCountry(countryId) {
-    const params = new URLSearchParams(window.location.search);
-    params.set('boardType', 'course');
-    params.set('scope', 'overseas');
-    params.set('page', '1');
-    params.set('size', boardPageSize(params));
-    if (countryId) {
-        params.set('countryId', countryId);
-    } else {
-        params.delete('countryId');
-    }
-    window.location.assign(`/board/list?${params.toString()}`);
-}
-
-function changeBoardScope(event, scope) {
-    event.preventDefault();
-    const allowedScopes = new Set(['all', 'domestic', 'overseas']);
-    const nextScope = allowedScopes.has(scope) ? scope : 'all';
-    const params = new URLSearchParams(window.location.search);
-    params.set('boardType', 'course');
-    params.set('scope', nextScope);
-    params.set('page', '1');
-    params.set('size', boardPageSize(params));
-    params.delete('countryId');
-    window.location.assign(`/board/list?${params.toString()}`);
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     updateBoardSortState(params.get('sort'));
@@ -105,24 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const field = document.querySelector('.board-country-select-wrap');
-    const input = document.getElementById('board-country-input');
-    const listbox = document.getElementById('board-country-listbox');
-    const options = document.querySelectorAll('.board-country-option');
-    if (field && input && listbox) {
-        window.CountryCombobox?.init({
-            root: field.querySelector('.board-country-combobox'),
-            input,
-            listbox,
-            options,
-            empty: document.getElementById('board-country-option-empty'),
-            getSelectedName: () => field.dataset.selectedCountryName || '',
-            onSelect: countryId => {
-                changeBoardCountry(countryId);
-                return true;
-            }
-        });
-    }
 });
 
 window.addEventListener('popstate', () => {

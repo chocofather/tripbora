@@ -66,7 +66,7 @@ class PostWriteFormUiTest {
                 .contains("data-board-write-open")
                 .contains("id=\"board-write-modal\"")
                 .contains("/post/write?postType=TIP")
-                .contains("/course/write");
+                .doesNotContain("/course/write", "/courses/new");
     }
 
     @Test

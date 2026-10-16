@@ -5,7 +5,8 @@
   <meta charset="UTF-8" />
 </head>
 <body>
-<header th:fragment="siteHeader">
+<header th:fragment="siteHeader"
+        th:with="activeHeaderSection=${headerNavigation != null ? headerNavigation.resolve(type, adminPreview) : ''}">
   <nav class="main-nav">
     <!-- 로고 -->
     <div class="logo">
@@ -152,28 +153,8 @@
       </ul>
     </div>
 
-    <!-- 서브메뉴 -->
-    <div class="global-submenu">
-      <div class="submenu-grid">
-        <div class="submenu-col" aria-hidden="true"></div>
-        <div class="submenu-col" aria-hidden="true"></div>
-        <div class="submenu-col">
-          <ul th:replace="~{fragments/header :: communityLinks}"></ul>
-        </div>
-        <div class="submenu-col">
-          <ul th:replace="~{fragments/header :: infoLinks}"></ul>
-        </div>
-        <div class="submenu-col">
-          <ul th:replace="~{fragments/header :: recordLinks}"></ul>
-        </div>
-        <div class="submenu-col">
-          <ul th:replace="~{fragments/header :: supportLinks}"></ul>
-        </div>
-        <div class="submenu-col">
-          <ul th:replace="~{fragments/header :: eventLinks}"></ul>
-        </div>
-      </div>
-    </div>
+    <!-- 공통 배경만 전체 폭으로 펼친다. 링크 그룹은 각 부모 메뉴에 속한다. -->
+    <div class="global-submenu" aria-hidden="true"></div>
 
     <!--
       좁은 화면 전용 메뉴 판.
@@ -193,32 +174,35 @@
             <a th:replace="~{fragments/header :: linkOverseas}"></a>
           </li>
           <li class="site-menu-entry">
+            <a th:replace="~{fragments/header :: linkCourses}"></a>
+          </li>
+          <li class="site-menu-entry">
             <details class="site-menu-group" name="site-menu-group">
-              <summary th:text="#{nav.community}">여행 커뮤니티</summary>
+              <summary th:aria-current="${activeHeaderSection == 'community'} ? 'page' : null" th:text="#{nav.community}">여행 커뮤니티</summary>
               <ul th:replace="~{fragments/header :: communityLinks}"></ul>
             </details>
           </li>
           <li class="site-menu-entry">
             <details class="site-menu-group" name="site-menu-group">
-              <summary th:text="#{nav.travelInfo}">여행정보</summary>
+              <summary th:aria-current="${activeHeaderSection == 'travelInfo'} ? 'page' : null" th:text="#{nav.travelInfo}">여행정보</summary>
               <ul th:replace="~{fragments/header :: infoLinks}"></ul>
             </details>
           </li>
           <li class="site-menu-entry">
             <details class="site-menu-group" name="site-menu-group">
-              <summary th:text="#{nav.travelRecords}">여행기록</summary>
+              <summary th:aria-current="${activeHeaderSection == 'diaries'} ? 'page' : null" th:text="#{nav.travelRecords}">여행기록</summary>
               <ul th:replace="~{fragments/header :: recordLinks}"></ul>
             </details>
           </li>
           <li class="site-menu-entry">
             <details class="site-menu-group" name="site-menu-group">
-              <summary th:text="#{nav.support}">고객센터</summary>
+              <summary th:aria-current="${activeHeaderSection == 'support'} ? 'page' : null" th:text="#{nav.support}">고객센터</summary>
               <ul th:replace="~{fragments/header :: supportLinks}"></ul>
             </details>
           </li>
           <li class="site-menu-entry">
             <details class="site-menu-group" name="site-menu-group">
-              <summary th:text="#{nav.events}">이벤트</summary>
+              <summary th:aria-current="${activeHeaderSection == 'events'} ? 'page' : null" th:text="#{nav.events}">이벤트</summary>
               <ul th:replace="~{fragments/header :: eventLinks}"></ul>
             </details>
           </li>
@@ -243,11 +227,27 @@
 <th:block th:fragment="mainMenuItems">
   <li class="menu-item"><a th:replace="~{fragments/header :: linkDomestic}"></a></li>
   <li class="menu-item"><a th:replace="~{fragments/header :: linkOverseas}"></a></li>
-  <li class="menu-item"><a th:replace="~{fragments/header :: linkCommunity}"></a></li>
-  <li class="menu-item"><a th:replace="~{fragments/header :: linkTravelInfo}"></a></li>
-  <li class="menu-item"><a th:replace="~{fragments/header :: linkDiaries}"></a></li>
-  <li class="menu-item"><a th:replace="~{fragments/header :: linkSupport}"></a></li>
-  <li class="menu-item"><a th:replace="~{fragments/header :: linkEvents}"></a></li>
+  <li class="menu-item"><a th:replace="~{fragments/header :: linkCourses}"></a></li>
+  <li class="menu-item">
+    <a th:replace="~{fragments/header :: linkCommunity}"></a>
+    <div class="submenu-col"><ul th:replace="~{fragments/header :: communityLinks}"></ul></div>
+  </li>
+  <li class="menu-item">
+    <a th:replace="~{fragments/header :: linkTravelInfo}"></a>
+    <div class="submenu-col"><ul th:replace="~{fragments/header :: infoLinks}"></ul></div>
+  </li>
+  <li class="menu-item">
+    <a th:replace="~{fragments/header :: linkDiaries}"></a>
+    <div class="submenu-col"><ul th:replace="~{fragments/header :: recordLinks}"></ul></div>
+  </li>
+  <li class="menu-item">
+    <a th:replace="~{fragments/header :: linkSupport}"></a>
+    <div class="submenu-col"><ul th:replace="~{fragments/header :: supportLinks}"></ul></div>
+  </li>
+  <li class="menu-item">
+    <a th:replace="~{fragments/header :: linkEvents}"></a>
+    <div class="submenu-col"><ul th:replace="~{fragments/header :: eventLinks}"></ul></div>
+  </li>
 </th:block>
 
 <!--
@@ -255,27 +255,28 @@
   생김새는 감싸는 쪽 CSS 가 정하므로 여기에는 주소와 글자만 둔다.
 -->
 <a th:fragment="linkDomestic" href="/destinations?type=domestic"
-   th:text="#{nav.domestic}">국내</a>
+   th:aria-current="${activeHeaderSection == 'domestic'} ? 'page' : null" th:text="#{nav.domestic}">국내</a>
 <a th:fragment="linkOverseas" href="/destinations?type=overseas"
-   th:text="#{nav.overseas}">해외</a>
+   th:aria-current="${activeHeaderSection == 'overseas'} ? 'page' : null" th:text="#{nav.overseas}">해외</a>
+<a th:fragment="linkCourses" href="/courses"
+   th:aria-current="${activeHeaderSection == 'courses'} ? 'page' : null" th:text="#{nav.courses}">여행코스</a>
 <a th:fragment="linkCommunity" href="/board/list"
-   th:text="#{nav.community}">여행 커뮤니티</a>
+   th:aria-current="${activeHeaderSection == 'community'} ? 'page' : null" th:text="#{nav.community}">여행 커뮤니티</a>
 <a th:fragment="linkTravelInfo" href="/travel-info"
-   th:text="#{nav.travelInfo}">여행정보</a>
+   th:aria-current="${activeHeaderSection == 'travelInfo'} ? 'page' : null" th:text="#{nav.travelInfo}">여행정보</a>
 <!-- 회원은 기존 내 여행일기 목록으로, 비회원은 로그인 대신 체험 화면으로 보낸다.
      회원의 /diaries 링크·북마크 계약은 그대로다. -->
 <a th:fragment="linkDiaries"
    th:href="${isLoggedIn} ? @{/diaries} : @{/diaries/demo}" href="/diaries"
-   th:text="#{nav.travelRecords}">여행기록</a>
+   th:aria-current="${activeHeaderSection == 'diaries'} ? 'page' : null" th:text="#{nav.travelRecords}">여행기록</a>
 <a th:fragment="linkSupport" href="/support/notices"
-   th:text="#{nav.support}">고객센터</a>
+   th:aria-current="${activeHeaderSection == 'support'} ? 'page' : null" th:text="#{nav.support}">고객센터</a>
 <a th:fragment="linkEvents" th:href="@{/events}"
-   th:text="#{nav.events}">이벤트</a>
+   th:aria-current="${activeHeaderSection == 'events'} ? 'page' : null" th:text="#{nav.events}">이벤트</a>
 
 <ul th:fragment="communityLinks">
   <li><a href="/board/list?boardType=post&amp;postType=question" th:text="#{nav.community.question}">여행 질문</a></li>
   <li><a href="/board/list?boardType=post&amp;postType=tip" th:text="#{nav.community.tips}">여행 팁</a></li>
-  <li><a href="/board/list?boardType=course" th:text="#{nav.community.myCourses}">나의 여행코스</a></li>
 </ul>
 
 <ul th:fragment="infoLinks">

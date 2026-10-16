@@ -39,9 +39,9 @@ body {
 
 
 :root {
-    --columns: 7; /* 메뉴 컬럼 개수 */
+    --columns: 8; /* 메뉴 컬럼 개수 */
     --gap: 0px;
-    --menu-width: 820px;
+    --menu-width: 900px;
     --tripbora-primary: #7657c8;
     --tripbora-primary-hover: #6042b0;
     --tripbora-primary-active: #513694;
@@ -187,7 +187,7 @@ body {
     align-items: center;
     justify-content: center;
 }
-.menu-item a {
+.menu-item > a {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -198,30 +198,23 @@ body {
     color: #333;
     font-size: 16px;
 }
+.menu-item > a[aria-current="page"], .site-menu-entry > a[aria-current="page"], .site-menu-group > summary[aria-current="page"] {
+    color: var(--tripbora-primary);
+}
 
 /* 서브메뉴 */
 .global-submenu {
     position: absolute;
-    top: 70px;
+    top: 100px;
     left: 0;
     width: 100%;
     background: #ffffff; /* ✅ hover 시에도 흰색 통일 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
     backdrop-filter: none;       /* ✅ 흐림 제거 */
-    padding: 10px 0;
+    height: var(--header-submenu-height, 128px);
+    padding: 0;
+    box-sizing: border-box;
     display: none;
-}
-
-.main-nav:hover .global-submenu {
-    display: block;
-}
-.submenu-grid {
-    width: var(--menu-width);
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(var(--columns), 1fr);
-    column-gap: var(--gap);
-    padding: 10px 20px; /* ✅ 좌우 여백 줄이기 */
 }
 
 .submenu-col h3 {
@@ -234,6 +227,8 @@ body {
 .submenu-col ul {
     list-style: none;
     text-align: center;
+    margin: 0;
+    padding: 0;
 }
 .submenu-col ul li + li {
     margin-top: 8px;
@@ -242,6 +237,8 @@ body {
     font-size: 13px;
     color: #333;
     text-decoration: none;
+    font-weight: 400;
+    line-height: 1.5;
 }
 .submenu-col ul li .submenu-link-disabled {
     font-size: 13px;
@@ -280,7 +277,7 @@ body {
   메뉴 글자가 중간에서 끊기지 않게 한다.
   자리가 모자라면 글자를 자르는 대신 아래 breakpoint 에서 메뉴 판으로 바꾼다.
 */
-.menu-item a,
+.menu-item > a,
 .site-menu a {
     white-space: nowrap;
 }
@@ -475,6 +472,11 @@ body {
         cursor: pointer;
     }
 
+    .site-menu-entry > a[aria-current="page"],
+    .site-menu-group > summary[aria-current="page"] {
+        color: var(--tripbora-primary);
+    }
+
     .site-menu-group > summary::-webkit-details-marker { display: none; }
     .site-menu-group > summary::after {
         content: "";
@@ -562,13 +564,100 @@ body {
   검색창은 가운데 메뉴 오른쪽에 남는 자리 안에서만 펼친다.
   .search-box 는 absolute 라 넓어져도 메뉴를 밀어내지 못하고 그대로 덮는다.
   그래서 밀림이 아니라 폭 자체를 막는다.
-  .nav-grid 는 --menu-width 를 가운데 정렬하므로 오른쪽에 남는 자리는
-  50vw - (--menu-width / 2) 이고, 여기서 헤더 오른쪽 여백 20px 을 뺀 만큼이다.
+  .nav-grid 는 --menu-width 를 가운데 정렬하며 로고·도구 공간을 남긴다.
+  오른쪽 여백 20px을 제외한 영역까지만 검색창을 펼친다.
   메뉴를 ☰ 로 접는 1199px 이하에서는 기존 정책 그대로 제한하지 않는다.
 */
 @media (min-width: 1200px) {
+    .main-nav {
+        --header-submenu-gap: 16px;
+    }
+
+    /* 1차 메뉴만 간격을 조정한다. 독립된 mega menu의 grid에는 전파하지 않는다. */
+    .main-nav > .nav-grid {
+        --header-menu-gap: 60px;
+        /* 1차 메뉴 간격과 독립적으로 기존 하위 메뉴 폭을 유지한다. */
+        --header-submenu-inline-space: 32px;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        max-width: calc(100% - 400px);
+        height: 100px;
+    }
+
+    .main-nav > .nav-grid > .main-menu {
+        display: flex;
+        align-items: center;
+        gap: var(--header-menu-gap);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .main-nav > .nav-grid > .main-menu > .menu-item {
+        flex: 0 0 auto;
+        position: relative;
+    }
+
+    .main-nav > .nav-grid > .main-menu > .menu-item > a {
+        width: auto;
+        height: auto;
+        font-size: clamp(14px, 1.1vw, 16px);
+        line-height: 1.4;
+    }
+
+    .main-menu > .menu-item > .submenu-col {
+        position: absolute;
+        top: calc(100% + var(--header-submenu-gap));
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% + var(--header-submenu-inline-space));
+        box-sizing: border-box;
+        padding: 0 0 20px;
+        font-size: 13px;
+        line-height: 1.5;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    /* 부모와 하위 메뉴 사이를 지나가도 hover가 끊기지 않는 투명한 연결 영역. */
+    .main-menu > .menu-item > .submenu-col::before {
+        content: "";
+        position: absolute;
+        inset-inline: 0;
+        bottom: 100%;
+        height: var(--header-submenu-gap);
+    }
+
+    .main-nav > .global-submenu {
+        top: var(--header-submenu-top, 70px);
+    }
+
+    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) > .global-submenu {
+        display: block;
+    }
+
+    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) .main-menu > .menu-item > .submenu-col {
+        visibility: visible;
+        pointer-events: auto;
+    }
+
     .search-box {
         max-width: calc(50vw - (var(--menu-width) / 2) - 20px);
+        justify-content: flex-end;
+        padding-right: 0;
+        gap: 4px;
+    }
+
+    .search-box #auth-area { margin-left: 0; }
+}
+
+@media (min-width: 1200px) and (max-width: 1399px) {
+    html:lang(en) .main-nav > .nav-grid,
+    html:lang(ja) .main-nav > .nav-grid {
+        --header-menu-gap: 40px;
     }
 }
 
@@ -916,7 +1005,8 @@ body {
     font-weight: 700;
 }
 
-@media (max-width: 1399px) {
+@media (max-width: 1599px) {
+    /* 넓어진 1차 메뉴와 도구가 겹치지 않도록 언어 아이콘을 유지한다. */
     .language-menu-current {
         display: none;
     }

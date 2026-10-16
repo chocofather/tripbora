@@ -12,6 +12,7 @@ import com.tripbora.seo.SeoModel;
 import com.tripbora.seo.SeoStructuredData;
 import com.tripbora.service.category.CountryCategoryService;
 import com.tripbora.service.course.CourseService;
+import com.tripbora.web.CourseUrls;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -29,7 +30,7 @@ import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
-@RequestMapping("/course")
+@RequestMapping(CourseUrls.LIST)
 public class CourseController {
 
     private final CourseService courseService;
@@ -62,14 +63,14 @@ public class CourseController {
         String seoImage = course.getRepresentativeImageUrl();
         String description = "OFFICIAL".equals(course.getCourseKind()) ? course.getSummary() : course.getContent();
         SeoModel.apply(model, course.getTitle() + " | TripBora", description,
-                "/course/" + id, seoImage, "article");
+                CourseUrls.detail(id), seoImage, "article");
         List<SeoStructuredData.ItineraryStop> itinerary = course.getStops() == null
                 ? List.of()
                 : course.getStops().stream()
                 .map(stop -> new SeoStructuredData.ItineraryStop(
                         stop.getName(), stop.getDestinationId()))
                 .toList();
-        SeoStructuredData.touristTrip(model, "/course/" + id,
+        SeoStructuredData.touristTrip(model, CourseUrls.detail(id),
                 course.getTitle(), description, seoImage, itinerary);
         return "course/detail";
     }
@@ -99,18 +100,18 @@ public class CourseController {
             return retryForm(id, request.getTitle(), request.getContent(), request.getCountryId(),
                     request.getDays(), request.getThemeIds(), error.getReason(), principal.getId(), request.isRemoveCoverImage(), model);
         }
-        return "redirect:/course/" + id;
+        return "redirect:" + CourseUrls.detail(id);
     }
 
     @PostMapping("/{id}/delete")
     public String deleteCourse(@PathVariable Long id,
                                @AuthenticationPrincipal CustomUserDetails principal) {
         courseService.deleteCourse(id, principal.getId());
-        return "redirect:/board/list";
+        return "redirect:" + CourseUrls.LIST;
     }
 
     // 글쓰기 폼 페이지 (GET)
-    @GetMapping("/write")
+    @GetMapping("/new")
     public String courseWritePage(Model model) {
         addCourseCountries(model);
         return "course/write";
@@ -135,7 +136,7 @@ public class CourseController {
     }
 
     // 글쓰기 저장 (POST)
-    @PostMapping("/write")
+    @PostMapping("/new")
     public String submitCourse(
             @ModelAttribute CourseCreateRequest request,
             BindingResult binding,
@@ -152,7 +153,7 @@ public class CourseController {
             return retryForm(null, request.getTitle(), request.getContent(), request.getCountryId(),
                     request.getDays(), request.getThemeIds(), error.getReason(), principal.getId(), false, model);
         }
-        return "redirect:/course/" + courseId;
+        return "redirect:" + CourseUrls.detail(courseId);
     }
 
     private String retryForm(Long id, String title, String content, Long countryId,

@@ -18,8 +18,8 @@ public final class SeoRobotsPolicy {
     private static final List<String> NOINDEX_EXACT_PATHS = List.of(
             "/login", "/logout", "/register", "/social-signup", "/social-link",
             "/search", "/search.html", "/users/register", "/users/verify",
-            "/users/find-password", "/post/write", "/course/write");
-    private static final Pattern EDIT_PATH = Pattern.compile("^/(?:post|course)/\\d+/edit$");
+            "/users/find-password", "/post/write", "/course/write", "/courses/new");
+    private static final Pattern EDIT_PATH = Pattern.compile("^/(?:post|courses?)/\\d+/edit$");
 
     private SeoRobotsPolicy() {
     }

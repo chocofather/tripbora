@@ -210,7 +210,7 @@ class MyPageControllerTest {
                     assertOriginalLinks(document, "/destinations/101?commentId=31", "경복궁");
                     assertOriginalLinks(document, "/post/102?commentId=32", "제주도 렌터카 질문");
                     assertOriginalLinks(document, "/post/103?commentId=33", "부산 여행 팁");
-                    assertOriginalLinks(document, "/course/104?commentId=34", "서울 당일치기 코스");
+                    assertOriginalLinks(document, "/courses/104?commentId=34", "서울 당일치기 코스");
                     assertThat(document.select(".mypage-comment-type").text())
                             .contains("여행지", "여행 질문", "여행 팁", "여행 코스");
                     assertThat(document.select(".mypage-comment-reply")).hasSize(2);
@@ -345,12 +345,12 @@ class MyPageControllerTest {
                     var document = Jsoup.parse(result.getResponse().getContentAsString());
                     assertThat(document.select("a[href=/post/11]")).hasSize(1);
                     assertThat(document.select("a[href=/post/12]")).hasSize(1);
-                    assertThat(document.select("a[href=/course/13]")).hasSize(1);
+                    assertThat(document.select("a[href=/courses/13]")).hasSize(1);
                     assertThat(document.select(".mypage-post-type").text())
                             .contains("여행 질문", "여행 팁", "여행 코스");
                     assertThat(document.select(
                             ".mypage-navigation-link.is-active[aria-current=page]").text())
-                            .isEqualTo("내가 작성한 글");
+                            .isEqualTo("작성한 콘텐츠");
                     assertThat(document.select(
                             ".mypage-post-filters a.is-active[aria-current=page]").text())
                             .isEqualTo("전체");

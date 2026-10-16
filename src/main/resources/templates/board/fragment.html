@@ -2,42 +2,30 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <th:block th:fragment="boardListFragment (boardList, totalPages, currentPage, sort)">
-  <div class="board-list" th:attr="data-page-size=${pageSize}"
-       th:classappend="${courseBoard} ? ' board-list--course-only'">
+  <div class="board-list" th:attr="data-page-size=${pageSize}">
     <div th:each="item : ${boardList}"
-         class="board-list-row"
-         th:classappend="${item.boardType == 'course'} ? ' board-list-row--course' : ' board-list-row--post'">
+         class="board-list-row board-list-row--post">
       <div class="board-row-main">
         <span class="board-type"
-              th:classappend="${item.boardType == 'course' ? ' board-type--course' : (item.postType == 'TIP' ? ' board-type--tip' : ' board-type--question')}"
-              th:text="${item.boardType == 'course' ? '여행 코스' : (item.postType == 'TIP' ? '여행 팁' : '여행 질문')}"></span>
-        <div class="course-card-copy" th:remove="${item.boardType != 'course'} ? 'tag' : 'none'">
-        <span class="course-official-badge" th:if="${item.boardType == 'course' and item.courseKind == 'OFFICIAL'}">✓ TripBora 검증</span>
+              th:classappend="${item.postType == 'TIP' ? ' board-type--tip' : ' board-type--question'}"
+              th:text="${item.postType == 'TIP' ? '여행 팁' : '여행 질문'}"></span>
         <h2 class="board-title">
-          <a th:if="${item.boardType == 'post'}"
-             th:href="@{|/post/${item.id}|}"
-             th:text="${item.title}"
-             th:title="${item.title}"></a>
-          <a th:if="${item.boardType == 'course'}"
-             th:href="@{|/course/${item.id}|}"
+          <a th:href="@{|/post/${item.id}|}"
              th:text="${item.title}"
              th:title="${item.title}"></a>
         </h2>
-        <div th:replace="~{course/fragments/themes :: badges(${item.themes}, true)}"></div>
-        </div>
       </div>
 
       <div class="board-meta">
         <span class="board-meta-item board-nickname">
           <span class="board-meta-label">작성자</span>
           <!-- 최종 탈퇴 회원은 공개 프로필이 없으므로 링크 없이 공통 문구만 보여준다. -->
-          <span class="board-meta-value" th:if="${item.boardType == 'course' and item.courseKind == 'OFFICIAL'}">TripBora</span>
-          <a th:if="${item.userId != null and !item.writerWithdrawn and item.courseKind != 'OFFICIAL'}"
+          <a th:if="${item.userId != null and !item.writerWithdrawn}"
              class="board-meta-value board-profile-link"
              th:href="@{/users/{id}(id=${item.userId})}"
              th:text="${item.nickname}"
              th:title="${item.nickname}"></a>
-          <span th:if="${(item.userId == null or item.writerWithdrawn) and item.courseKind != 'OFFICIAL'}"
+          <span th:if="${item.userId == null or item.writerWithdrawn}"
                 class="board-meta-value"
                 th:text="${item.writerWithdrawn} ? #{member.withdrawn} : ${item.nickname}"
                 th:title="${item.writerWithdrawn} ? #{member.withdrawn} : ${item.nickname}"></span>

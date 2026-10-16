@@ -31,7 +31,7 @@
     <h1>나만의 여행코스 글쓰기</h1>
 
     <form id="course-form"
-          th:action="@{/course/write}"
+          th:action="@{/courses/new}"
           method="post"
           enctype="multipart/form-data"
           class="write-form"
@@ -72,7 +72,7 @@
       <!-- 버튼 그룹 -->
       <div class="button-group course-save-bar">
         <button type="submit" id="course-submit-button" class="btn btn-primary">코스 등록</button>
-        <a th:href="@{/board/list?boardType=course}"
+        <a th:href="@{/courses}"
            class="btn btn-secondary">취소</a>
       </div>
     </form>

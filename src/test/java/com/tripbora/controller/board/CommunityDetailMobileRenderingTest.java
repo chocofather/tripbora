@@ -119,7 +119,7 @@ class CommunityDetailMobileRenderingTest {
     }
 
     private String render(String type, String role, int variant) throws Exception {
-        var request = get("/" + type + "/10");
+        var request = get("/" + ("course".equals(type) ? "courses" : type) + "/10");
         if (!role.equals("guest")) request.with(user("reader").roles(role));
         String html = mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String directory = System.getenv("COMMUNITY_DETAIL_BROWSER_FIXTURES");

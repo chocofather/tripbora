@@ -41,13 +41,14 @@ class CoursePublicStatusContractTest {
     }
 
     @Test
-    void publicBoardListAndEveryCountBranchRequirePublished() throws Exception {
+    void communityListAndCountCannotExposeCoursesEvenWithLegacyArguments() throws Exception {
         for (String boardType : List.of("course", "all")) {
             Map<String, Object> params = params();
             params.put("boardType", boardType.equals("all") ? null : boardType);
             for (String id : List.of("findBoardList", "countBoard")) {
                 assertThat(sql("BoardMapper", id, params)).as(id + boardType)
-                        .contains("c.status = 'PUBLISHED'");
+                        .contains("FROM user_posts")
+                        .doesNotContain("FROM courses", "course_countries", "course_comments");
             }
         }
     }

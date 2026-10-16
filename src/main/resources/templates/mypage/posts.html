@@ -12,8 +12,8 @@
     <section class="mypage-content mypage-posts-page" aria-labelledby="mypage-posts-title">
       <header class="mypage-page-header">
         <p>MY POSTS</p>
-        <h1 id="mypage-posts-title" th:text="#{mypage.posts.title}">내가 작성한 글</h1>
-        <span th:text="#{mypage.posts.description}">내가 작성한 여행 질문, 여행 팁과 여행 코스를 확인할 수 있습니다.</span>
+        <h1 id="mypage-posts-title" th:text="#{mypage.posts.title}">작성한 콘텐츠</h1>
+        <span th:text="#{mypage.posts.description}">작성한 게시글과 여행코스를 확인할 수 있습니다.</span>
       </header>
 
       <!-- 필터 판정은 type 코드로만 한다. 표시 문구는 언어에 따라 바뀐다. -->
@@ -54,7 +54,7 @@
                  th:text="${item.title}"
                  th:title="${item.title}">게시글 제목</a>
               <a th:if="${item.boardType == 'course'}"
-                 th:href="@{/course/{id}(id=${item.id})}"
+                 th:href="@{/courses/{id}(id=${item.id})}"
                  th:text="${item.title}"
                  th:title="${item.title}">여행 코스 제목</a>
             </h2>

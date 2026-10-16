@@ -95,16 +95,16 @@ class CourseDetailI18nContractTest {
     }
 
     @Test
-    void everyBundleContainsAllCourseDetailKeys() throws IOException {
+    void everyBundleContainsCourseAndStandaloneNavigationKeys() throws IOException {
         Properties fallback = properties(BUNDLES[0]);
         var courseKeys = fallback.stringPropertyNames().stream()
-                .filter(key -> key.startsWith("course.detail."))
+                .filter(key -> key.startsWith("course.") || key.equals("nav.courses"))
                 .toList();
 
         assertThat(courseKeys).isNotEmpty();
         for (String bundle : BUNDLES) {
             assertThat(properties(bundle).stringPropertyNames())
-                    .as("course detail keys in %s", bundle)
+                    .as("course section keys in %s", bundle)
                     .containsAll(courseKeys);
         }
     }

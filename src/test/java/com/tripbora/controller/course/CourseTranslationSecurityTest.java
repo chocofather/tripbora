@@ -43,7 +43,7 @@ class CourseTranslationSecurityTest {
                 .thenReturn(TitleContentTranslationResponse.ready(
                         "번역 코스", "<p>번역 설명</p>", true));
 
-        mockMvc.perform(get("/course/9/translation"))
+        mockMvc.perform(get("/courses/9/translation"))
                 .andExpect(status().isOk());
     }
 }

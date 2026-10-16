@@ -68,7 +68,7 @@ class CourseControllerTest {
                 new BeanPropertyBindingResult(request, "request"), userDetails, new ExtendedModelMap());
 
         verify(courseService).createCourse(request, 5L);
-        assertThat(view).isEqualTo("redirect:/course/100");
+        assertThat(view).isEqualTo("redirect:/courses/100");
     }
 
     @Test
@@ -81,7 +81,7 @@ class CourseControllerTest {
                 new BeanPropertyBindingResult(request, "request"), userDetails, new ExtendedModelMap());
 
         verify(courseService).updateCourse(100L, 5L, request);
-        assertThat(view).isEqualTo("redirect:/course/100");
+        assertThat(view).isEqualTo("redirect:/courses/100");
     }
 
     @Test
@@ -92,7 +92,7 @@ class CourseControllerTest {
         String view = controller.deleteCourse(100L, userDetails);
 
         verify(courseService).deleteCourse(100L, 5L);
-        assertThat(view).isEqualTo("redirect:/board/list");
+        assertThat(view).isEqualTo("redirect:/courses");
     }
 
     @Test
@@ -154,7 +154,7 @@ class CourseControllerTest {
         assertThat(items.get(0).path("item").path("url").asText())
                 .isEqualTo("https://travel.example/destinations/21");
         assertThat(trip.path("url").asText())
-                .isEqualTo("https://travel.example/course/100");
+                .isEqualTo("https://travel.example/courses/100");
         assertThat(trip.has("datePublished")).isFalse();
     }
 

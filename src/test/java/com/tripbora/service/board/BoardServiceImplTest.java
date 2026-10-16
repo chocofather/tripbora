@@ -15,11 +15,14 @@ class BoardServiceImplTest {
     @Mock
     private BoardMapper boardMapper;
 
+    @Mock
+    private com.tripbora.service.course.CourseThemeService courseThemeService;
+
     private BoardServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new BoardServiceImpl(boardMapper, org.mockito.Mockito.mock(com.tripbora.service.course.CourseThemeService.class));
+        service = new BoardServiceImpl(boardMapper, courseThemeService);
     }
 
     @Test
@@ -34,35 +37,36 @@ class BoardServiceImplTest {
         service.getBoardList("course", null, "overseas", 8L, "comments", 3, 10);
         service.getBoardCount("course", null, "overseas", 8L);
 
-        verify(boardMapper).findBoardList("course", null, "overseas", 8L, "comments", 20L, 10);
-        verify(boardMapper).countBoard("course", null, "overseas", 8L);
+        verify(boardMapper).findBoardList("post", null, "all", null, "comments", 20L, 10);
+        verify(boardMapper).countBoard("post", null, "all", null);
+        org.mockito.Mockito.verifyNoInteractions(courseThemeService);
     }
 
     @Test
     void listKeepsBookmarkSort() {
         service.getBoardList(null, null, "domestic", 7L, "BOOKMARKS", 1, 10);
 
-        verify(boardMapper).findBoardList(null, null, "all", null, "bookmarks", 0L, 10);
+        verify(boardMapper).findBoardList("post", null, "all", null, "bookmarks", 0L, 10);
     }
 
     @Test
     void countUsesTheSameNormalizedFilters() {
         service.getBoardCount("invalid", "question", "overseas", 8L);
 
-        verify(boardMapper).countBoard(null, "QUESTION", "all", null);
+        verify(boardMapper).countBoard("post", "QUESTION", "all", null);
     }
 
     @Test
-    void courseScopeAndCountryAreNormalizedTheSameForListAndCount() {
+    void obsoleteCourseScopeAndCountryNeverReachCommunityQueries() {
         service.getBoardList("course", null, "DOMESTIC", 8L, "views", 1, 10);
         service.getBoardCount("course", null, "DOMESTIC", 8L);
         service.getBoardList("course", null, "unsupported", 8L, "latest", 1, 10);
         service.getBoardCount("course", null, "unsupported", 8L);
 
-        verify(boardMapper).findBoardList("course", null, "domestic", null, "views", 0L, 10);
-        verify(boardMapper).countBoard("course", null, "domestic", null);
-        verify(boardMapper).findBoardList("course", null, "all", null, "latest", 0L, 10);
-        verify(boardMapper).countBoard("course", null, "all", null);
+        verify(boardMapper).findBoardList("post", null, "all", null, "views", 0L, 10);
+        verify(boardMapper).findBoardList("post", null, "all", null, "latest", 0L, 10);
+        verify(boardMapper, org.mockito.Mockito.times(2)).countBoard("post", null, "all", null);
+        org.mockito.Mockito.verifyNoInteractions(courseThemeService);
     }
 
     @Test

@@ -97,7 +97,7 @@ class CourseDetailWithdrawnWriterRenderingTest {
     private String render(CourseDetailDto course, SupportedLanguage language) throws Exception {
         when(courseService.getCourseDetail(7L, null, language)).thenReturn(course);
 
-        return mockMvc.perform(get("/course/{id}", 7L)
+        return mockMvc.perform(get("/courses/{id}", 7L)
                         .cookie(new Cookie(TripBoraLocaleResolver.COOKIE_NAME,
                                 language.getLanguageTag())))
                 .andExpect(status().isOk())

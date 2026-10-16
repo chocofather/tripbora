@@ -21,7 +21,7 @@ class CourseTranslationUiContractTest {
                 .contains("data-title-content-translation")
                 .contains("data-translation-title")
                 .contains("data-translation-content")
-                .contains("@{/course/{id}/translation(id=${course.id})}");
+                .contains("@{/courses/{id}/translation(id=${course.id})}");
         assertThat(script)
                 .contains("[data-title-content-translation][data-translation-url]")
                 .contains("fetch(article.dataset.translationUrl")

@@ -65,7 +65,7 @@ class MyPageLocaleRenderingTest {
                 .andExpect(result -> {
                     var document = Jsoup.parse(result.getResponse().getContentAsString());
                     assertThat(document.select("a[href=/mypage/posts]").text())
-                            .contains("My posts");
+                            .contains("My content");
                     assertThat(document.select("a[href=/mypage/comments]").text())
                             .contains("My comments");
                     assertThat(document.select("a[href=/mypage/bookmarks]").text())

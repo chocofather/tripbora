@@ -14,10 +14,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class BoardServiceImpl implements BoardService {
 
-    private static final Set<String> BOARD_TYPES = Set.of("post", "course");
     private static final Set<String> POST_TYPES = Set.of("QUESTION", "TIP");
     private static final Set<String> SORT_TYPES = Set.of("latest", "oldest", "views", "comments", "bookmarks");
-    private static final Set<String> COURSE_SCOPES = Set.of("all", "domestic", "overseas");
 
     private final BoardMapper boardMapper;
     private final CourseThemeService courseThemeService;
@@ -28,29 +26,24 @@ public class BoardServiceImpl implements BoardService {
         int safePage = Math.max(page, 1);
         int safeSize = clampSize(size);
         long offset = (long) (safePage - 1) * safeSize;
-        String normalizedBoardType = normalizeBoardType(boardType);
-        CourseFilter courseFilter = normalizeCourseFilter(normalizedBoardType, scope, countryId);
-
-        return withThemes(boardMapper.findBoardList(
-                normalizedBoardType,
+        return boardMapper.findBoardList(
+                "post",
                 normalizePostType(postType),
-                courseFilter.scope(),
-                courseFilter.countryId(),
+                "all",
+                null,
                 normalizeSort(sort),
                 offset,
                 safeSize
-        ));
+        );
     }
 
     @Override
     public int getBoardCount(String boardType, String postType, String scope, Long countryId) {
-        String normalizedBoardType = normalizeBoardType(boardType);
-        CourseFilter courseFilter = normalizeCourseFilter(normalizedBoardType, scope, countryId);
         return boardMapper.countBoard(
-                normalizedBoardType,
+                "post",
                 normalizePostType(postType),
-                courseFilter.scope(),
-                courseFilter.countryId()
+                "all",
+                null
         );
     }
 
@@ -103,14 +96,6 @@ public class BoardServiceImpl implements BoardService {
         return Math.min(Math.max(size, 1), 100);
     }
 
-    private String normalizeBoardType(String boardType) {
-        if (boardType == null) {
-            return null;
-        }
-        String normalized = boardType.toLowerCase(Locale.ROOT);
-        return BOARD_TYPES.contains(normalized) ? normalized : null;
-    }
-
     private String normalizePostType(String postType) {
         if (postType == null) {
             return null;
@@ -127,19 +112,6 @@ public class BoardServiceImpl implements BoardService {
         return SORT_TYPES.contains(normalized) ? normalized : "latest";
     }
 
-    private CourseFilter normalizeCourseFilter(String boardType, String scope, Long countryId) {
-        if (!"course".equals(boardType)) {
-            return new CourseFilter("all", null);
-        }
-        String normalizedScope = scope == null ? "all" : scope.toLowerCase(Locale.ROOT);
-        if (!COURSE_SCOPES.contains(normalizedScope)) {
-            normalizedScope = "all";
-        }
-        Long normalizedCountryId = "overseas".equals(normalizedScope)
-                && countryId != null && countryId > 0 ? countryId : null;
-        return new CourseFilter(normalizedScope, normalizedCountryId);
-    }
-
     private ProfileFilter profileFilter(String type) {
         return switch (type == null ? "" : type.toLowerCase(Locale.ROOT)) {
             case "question" -> new ProfileFilter("post", "QUESTION");
@@ -152,6 +124,4 @@ public class BoardServiceImpl implements BoardService {
     private record ProfileFilter(String boardType, String postType) {
     }
 
-    private record CourseFilter(String scope, Long countryId) {
-    }
 }

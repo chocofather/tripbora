@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/main :: layout(~{::body}, ~{::headFragment})}">
+<th:block th:fragment="headFragment">
+  <link rel="stylesheet" href="/css/course-list.css">
+  <script src="/js/course-catalog-filters.js" defer></script>
+</th:block>
+<th:block th:fragment="body">
+  <section class="course-catalog" aria-labelledby="course-catalog-title">
+    <header class="course-catalog-heading">
+      <div>
+        <h1 id="course-catalog-title" th:text="#{course.list.title}">여행코스</h1>
+        <p th:text="#{course.list.description}">다양한 여행 일정을 살펴보고 나만의 코스를 공유해 보세요.</p>
+      </div>
+      <a class="course-catalog-create" th:href="@{/courses/new}" th:text="#{course.list.create}">코스 만들기</a>
+    </header>
+
+    <nav class="course-kind-tabs" th:aria-label="#{course.list.kind.label}">
+      <a th:href="@{/courses(countryId=${countryId},themeId=${themeId},sort=${sort})}"
+         th:aria-current="${kind == 'OFFICIAL'} ? 'page' : null" th:text="#{course.list.kind.recommended}">추천 코스</a>
+      <a th:href="@{/courses(kind='traveler',countryId=${countryId},themeId=${themeId},sort=${sort})}"
+         th:aria-current="${kind == 'TRAVELER'} ? 'page' : null" th:text="#{course.list.kind.traveler}">여행자 코스</a>
+    </nav>
+
+    <div class="course-catalog-filters">
+      <div class="course-catalog-filter-options">
+        <details class="course-catalog-filter" data-filter="country" name="course-catalog-filter" th:aria-label="#{course.list.country}">
+          <summary th:classappend="${countryId != null} ? 'is-active'">
+            <span th:if="${selectedCountryName == null}" th:text="#{course.list.country}">지역</span>
+            <span th:unless="${selectedCountryName == null}" th:text="${selectedCountryName}"></span>
+          </summary>
+          <div class="course-catalog-filter-menu">
+            <a th:href="${catalogKind == null} ? @{/courses(themeId=${themeId},sort=${sort})} : @{/courses(kind=${catalogKind},themeId=${themeId},sort=${sort})}"
+               th:aria-current="${countryId == null} ? 'true' : null" th:text="#{course.list.country.all}">전체 지역</a>
+            <a th:each="country : ${courseCountries}"
+               th:href="${catalogKind == null} ? @{/courses(countryId=${country.id},themeId=${themeId},sort=${sort})} : @{/courses(kind=${catalogKind},countryId=${country.id},themeId=${themeId},sort=${sort})}"
+               th:aria-current="${country.id == countryId} ? 'true' : null" th:text="${country.regionName}"></a>
+          </div>
+        </details>
+        <details class="course-catalog-filter" data-filter="theme" name="course-catalog-filter" th:aria-label="#{course.list.theme}">
+          <summary th:classappend="${themeId != null} ? 'is-active'">
+            <span th:if="${selectedThemeName == null}" th:text="#{course.list.theme}">테마</span>
+            <span th:unless="${selectedThemeName == null}" th:text="${selectedThemeName}"></span>
+          </summary>
+          <div class="course-catalog-filter-menu">
+            <a th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},sort=${sort})} : @{/courses(kind=${catalogKind},countryId=${countryId},sort=${sort})}"
+               th:aria-current="${themeId == null} ? 'true' : null" th:text="#{course.list.theme.all}">전체 테마</a>
+            <a th:each="theme : ${courseThemes}"
+               th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${theme.id},sort=${sort})} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${theme.id},sort=${sort})}"
+               th:aria-current="${theme.id == themeId} ? 'true' : null" th:text="${theme.name}"></a>
+          </div>
+        </details>
+      </div>
+      <details class="course-catalog-filter course-catalog-sort" data-filter="sort" name="course-catalog-filter" th:aria-label="#{course.list.sort}">
+        <summary>
+          <span th:if="${sort == 'latest'}" th:text="#{course.list.sort.latest}">최신순</span>
+          <span th:unless="${sort == 'latest'}" th:text="#{course.list.sort.views}">인기순</span>
+        </summary>
+        <div class="course-catalog-filter-menu">
+          <a th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${themeId},sort='latest')} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${themeId},sort='latest')}"
+             th:aria-current="${sort == 'latest'} ? 'true' : null" th:text="#{course.list.sort.latest}">최신순</a>
+          <a th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${themeId},sort='views')} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${themeId},sort='views')}"
+             th:aria-current="${sort == 'views'} ? 'true' : null" th:text="#{course.list.sort.views}">인기순</a>
+        </div>
+      </details>
+    </div>
+
+    <p class="course-catalog-count" th:text="#{course.list.count(${totalCount})}">총 0개 코스</p>
+    <div class="course-catalog-grid" th:if="${!#lists.isEmpty(courses)}">
+      <th:block th:each="course : ${courses}">
+        <article th:replace="~{course/fragments/card :: card(${course})}"></article>
+      </th:block>
+    </div>
+    <p class="course-catalog-empty" th:if="${#lists.isEmpty(courses)}" th:text="#{course.list.empty}">조건에 맞는 여행코스가 없습니다.</p>
+
+    <nav class="course-catalog-pagination" th:if="${totalPages > 0}" th:aria-label="#{course.list.pagination}"
+         th:with="startPage=${currentPage > 3 ? currentPage - 2 : 1},endPage=${currentPage + 2 < totalPages ? currentPage + 2 : totalPages}">
+      <a th:if="${currentPage > 1}"
+         th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${themeId},sort=${sort},page=${currentPage - 1})} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${themeId},sort=${sort},page=${currentPage - 1})}"
+         th:text="#{destination.list.pagination.previous}">이전</a>
+      <th:block th:each="pageNumber : ${#numbers.sequence(startPage, endPage)}">
+        <span th:if="${pageNumber == currentPage}" aria-current="page" th:text="${pageNumber}">1</span>
+        <a th:unless="${pageNumber == currentPage}"
+           th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${themeId},sort=${sort},page=${pageNumber})} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${themeId},sort=${sort},page=${pageNumber})}"
+           th:text="${pageNumber}">2</a>
+      </th:block>
+      <a th:if="${currentPage < totalPages}"
+         th:href="${catalogKind == null} ? @{/courses(countryId=${countryId},themeId=${themeId},sort=${sort},page=${currentPage + 1})} : @{/courses(kind=${catalogKind},countryId=${countryId},themeId=${themeId},sort=${sort},page=${currentPage + 1})}"
+         th:text="#{destination.list.pagination.next}">다음</a>
+    </nav>
+  </section>
+</th:block>
+</html>

@@ -31,7 +31,7 @@
         <a th:href="@{/mypage/bookmarks(section='community')}"
            th:classappend="${section == 'community'} ? ' is-active' : ''"
            th:attr="aria-current=${section == 'community'} ? 'page' : null"
-           th:text="#{mypage.bookmarks.section.community}">여행 커뮤니티</a>
+           th:text="#{mypage.bookmarks.section.community}">게시글 · 여행코스</a>
         <a th:href="@{/mypage/bookmarks(section='travel-info')}"
            th:classappend="${section == 'travel-info'} ? ' is-active' : ''"
            th:attr="aria-current=${section == 'travel-info'} ? 'page' : null"
@@ -134,7 +134,7 @@
                    th:href="@{/post/{id}(id=${bookmark.targetId})}"
                    th:text="${bookmark.title}">게시글 제목</a>
                 <a th:if="${bookmark.boardType == 'course'}"
-                   th:href="@{/course/{id}(id=${bookmark.targetId})}"
+                   th:href="@{/courses/{id}(id=${bookmark.targetId})}"
                    th:text="${bookmark.title}">코스 제목</a>
               </h2>
               <p class="mypage-bookmark-community-meta">

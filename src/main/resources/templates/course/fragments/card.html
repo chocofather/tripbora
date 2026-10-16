@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<article class="course-catalog-card" th:fragment="card(course)">
+  <a class="course-catalog-card-link" th:href="${course.detailUrl}">
+    <div class="course-catalog-cover">
+      <img th:src="${!#strings.isEmpty(course.representativeImageUrl) ? course.representativeImageUrl : '/images/default.png'}"
+           th:classappend="${course.imageNoDerivatives} ? 'is-no-derivatives'"
+           alt="" loading="lazy">
+    </div>
+    <div class="course-catalog-copy">
+      <span class="course-official-badge" th:if="${course.courseKind == 'OFFICIAL'}" th:text="#{course.list.recommendedBadge}">TripBora 추천</span>
+      <h2 class="course-catalog-title" th:text="${course.title}">여행코스 제목</h2>
+      <div class="course-catalog-route-meta">
+        <span th:if="${!#strings.isEmpty(course.regionSummary)}" th:text="${course.regionSummary}">대한민국 · 서울</span>
+        <span th:if="${!#strings.isEmpty(course.durationLabel)}" th:text="${course.durationLabel}">1박2일</span>
+      </div>
+      <div th:replace="~{course/fragments/themes :: badges(${course.themes}, true)}"></div>
+    </div>
+  </a>
+  <footer class="course-catalog-card-footer">
+    <span class="course-catalog-author" th:if="${course.courseKind == 'OFFICIAL'}">TripBora</span>
+    <th:block th:unless="${course.courseKind == 'OFFICIAL'}">
+      <a class="course-catalog-author" th:if="${!course.writerWithdrawn and course.userId != null}"
+         th:href="@{/users/{id}(id=${course.userId})}" th:text="${course.nickname}">여행자</a>
+      <span class="course-catalog-author" th:if="${course.writerWithdrawn}" th:text="#{member.withdrawn}">탈퇴한 회원</span>
+      <span class="course-catalog-author" th:if="${!course.writerWithdrawn and course.userId == null}" th:text="${course.nickname}">여행자</span>
+    </th:block>
+    <span class="course-catalog-views" th:text="#{course.list.views(${course.views})}">조회 0</span>
+  </footer>
+</article>
+</body>
+</html>

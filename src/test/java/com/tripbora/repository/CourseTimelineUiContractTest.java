@@ -53,7 +53,8 @@ class CourseTimelineUiContractTest {
         var hero = document.selectFirst("[data-course-hero]");
         assertThat(hero.attr("th:if")).contains("course.representativeImageUrl", "'/images/default.png'");
         assertThat(hero.selectFirst("img").attr("th:src")).isEqualTo("${course.representativeImageUrl}");
-        assertThat(document.select(".course-breadcrumb a")).hasSize(1);
+        assertThat(document.select(".course-breadcrumb a").eachAttr("th:href"))
+                .containsExactly("@{/}", "@{/courses}");
         assertThat(resource("static/css/course-detail.css"))
                 .contains(".course-detail-container .course-hero-image", "object-fit: cover", "object-position: center")
                 .contains(".course-detail-container .course-day-route[hidden]");
@@ -121,11 +122,11 @@ class CourseTimelineUiContractTest {
                 .isEqualTo("${course.myCourse and course.courseKind != 'OFFICIAL' and adminPreview != true}");
         assertThat(menu.selectFirst("summary")).isNotNull();
         assertThat(menu.selectFirst("a.course-edit-button").attr("th:href"))
-                .isEqualTo("@{/course/{id}/edit(id=${course.id})}");
+                .isEqualTo("@{/courses/{id}/edit(id=${course.id})}");
         var deleteForm = menu.selectFirst("form.course-delete-form");
         assertThat(deleteForm.attr("method")).isEqualTo("post");
         assertThat(deleteForm.attr("th:action"))
-                .isEqualTo("@{/course/{id}/delete(id=${course.id})}");
+                .isEqualTo("@{/courses/{id}/delete(id=${course.id})}");
         assertThat(deleteForm.attr("th:data-confirm")).isEqualTo("#{course.detail.deleteConfirm}");
         assertThat(document.select(".course-detail-footer .course-edit-button, "
                 + ".course-detail-footer .course-delete-form")).isEmpty();

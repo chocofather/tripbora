@@ -10,6 +10,7 @@ import com.tripbora.model.User;
 import com.tripbora.model.UserRole;
 import com.tripbora.repository.user.UserMapper;
 import com.tripbora.security.CustomUserDetails;
+import com.tripbora.web.HeaderNavigation;
 import org.jsoup.Jsoup;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -125,8 +126,46 @@ class HeaderProfileMenuTest {
     void headerNavigationRemainsUnchanged() throws Exception {
         assertThat(page().select(".main-menu > .menu-item > a").eachText())
                 .containsExactlyElementsOf(List.of(
-                        "국내", "해외", "여행 커뮤니티", "여행정보",
+                        "국내", "해외", "여행코스", "여행 커뮤니티", "여행정보",
                         "여행기록", "고객센터", "이벤트"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "/courses, /courses",
+            "/courses?kind=OFFICIAL, /courses",
+            "/courses/40, /courses",
+            "/board/list, /board/list",
+            "/board/list?postType=tip, /board/list",
+            "/post/40, /board/list",
+            "/post/write, /board/list"
+    })
+    void courseAndCommunityContextsSelectOnlyTheirOwnPrimaryLink(String currentUri, String selectedHref)
+            throws Exception {
+        // 기존 공개 view에 메뉴가 받는 model만 지정해 desktop/mobile fragment를 함께 렌더링한다.
+        var document = Jsoup.parse(mockMvc.perform(get("/random-travel")
+                        .flashAttr("headerNavigation", new HeaderNavigation(currentUri.split("\\?", 2)[0], null)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(document.select(".main-menu a[aria-current=page]").eachAttr("href"))
+                .containsExactly(selectedHref);
+        assertThat(document.select("#site-menu [aria-current=page]")).hasSize(1);
+        if ("/courses".equals(selectedHref)) {
+            assertThat(document.select("#site-menu .site-menu-entry > a[aria-current=page]").eachAttr("href"))
+                    .containsExactly("/courses");
+        } else {
+            assertThat(document.select("#site-menu .site-menu-group > summary[aria-current=page]").text())
+                    .isEqualTo("여행 커뮤니티");
+        }
+    }
+
+    @Test
+    void anAdminCoursePreviewKeepsTheCourseSectionSelected() throws Exception {
+        var document = Jsoup.parse(mockMvc.perform(get("/random-travel")
+                        .flashAttr("headerNavigation", new HeaderNavigation("/admin/courses/40/preview", null))
+                        .flashAttr("adminPreview", true))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(document.select(".main-menu a[aria-current=page]").eachAttr("href"))
+                .containsExactly("/courses");
     }
 
     @Test
@@ -145,7 +184,7 @@ class HeaderProfileMenuTest {
 
         assertThat(document.selectFirst("html").attr("lang")).isEqualTo("zh-TW");
         assertThat(document.select(".main-menu > .menu-item > a").eachText())
-                .containsExactly("國內", "海外", "旅遊社群", "旅遊資訊",
+                .containsExactly("國內", "海外", "旅遊路線", "旅遊社群", "旅遊資訊",
                         "旅遊記錄", "客服中心", "活動");
         assertThat(document.select(
                 ".search-box .locale-option-form input[name=languageTag]").eachAttr("value"))
@@ -163,9 +202,9 @@ class HeaderProfileMenuTest {
                 .contains("繁體中文");
         assertThat(document.select(".site-menu-utilities > a.site-menu-about[href='/about']"))
                 .hasSize(1);
-        assertThat(document.select(".global-submenu a").eachText())
+        assertThat(document.select(".main-menu > .menu-item > .submenu-col a").eachText())
                 .containsExactly(
-                        "旅遊問答", "旅遊攻略", "我的旅遊路線",
+                        "旅遊問答", "旅遊攻略",
                         // 여행정보 하위는 국내정보 / 해외정보 / 축제·행사 셋뿐이다
                         "國內資訊", "海外資訊", "節慶資訊",
                         "我的旅遊日記", "一起規劃", "隨機旅行",
@@ -236,13 +275,13 @@ class HeaderProfileMenuTest {
     void theNarrowMenuLeadsToExactlyTheSamePlacesAsTheWideOne() throws Exception {
         org.jsoup.nodes.Document page = page();
 
-        // 국내/해외는 직접 링크, 나머지는 같은 다국어 제목의 접힌 그룹이다.
+        // 국내/해외/코스는 직접 링크, 나머지는 같은 다국어 제목의 접힌 그룹이다.
         assertThat(page.select("#site-menu .site-menu-entry > a").eachAttr("href"))
                 .containsExactlyElementsOf(page.select(".main-menu > .menu-item > a")
-                        .stream().limit(2).map(link -> link.attr("href")).toList());
+                        .stream().limit(3).map(link -> link.attr("href")).toList());
         assertThat(page.select("#site-menu .site-menu-entry > a, #site-menu .site-menu-group > summary").eachText())
                 .containsExactlyElementsOf(List.of(
-                        "국내", "해외", "여행 커뮤니티", "여행정보",
+                        "국내", "해외", "여행코스", "여행 커뮤니티", "여행정보",
                         "여행기록", "고객센터", "이벤트"));
         assertThat(page.select("#site-menu .site-menu-group")).hasSize(5);
         assertThat(page.select("#site-menu .site-menu-group[open]")).isEmpty();
@@ -250,10 +289,53 @@ class HeaderProfileMenuTest {
                 .containsOnly("site-menu-group");
 
         // 넓은 화면에서 hover 로만 닿던 하위 링크도 빠지지 않는다
-        List<String> submenuLinks = page.select(".global-submenu a").eachAttr("href");
+        List<String> submenuLinks = page.select(".main-menu > .menu-item > .submenu-col a").eachAttr("href");
         List<String> narrowLinks = page.select("#site-menu .site-menu-entry ul a").eachAttr("href");
         assertThat(narrowLinks).containsExactlyElementsOf(submenuLinks);
         assertThat(narrowLinks).contains("/travel-plans");
+    }
+
+    @Test
+    void everyDesktopSubmenuBelongsToTheSameParentAsItsMobileGroup() throws Exception {
+        var document = page();
+        var parents = document.select(".main-menu > .menu-item");
+        var mobileGroups = document.select("#site-menu .site-menu-group");
+        assertThat(parents).hasSize(8);
+        assertThat(parents.subList(0, 3)).allSatisfy(parent -> assertThat(parent.select(".submenu-col")).isEmpty());
+        for (int index = 3; index < parents.size(); index++) {
+            var parent = parents.get(index);
+            var group = parent.children().select(".submenu-col").first();
+            assertThat(group).isNotNull();
+            assertThat(group.parent()).isSameAs(parent);
+            assertThat(parent.selectFirst("a").text()).isEqualTo(mobileGroups.get(index - 3).selectFirst("summary").text());
+            assertThat(group.select("a").eachAttr("href"))
+                    .containsExactlyElementsOf(mobileGroups.get(index - 3).select("ul a").eachAttr("href"));
+        }
+        assertThat(document.select(".global-submenu a, .submenu-grid")).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "/destinations,domestic,국내",
+            "/destinations,overseas,해외",
+            "/courses/12,,여행코스",
+            "/post/12,,여행 커뮤니티",
+            "/festivals/12,,여행정보",
+            "/diaries/demo,,여행기록",
+            "/support/inquiries/12,,고객센터",
+            "/events/12,,이벤트"
+    })
+    void wideAndNarrowNavigationMarkTheSameOwningSection(
+            String path, String type, String label) throws Exception {
+        var document = Jsoup.parse(mockMvc.perform(get("/random-travel")
+                        .flashAttr("headerNavigation", new HeaderNavigation(path, type)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+
+        assertThat(document.select(".main-menu a[aria-current=page]").eachText())
+                .containsExactly(label);
+        assertThat(document.select("#site-menu .site-menu-entry > a[aria-current=page], "
+                + "#site-menu summary[aria-current=page]").eachText()).containsExactly(label);
     }
 
     @Test
@@ -269,7 +351,7 @@ class HeaderProfileMenuTest {
                 .filter(entry -> entry.select("summary").text().equals("여행 커뮤니티"))
                 .findFirst().orElseThrow();
         assertThat(community.select("ul a").eachText())
-                .containsExactly("여행 질문", "여행 팁", "나의 여행코스");
+                .containsExactly("여행 질문", "여행 팁");
 
         // 하위 링크가 없는 항목은 목록만 있고 빈 껍데기가 붙지 않는다
         org.jsoup.nodes.Element domestic = page.selectFirst("#site-menu .site-menu-entry");
@@ -395,13 +477,15 @@ class HeaderProfileMenuTest {
     }
 
     @Test
-    void headerActionsGainResponsiveRightPaddingWithoutChangingNavigationColumns()
+    void headerActionsKeepTheirPaddingWhileOnlyThePrimaryMenuGetsTheWiderGap()
             throws IOException {
         String css = resource("/static/css/style.css");
 
         assertThat(css)
                 .contains("padding-right: clamp(8px, 2vw, 24px)")
-                .contains("grid-template-columns: repeat(var(--columns), 1fr)");
+                .contains(".main-nav > .nav-grid > .main-menu {")
+                .contains("--header-menu-gap: 60px;")
+                .doesNotContain("grid-template-columns: subgrid");
     }
 
     private org.jsoup.nodes.Document page() throws Exception {
@@ -462,10 +546,17 @@ class HeaderProfileMenuTest {
     }
 
     private org.jsoup.nodes.Document pageWithLocale(String languageTag) throws Exception {
-        return Jsoup.parse(mockMvc.perform(get("/random-travel")
+        var html = mockMvc.perform(get("/random-travel")
                         .cookie(new Cookie(TripBoraLocaleResolver.COOKIE_NAME, languageTag)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString();
+        String fixtureDirectory = System.getenv("TRIPBORA_HEADER_FIXTURE_DIR");
+        if (fixtureDirectory != null) {
+            var directory = java.nio.file.Path.of(fixtureDirectory);
+            java.nio.file.Files.createDirectories(directory);
+            java.nio.file.Files.writeString(directory.resolve("header-" + languageTag + ".html"), html);
+        }
+        return Jsoup.parse(html);
     }
 
     private String between(String source, String start, String end) {

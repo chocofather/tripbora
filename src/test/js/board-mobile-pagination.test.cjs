@@ -21,15 +21,15 @@ function setup(search, mobile = true) {
     return {context, requests, history, listeners, media};
 }
 
-test('mobile requests eight rows and preserves course filters, sort and page in the URL', async () => {
-    const s = setup('?boardType=course&scope=overseas&countryId=8&size=10');
+test('mobile requests eight rows and preserves post filters, sort and page in the URL', async () => {
+    const s = setup('?boardType=post&postType=question&size=10');
     await vm.runInContext("loadBoardList(2, 'bookmarks')", s.context);
     const params = new URLSearchParams(s.requests[0].split('?')[1]);
     assert.equal(params.get('size'), '8');
     assert.equal(params.get('page'), '2');
     assert.equal(params.get('sort'), 'bookmarks');
-    assert.equal(params.get('scope'), 'overseas');
-    assert.equal(params.get('countryId'), '8');
+    assert.equal(params.get('boardType'), 'post');
+    assert.equal(params.get('postType'), 'question');
     assert.equal(s.history[0].split('?')[1], params.toString());
 });
 
@@ -69,13 +69,13 @@ test('initial mobile load replaces history and keeps the requested page', async 
 });
 
 test('switching to desktop resets page and restores ten rows', async () => {
-    const s = setup('?boardType=course&scope=domestic&page=2&size=8');
+    const s = setup('?boardType=post&postType=tip&page=2&size=8');
     s.media.matches = false;
     await vm.runInContext('syncBoardViewportSize(true)', s.context);
     const params = new URLSearchParams(s.requests[0].split('?')[1]);
     assert.equal(params.get('size'), '10');
     assert.equal(params.get('page'), '1');
-    assert.equal(params.get('scope'), 'domestic');
+    assert.equal(params.get('postType'), 'tip');
 });
 
 test('back navigation normalizes mobile size and updates its URL', async () => {

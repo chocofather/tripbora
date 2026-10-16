@@ -29,7 +29,7 @@ class MyPageCommentUiContractTest {
                 .doesNotContain("<script");
         assertThat(occurrences(template, "@{/destinations/{id}")).isEqualTo(2);
         assertThat(occurrences(template, "@{/post/{id}")).isEqualTo(2);
-        assertThat(occurrences(template, "@{/course/{id}")).isEqualTo(2);
+        assertThat(occurrences(template, "@{/courses/{id}")).isEqualTo(2);
         assertThat(occurrences(template, "commentId=${comment.commentId}")).isEqualTo(6);
         assertThat(template)
                 .doesNotContain("target=\"_blank\"")

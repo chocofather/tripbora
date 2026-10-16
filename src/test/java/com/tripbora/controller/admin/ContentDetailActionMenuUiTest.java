@@ -213,7 +213,7 @@ class ContentDetailActionMenuUiTest {
         course.setMyCourse(myCourse);
         when(courseService.getCourseDetail(eq(id), isNull(), any())).thenReturn(course);
 
-        return Jsoup.parse(mockMvc.perform(get("/course/{id}", id).with(user("tester").roles(role)))
+        return Jsoup.parse(mockMvc.perform(get("/courses/{id}", id).with(user("tester").roles(role)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString());
     }

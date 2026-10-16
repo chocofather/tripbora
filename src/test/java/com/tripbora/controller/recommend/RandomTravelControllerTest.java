@@ -73,11 +73,11 @@ class RandomTravelControllerTest {
                     var document = Jsoup.parse(result.getResponse().getContentAsString());
                     assertThat(document.select(".main-menu > .menu-item > a").eachText())
                             .containsExactlyElementsOf(List.of(
-                                    "국내", "해외", "여행 커뮤니티", "여행정보",
+                                    "국내", "해외", "여행코스", "여행 커뮤니티", "여행정보",
                                     "여행기록", "고객센터", "이벤트"));
-                    assertThat(document.select(".submenu-grid > .submenu-col")).hasSize(7);
+                    assertThat(document.select(".submenu-grid > .submenu-col")).hasSize(8);
                     assertThat(document.select(
-                            ".submenu-grid > .submenu-col:nth-child(5) a[href='/random-travel']"))
+                            ".submenu-grid > .submenu-col:nth-child(6) a[href='/random-travel']"))
                             .hasSize(1);
                     assertThat(document.select(
                             ".submenu-grid > .submenu-col:nth-child(1) a[href='/random-travel'], "

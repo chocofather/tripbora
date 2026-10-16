@@ -11,6 +11,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CourseQuillUiContractTest {
 
     @Test
+    void courseFormsSubmitAndReturnToTheStandaloneCourseSection() throws IOException {
+        assertThat(resource("/templates/course/write.html"))
+                .contains("@{/courses/new}", "@{/courses}")
+                .doesNotContain("@{/course/write}", "boardType=course");
+        assertThat(resource("/templates/course/edit.html"))
+                .contains("@{/courses/{id}/edit(id=${course.id})}", "@{/courses/{id}(id=${course.id})}")
+                .doesNotContain("@{/course/{id}");
+    }
+
+    @Test
     void dayFormsRestoreNestedValuesAndKeepSelectionLimits() throws IOException {
         for (String name : new String[]{"write", "edit"}) {
             String page = resource("/templates/course/" + name + ".html");

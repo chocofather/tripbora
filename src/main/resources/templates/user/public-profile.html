@@ -56,7 +56,7 @@
                  th:href="@{/post/{id}(id=${item.id})}"
                  th:text="${item.title}">게시글 제목</a>
               <a th:if="${item.boardType == 'course'}"
-                 th:href="@{/course/{id}(id=${item.id})}"
+                 th:href="@{/courses/{id}(id=${item.id})}"
                  th:text="${item.title}">코스 제목</a>
             </h3>
           </div>

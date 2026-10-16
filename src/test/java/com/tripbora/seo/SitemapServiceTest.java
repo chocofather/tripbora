@@ -27,8 +27,8 @@ class SitemapServiceTest {
 
         assertThat(service.canonicalPaths()).containsExactly(
                 "/", "/about", "/destinations", "/travel-info",
-                "/travel-info?contentType=FESTIVAL", "/events", "/board/list",
+                "/travel-info?contentType=FESTIVAL", "/events", "/courses", "/board/list",
                 "/destinations/2", "/travel-info/3", "/festivals/4",
-                "/events/5", "/post/6", "/course/7");
+                "/events/5", "/post/6", "/courses/7");
     }
 }

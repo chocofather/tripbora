@@ -23,7 +23,7 @@ class MyPageBookmarkUiContractTest {
                 .contains("section='destination'", "section='community'", "section='travel-info'")
                 .contains("scope='domestic'", "scope='international'")
                 .contains("type='question'", "type='tip'", "type='course'")
-                .contains("/destinations/{id}", "/post/{id}", "/course/{id}", "/travel-info/{id}")
+                .contains("/destinations/{id}", "/post/{id}", "/courses/{id}", "/travel-info/{id}")
                 .contains("data-bookmark-delete-url", "data-bookmark-remove")
                 .contains("role=\"status\"", "aria-live=\"polite\"")
                 .doesNotContain("th:utext")

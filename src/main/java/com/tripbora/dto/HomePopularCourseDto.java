@@ -23,7 +23,7 @@ public class HomePopularCourseDto {
     private List<CourseThemeDto> themes = List.of();
 
     public String getDetailUrl() {
-        return "/course/" + courseId;
+        return com.tripbora.web.CourseUrls.detail(courseId);
     }
 
     public String getRoutePreview() {

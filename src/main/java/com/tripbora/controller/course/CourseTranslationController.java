@@ -28,7 +28,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/course")
+@RequestMapping("/courses")
 public class CourseTranslationController {
     private final TitleContentTranslationService translationService;
 

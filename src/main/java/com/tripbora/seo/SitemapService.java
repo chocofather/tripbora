@@ -2,6 +2,7 @@ package com.tripbora.seo;
 
 import com.tripbora.model.TravelInfoContentType;
 import com.tripbora.repository.seo.SitemapMapper;
+import com.tripbora.web.CourseUrls;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,7 @@ public class SitemapService {
 
     private static final List<String> STATIC_PATHS = List.of(
             "/", "/about", "/destinations", "/travel-info",
-            "/travel-info?contentType=FESTIVAL", "/events", "/board/list");
+            "/travel-info?contentType=FESTIVAL", "/events", CourseUrls.LIST, "/board/list");
 
     private final SitemapMapper sitemapMapper;
 
@@ -29,7 +30,7 @@ public class SitemapService {
                         : "/travel-info/" + info.id()));
         sitemapMapper.findEventIds().forEach(id -> paths.add("/events/" + id));
         sitemapMapper.findPostIds().forEach(id -> paths.add("/post/" + id));
-        sitemapMapper.findCourseIds().forEach(id -> paths.add("/course/" + id));
+        sitemapMapper.findCourseIds().forEach(id -> paths.add(CourseUrls.detail(id)));
         return List.copyOf(paths);
     }
 }

@@ -107,21 +107,6 @@ body:has(> main #region-fragment-container) > main {
     background-color: #fff !important;
 }
 
-/* 실제 1차 메뉴가 열렸을 때만 헤더 shell과 2차 메뉴를 흰색으로 잇는다. */
-body:has(> main #region-fragment-container) .main-nav:hover .global-submenu {
-    display: none;
-}
-
-body:has(> main #region-fragment-container) .main-nav:has(.main-menu > .menu-item:hover),
-body:has(> main #region-fragment-container) .main-nav:has(.global-submenu:hover) {
-    background-color: #fff !important;
-}
-
-body:has(> main #region-fragment-container) .main-nav:has(.main-menu > .menu-item:hover) .global-submenu,
-body:has(> main #region-fragment-container) .main-nav:has(.global-submenu:hover) .global-submenu {
-    display: block;
-}
-
 body:has(> main #region-fragment-container) #destination-list {
     display: flow-root;
     background: #fff;

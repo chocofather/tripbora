@@ -1,10 +1,8 @@
 package com.tripbora.controller.board;
 
 import com.tripbora.dto.BoardListDto;
-import com.tripbora.model.CountryCategory;
 import com.tripbora.seo.SeoModel;
 import com.tripbora.service.board.BoardService;
-import com.tripbora.service.category.CountryCategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,7 +18,6 @@ import java.util.Map;
 public class BoardController {
 
     private final BoardService boardService;
-    private final CountryCategoryService countryCategoryService;
 
     // 1. 전체 페이지(SSR 최초 진입)
     @GetMapping("/board/list")
@@ -34,19 +31,21 @@ public class BoardController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             Model model
     ) {
+        if ("course".equalsIgnoreCase(boardType)) {
+            return legacyCourseRedirect(countryId, sort);
+        }
         int safePage = Math.max(page, 1);
         int safeSize = clampSize(size);
-        CourseBoardFilter courseFilter = resolveCourseBoardFilter(boardType, scope, countryId);
         List<BoardListDto> boardList = boardService.getBoardList(boardType, postType,
-                courseFilter.scope(), courseFilter.countryId(), sort, safePage, safeSize);
+                "all", null, sort, safePage, safeSize);
         int totalCount = boardService.getBoardCount(boardType, postType,
-                courseFilter.scope(), courseFilter.countryId());
+                "all", null);
         int totalPages = (int) Math.ceil((double) totalCount / safeSize);
 
         model.addAttribute("boardList", boardList);
         model.addAttribute("boardType", boardType);
         model.addAttribute("postType", postType);
-        addCourseFilterModel(model, courseFilter);
+        model.addAttribute("emptyMessage", "등록된 게시글이 없습니다.");
         model.addAttribute("sort", sort);
         model.addAttribute("currentPage", safePage);
         model.addAttribute("totalPages", totalPages);
@@ -58,10 +57,6 @@ public class BoardController {
                 ? null : boardType.toLowerCase(Locale.ROOT));
         canonicalParameters.put("postType", postType == null
                 ? null : postType.toLowerCase(Locale.ROOT));
-        canonicalParameters.put("scope",
-                courseFilter.courseBoard() && !"all".equals(courseFilter.scope())
-                        ? courseFilter.scope() : null);
-        canonicalParameters.put("countryId", courseFilter.countryId());
         canonicalParameters.put("page", safePage);
         model.addAttribute("seoCanonicalPath",
                 SeoModel.canonicalPath("/board/list", canonicalParameters));
@@ -81,19 +76,21 @@ public class BoardController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             Model model
     ) {
+        if ("course".equalsIgnoreCase(boardType)) {
+            return legacyCourseRedirect(countryId, sort);
+        }
         int safePage = Math.max(page, 1);
         int safeSize = clampSize(size);
-        CourseBoardFilter courseFilter = resolveCourseBoardFilter(boardType, scope, countryId);
         List<BoardListDto> boardList = boardService.getBoardList(boardType, postType,
-                courseFilter.scope(), courseFilter.countryId(), sort, safePage, safeSize);
+                "all", null, sort, safePage, safeSize);
         int totalCount = boardService.getBoardCount(boardType, postType,
-                courseFilter.scope(), courseFilter.countryId());
+                "all", null);
         int totalPages = (int) Math.ceil((double) totalCount / safeSize);
 
         model.addAttribute("boardList", boardList);
         model.addAttribute("boardType", boardType);
         model.addAttribute("postType", postType);
-        addCourseFilterModel(model, courseFilter);
+        model.addAttribute("emptyMessage", "등록된 게시글이 없습니다.");
         model.addAttribute("sort", sort);
         model.addAttribute("currentPage", safePage);
         model.addAttribute("totalPages", totalPages);
@@ -106,45 +103,8 @@ public class BoardController {
         return Math.min(Math.max(size, 1), 100);
     }
 
-    private CourseBoardFilter resolveCourseBoardFilter(String boardType, String scope, Long countryId) {
-        boolean courseBoard = "course".equalsIgnoreCase(boardType);
-        if (!courseBoard) {
-            return new CourseBoardFilter(false, "all", null, null, List.of());
-        }
-
-        String normalizedScope = switch (scope == null ? "all" : scope.toLowerCase(Locale.ROOT)) {
-            case "domestic" -> "domestic";
-            case "overseas" -> "overseas";
-            default -> "all";
-        };
-        List<CountryCategory> overseasCountries = countryCategoryService.getCourseCountries().stream()
-                .filter(country -> country.getParentId() != null)
-                .toList();
-        Long selectedCountryId = "overseas".equals(normalizedScope)
-                && countryId != null
-                && overseasCountries.stream().anyMatch(country -> country.getId().equals(countryId))
-                ? countryId : null;
-        String selectedCountryName = overseasCountries.stream()
-                .filter(country -> country.getId().equals(selectedCountryId))
-                .map(CountryCategory::getRegionName)
-                .findFirst()
-                .orElse(null);
-        return new CourseBoardFilter(true, normalizedScope, selectedCountryId,
-                selectedCountryName, overseasCountries);
-    }
-
-    private void addCourseFilterModel(Model model, CourseBoardFilter filter) {
-        model.addAttribute("courseBoard", filter.courseBoard());
-        model.addAttribute("scope", filter.scope());
-        model.addAttribute("countryId", filter.countryId());
-        model.addAttribute("countryName", filter.countryName());
-        model.addAttribute("overseasCourseCountries", filter.overseasCountries());
-        model.addAttribute("emptyMessage", filter.courseBoard()
-                ? "해당 조건의 여행 코스가 없습니다."
-                : "등록된 게시글이 없습니다.");
-    }
-
-    private record CourseBoardFilter(boolean courseBoard, String scope, Long countryId, String countryName,
-                                     List<CountryCategory> overseasCountries) {
+    private String legacyCourseRedirect(Long countryId, String sort) {
+        String target = "redirect:/courses?sort=" + ("views".equalsIgnoreCase(sort) ? "views" : "latest");
+        return countryId != null && countryId > 0 ? target + "&countryId=" + countryId : target;
     }
 }

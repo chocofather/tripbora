@@ -215,7 +215,7 @@
             c.id,
             c.title,
             c.created_at,
-            CONCAT('/course/', c.id) AS detail_url,
+            CONCAT('/courses/', c.id) AS detail_url,
             NULL AS start_date,
             NULL AS end_date,
             CASE WHEN c.title LIKE CONCAT('%', #{keywordPattern}, '%') ESCAPE '!' THEN 2 ELSE 1 END AS relevance

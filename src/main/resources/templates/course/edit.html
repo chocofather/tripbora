@@ -31,7 +31,7 @@
     <h1>나만의 여행코스 수정</h1>
 
     <form id="course-form"
-          th:action="@{/course/{id}/edit(id=${course.id})}"
+          th:action="@{/courses/{id}/edit(id=${course.id})}"
           method="post"
           enctype="multipart/form-data"
           class="write-form"
@@ -60,7 +60,7 @@
 
       <div class="button-group course-save-bar">
         <button type="submit" id="course-submit-button" class="btn btn-primary">수정 저장</button>
-        <a th:href="@{/course/{id}(id=${course.id})}" class="btn btn-secondary">취소</a>
+        <a th:href="@{/courses/{id}(id=${course.id})}" class="btn btn-secondary">취소</a>
       </div>
     </form>
 

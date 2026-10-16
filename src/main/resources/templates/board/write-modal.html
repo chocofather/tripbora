@@ -5,7 +5,7 @@
 <body>
 <!--
   커뮤니티 글쓰기 종류 선택 모달.
-  목록(전체/질문/팁/코스)과 질문·팁 작성폼에서 같은 UI 를 쓴다.
+  목록(전체/질문/팁)과 질문·팁 작성폼에서 같은 UI 를 쓴다.
   각 항목은 기존 작성 route 로 이동하며 저장 로직은 그대로다.
 -->
 <div th:fragment="writeModal" sec:authorize="isAuthenticated()"
@@ -27,12 +27,6 @@
         <a th:href="@{/post/write(postType='TIP')}" class="board-write-option">
           <span class="board-write-option-name">여행 팁</span>
           <span class="board-write-option-desc">유용한 여행 정보를 공유해보세요.</span>
-        </a>
-      </li>
-      <li>
-        <a th:href="@{/course/write}" class="board-write-option">
-          <span class="board-write-option-name">나의 여행코스</span>
-          <span class="board-write-option-desc">직접 여행 동선을 만들어 공유해보세요.</span>
         </a>
       </li>
     </ul>

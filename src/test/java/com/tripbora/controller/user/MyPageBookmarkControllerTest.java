@@ -147,7 +147,7 @@ class MyPageBookmarkControllerTest {
                     var document = Jsoup.parse(result.getResponse().getContentAsString());
                     assertThat(document.select("a[href=/post/20]")).hasSize(1);
                     assertThat(document.select("a[href=/post/21]")).hasSize(1);
-                    assertThat(document.select("a[href=/course/22]")).hasSize(1);
+                    assertThat(document.select("a[href=/courses/22]")).hasSize(1);
                     assertThat(document.select("[data-bookmark-delete-url=/bookmarks/posts/20]")).hasSize(1);
                     assertThat(document.select("[data-bookmark-delete-url=/bookmarks/courses/22]")).hasSize(1);
                     assertThat(document.select(".mypage-bookmark-community-row script")).isEmpty();

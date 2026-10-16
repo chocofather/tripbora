@@ -64,12 +64,14 @@
       <a th:href="@{/admin/courses/{id}/edit(id=${course.id})}">수정으로 돌아가기</a>
     </aside>
     <nav class="course-breadcrumb" aria-label="Breadcrumb">
-      <a th:href="@{/board/list(boardType='course')}" th:text="#{search.type.course}">여행코스</a>
-      <span aria-hidden="true" th:unless="${course.courseKind == 'OFFICIAL'}">/</span>
-      <span th:unless="${course.courseKind == 'OFFICIAL'}" th:text="#{course.detail.label}">나만의 여행 코스</span>
+      <a th:href="@{/}" th:text="#{course.breadcrumb.home}">홈</a>
+      <span aria-hidden="true">›</span>
+      <a th:href="@{/courses}" th:text="#{course.list.title}">여행코스</a>
+      <span aria-hidden="true">›</span>
+      <span aria-current="page" th:text="${course.title}">코스 제목</span>
     </nav>
     <article class="course-summary" data-title-content-translation
-             th:data-translation-url="@{/course/{id}/translation(id=${course.id})}"
+             th:data-translation-url="@{/courses/{id}/translation(id=${course.id})}"
              th:data-translation-show="#{destination.detail.comment.translate}"
              th:data-translation-original="#{destination.detail.comment.original}"
              th:data-translation-loading="#{destination.detail.comment.translating}"
@@ -78,7 +80,7 @@
              th:data-translation-failed="#{destination.detail.comment.translationFailed}">
       <header class="course-summary-header">
         <p class="course-summary-label">
-          <span class="course-official-badge" th:if="${course.courseKind == 'OFFICIAL'}">✓ TripBora 검증 코스</span>
+          <span class="course-official-badge" th:if="${course.courseKind == 'OFFICIAL'}" th:text="#{course.detail.recommendedBadge}">TripBora 추천 코스</span>
           <span th:unless="${course.courseKind == 'OFFICIAL'}" th:text="#{course.detail.label}">나만의 여행 코스</span>
           <span class="course-stop-count"
                 th:if="${course.stops != null and !course.stops.isEmpty()}"
@@ -105,10 +107,10 @@
                 <span aria-hidden="true">⋯</span>
               </summary>
               <div class="course-owner-menu-panel">
-                <a th:href="@{/course/{id}/edit(id=${course.id})}" class="course-edit-button"
+                <a th:href="@{/courses/{id}/edit(id=${course.id})}" class="course-edit-button"
                    th:text="#{course.detail.edit}">수정</a>
                 <!-- 기존 POST/CSRF 및 confirm-submit.js 삭제 확인 계약을 유지한다. -->
-                <form th:action="@{/course/{id}/delete(id=${course.id})}"
+                <form th:action="@{/courses/{id}/delete(id=${course.id})}"
                       method="post" class="course-delete-form"
                       th:data-confirm="#{course.detail.deleteConfirm}">
                   <button type="submit" class="course-delete-button"
@@ -284,7 +286,7 @@
     <footer class="course-detail-footer">
       <!-- 목록 이동만 남긴다. 작성자/관리자 액션은 모두 제목 우측 메뉴로 모았다. -->
       <div class="course-detail-footer-row">
-        <a th:href="@{/board/list(boardType='course')}" class="course-back-to-list">
+        <a th:href="@{/courses}" class="course-back-to-list">
           <span class="course-back-to-list-arrow" aria-hidden="true">←</span><span
               th:text="#{course.detail.backToList}">코스 목록으로</span>
         </a>
@@ -301,7 +303,7 @@
         <p class="course-hide-text">이 코스를 숨김 처리하시겠습니까?</p>
         <form th:action="@{/admin/contents/COURSE/{id}/hide(id=${course.id})}"
               method="post" class="course-hide-form">
-          <input type="hidden" name="redirect" th:value="@{/board/list(boardType='course')}">
+          <input type="hidden" name="redirect" th:value="@{/courses}">
           <label class="course-hide-label" for="course-hide-reason">숨김 사유</label>
           <textarea id="course-hide-reason" name="reason" rows="3" maxlength="500" required
                     class="course-hide-reason" placeholder="사유를 입력해 주세요."></textarea>

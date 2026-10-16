@@ -497,7 +497,7 @@ class HomeControllerTest {
                     assertThat(document.select(".about-feature .about-feature-link").eachAttr("href"))
                             .containsExactly(
                                     "/destinations", "/travel-info", "/travel-info?contentType=FESTIVAL",
-                                    "/board/list?boardType=course", "/diaries/demo", "/travel-plans", "/board/list");
+                                    "/courses", "/diaries/demo", "/travel-plans", "/board/list");
                 });
     }
 

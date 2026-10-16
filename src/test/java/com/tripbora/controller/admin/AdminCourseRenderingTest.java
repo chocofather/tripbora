@@ -169,7 +169,7 @@ class AdminCourseRenderingTest {
         Document page = render("/admin/courses/40/preview");
         assertThat(page.select(".course-admin-preview a").attr("href")).isEqualTo("/admin/courses/40/edit");
         assertThat(page.select(".course-official-badge")).hasSize(1);
-        assertThat(page.select(".course-official-badge").text()).isEqualTo("✓ TripBora 검증 코스");
+        assertThat(page.select(".course-official-badge").text()).isEqualTo("TripBora 추천 코스");
         assertThat(page.select(".course-official-summary").text()).isEqualTo("코스 요약");
         assertThat(page.select(".structured-content, [data-structured-gallery], .course-introduction")).isEmpty();
         assertThat(page.select("script[src*='structured'], link[href*='structured']")).isEmpty();

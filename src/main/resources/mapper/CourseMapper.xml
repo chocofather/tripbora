@@ -289,23 +289,16 @@
         )
     </sql>
 
-    <select id="findPopularCourses" resultMap="HomePopularCourseMap">
-        SELECT
-            c.id AS course_id,
-            c.title AS course_title,
-            c.course_kind,
-            u.nickname AS writer_nickname,
-            (u.status = 'DEACTIVATED') AS writer_withdrawn,
-            c.views AS course_views,
-            COUNT(stops.destination_id) AS destination_count,
-            COALESCE(
+    <!-- 홈과 독립 코스 목록에서 동일한 표지 선택 규칙을 사용한다. courses 별칭은 c. -->
+    <sql id="CourseRepresentativeImage">
+        COALESCE(
                 NULLIF(TRIM(c.cover_image_url), ''),
                 (
                     SELECT di.image_url
                     FROM destination_images di
                     WHERE di.destination_id = (
                         SELECT representative.destination_id
-                        FROM (<include refid="HomeCourseStopSource"/>) representative
+                        FROM (<include refid="com.tripbora.repository.course.CourseMapper.HomeCourseStopSource"/>) representative
                         WHERE representative.course_id = c.id
                           AND representative.day_number = 1
                         ORDER BY representative.display_order ASC, representative.stop_id ASC
@@ -315,7 +308,19 @@
                              di.order_index ASC, di.id ASC
                     LIMIT 1
                 )
-            ) AS representative_image_url
+        )
+    </sql>
+
+    <select id="findPopularCourses" resultMap="HomePopularCourseMap">
+        SELECT
+            c.id AS course_id,
+            c.title AS course_title,
+            c.course_kind,
+            u.nickname AS writer_nickname,
+            (u.status = 'DEACTIVATED') AS writer_withdrawn,
+            c.views AS course_views,
+            COUNT(stops.destination_id) AS destination_count,
+            <include refid="CourseRepresentativeImage"/> AS representative_image_url
         FROM courses c
         JOIN users u ON u.id = c.user_id
         LEFT JOIN (<include refid="HomeCourseStopSource"/>) stops ON stops.course_id = c.id

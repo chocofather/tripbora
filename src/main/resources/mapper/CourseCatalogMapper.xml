@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.course.CourseCatalogMapper">
+    <sql id="PublicCatalogFilter">
+        c.deleted = 0
+        AND c.deleted_at IS NULL
+        AND c.status = 'PUBLISHED'
+        AND c.course_kind IN ('OFFICIAL', 'TRAVELER')
+        <if test="kind == 'OFFICIAL' or kind == 'TRAVELER'">
+            AND c.course_kind = #{kind}
+        </if>
+        <if test="countryId != null">
+            AND EXISTS (
+                SELECT 1 FROM course_countries membership
+                WHERE membership.course_id = c.id AND membership.country_id = #{countryId}
+            )
+        </if>
+        <if test="themeId != null">
+            AND EXISTS (
+                SELECT 1 FROM course_theme_mappings mapping
+                WHERE mapping.course_id = c.id AND mapping.theme_id = #{themeId}
+            )
+        </if>
+    </sql>
+
+    <select id="countCourses" resultType="int">
+        SELECT COUNT(*) FROM courses c WHERE <include refid="PublicCatalogFilter"/>
+    </select>
+
+    <select id="findCourses" resultType="com.tripbora.dto.CourseCardDto">
+        SELECT c.id, c.title, c.course_kind, c.user_id,
+               u.nickname, (u.status = 'DEACTIVATED') AS writer_withdrawn,
+               c.views,
+               (SELECT COUNT(*) FROM course_days day WHERE day.course_id = c.id) AS day_count,
+               <include refid="com.tripbora.repository.course.CourseMapper.CourseRepresentativeImage"/>
+               AS representative_image_url
+        FROM courses c
+        JOIN users u ON u.id = c.user_id
+        WHERE <include refid="PublicCatalogFilter"/>
+        ORDER BY
+        <if test="sort == 'views'">c.views DESC,</if>
+        c.created_at DESC, c.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="findCountriesByCourseIds" resultType="com.tripbora.dto.CourseCatalogCountryDto">
+        SELECT membership.course_id, country.region_name AS country_name
+        FROM course_countries membership
+        JOIN country_categories country ON country.id = membership.country_id
+        WHERE membership.course_id IN
+        <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">#{courseId}</foreach>
+        ORDER BY membership.course_id, membership.display_order
+    </select>
+
+    <!-- 지역 경로를 페이지 단위로 조회한다. 직접 입력 주소는 지역 추론에 사용하지 않는다. -->
+    <select id="findRegionsByCourseIds" resultType="com.tripbora.dto.CourseCatalogRegionDto">
+        WITH RECURSIVE region_paths AS (
+            SELECT stop.course_id, stop.day_number, stop.display_order, stop.stop_id,
+                   region.id AS region_id, region.parent_id, region.code AS region_code,
+                   region.region_name
+            FROM (<include refid="com.tripbora.repository.course.CourseMapper.HomeCourseStopSource"/>) stop
+            JOIN destinations destination ON destination.id = stop.destination_id
+            JOIN country_categories region ON region.id = destination.region_id
+            WHERE stop.course_id IN
+            <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">#{courseId}</foreach>
+
+            UNION ALL
+
+            SELECT path.course_id, path.day_number, path.display_order, path.stop_id,
+                   parent.id, parent.parent_id, parent.code, parent.region_name
+            FROM region_paths path
+            JOIN country_categories parent ON parent.id = path.parent_id
+        )
+        <!-- CountryCategoryMapper.selectCourseCountries와 같은 국가 경계. leaf code는 필요하지 않다. -->
+        SELECT path.course_id, path.stop_id, path.region_id, path.parent_id, path.region_code, path.region_name,
+               CASE WHEN NULLIF(TRIM(path.region_code), '') IS NOT NULL
+                         AND path.region_code NOT LIKE '%-%'
+                         AND (
+                             (path.parent_id IS NOT NULL AND ancestor_parent.id IS NOT NULL
+                              AND ancestor_parent.parent_id IS NULL)
+                             OR (
+                                 path.parent_id IS NULL AND EXISTS (
+                                     SELECT 1 FROM country_categories country_child
+                                     WHERE country_child.parent_id = path.region_id
+                                       AND country_child.code LIKE CONCAT(path.region_code, '-%')
+                                 )
+                             )
+                         )
+                    THEN 1 ELSE 0 END AS country_node
+        FROM region_paths path
+        LEFT JOIN country_categories ancestor_parent ON ancestor_parent.id = path.parent_id
+        ORDER BY course_id, day_number, display_order, stop_id
+    </select>
+</mapper>

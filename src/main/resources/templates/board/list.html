@@ -7,7 +7,6 @@
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/board-list.css">
   <link rel="stylesheet" href="/css/board-write-modal.css">
-  <script src="/js/country-combobox.js" defer></script>
 </th:block>
 
 <th:block th:fragment="body">
@@ -21,8 +20,6 @@
                th:classappend="${boardType=='post' and postType=='question'} ? 'active'">여행 질문</a></li>
         <li><a href="/board/list?boardType=post&postType=tip"
                th:classappend="${boardType=='post' and postType=='tip'} ? 'active'">여행 팁</a></li>
-        <li><a href="/board/list?boardType=course"
-               th:classappend="${boardType=='course'} ? 'active'">나의 여행코스</a></li>
       </ul>
     </aside>
 
@@ -32,75 +29,12 @@
         <div class="board-heading">
           <span class="board-heading-kicker">TRAVEL TOGETHER</span>
           <h1>여행 커뮤니티</h1>
-          <p>여행의 궁금증과 유용한 팁, 직접 만든 코스를 함께 나눠보세요.</p>
+          <p>여행의 궁금증과 유용한 팁을 함께 나눠보세요.</p>
         </div>
         <div class="board-mobile-write-action" sec:authorize="isAuthenticated()">
           <button type="button" class="board-write-btn" data-board-write-open>글쓰기</button>
         </div>
       </div>
-
-      <section th:if="${courseBoard}" class="board-country-filter" aria-label="여행코스 국가 필터">
-        <nav class="board-scope-options" aria-label="코스 범위">
-          <a th:href="@{/board/list(boardType='course',scope='all',sort=${sort},size=${pageSize})}"
-             class="board-scope-link"
-             onclick="changeBoardScope(event, 'all')"
-             th:classappend="${scope == 'all'} ? ' active'"
-             th:attr="aria-current=${scope == 'all'} ? 'page'">전체</a>
-          <a th:href="@{/board/list(boardType='course',scope='domestic',sort=${sort},size=${pageSize})}"
-             class="board-scope-link"
-             onclick="changeBoardScope(event, 'domestic')"
-             th:classappend="${scope == 'domestic'} ? ' active'"
-             th:attr="aria-current=${scope == 'domestic'} ? 'page'">국내</a>
-          <a th:href="@{/board/list(boardType='course',scope='overseas',sort=${sort},size=${pageSize})}"
-             class="board-scope-link"
-             onclick="changeBoardScope(event, 'overseas')"
-             th:classappend="${scope == 'overseas'} ? ' active'"
-             th:attr="aria-current=${scope == 'overseas'} ? 'page'">해외</a>
-        </nav>
-
-        <div th:if="${scope == 'overseas'}"
-             class="board-country-select-wrap"
-             th:attr="data-selected-country-id=${countryId},data-selected-country-name=${countryName}">
-          <label for="board-country-input">국가</label>
-          <div class="board-country-combobox">
-            <span class="board-country-search-icon" aria-hidden="true"></span>
-            <input type="text"
-                   id="board-country-input"
-                   th:value="${countryName}"
-                   placeholder="국가명을 검색하세요"
-                   autocomplete="off"
-                   role="combobox"
-                   aria-autocomplete="list"
-                   aria-expanded="false"
-                   aria-controls="board-country-listbox" />
-            <div id="board-country-listbox"
-                 class="board-country-option-list"
-                 role="listbox"
-                 aria-label="해외 국가"
-                 hidden>
-              <button type="button"
-                      id="board-country-option-all"
-                      class="board-country-option"
-                      role="option"
-                      data-country-id=""
-                      data-country-name="전체 국가"
-                      th:attr="aria-selected=${countryId == null}">전체 국가</button>
-              <button th:each="country, countryStatus : ${overseasCourseCountries}"
-                      type="button"
-                      class="board-country-option"
-                      role="option"
-                      th:id="|board-country-option-${countryStatus.index}|"
-                      th:attr="data-country-id=${country.id},
-                               data-country-name=${country.regionName},
-                               aria-selected=${countryId != null and countryId == country.id}"
-                      th:text="${country.regionName}">국가명</button>
-              <p id="board-country-option-empty" class="board-country-option-empty" hidden>
-                일치하는 국가가 없습니다.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <div class="board-sort-bar" role="group" aria-label="목록 정렬">
         <button type="button" class="board-sort-button" data-sort="latest"

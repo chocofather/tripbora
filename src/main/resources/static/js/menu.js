@@ -1,19 +1,22 @@
-function alignSubmenus() {
-    const menuItems = document.querySelectorAll('.main-menu > li');
-    const submenuColumns = document.querySelectorAll('.submenu-column');
-    const nav = document.querySelector('.main-nav'); // ✅ 기준: relative를 가진 부모
-    const navLeft = nav.getBoundingClientRect().left;
+(() => {
+    const nav = document.querySelector('.main-nav');
+    const groups = Array.from(document.querySelectorAll('.main-menu > .menu-item > .submenu-col'));
+    if (!nav || !groups.length) return;
 
-    menuItems.forEach((item, index) => {
-        const itemLeft = item.getBoundingClientRect().left;
-        const relativeLeft = itemLeft - navLeft;
-
-        const submenu = document.querySelector(`.submenu-column[data-index="${index}"]`);
-        if (submenu) {
-            submenu.style.left = `${relativeLeft - 27}px`;
-        }
-    });
-}
-
-window.addEventListener('DOMContentLoaded', alignSubmenus);
-window.addEventListener('resize', alignSubmenus);
+    // X 정렬은 부모 기준 CSS만 담당한다. 공통 배경은 실제 그룹의 Y 범위에 맞춘다.
+    const sizeBackdrop = () => {
+        const rects = groups.map(group => group.getBoundingClientRect());
+        const top = Math.min(...rects.map(rect => rect.top));
+        const bottom = Math.max(...rects.map(rect => rect.top + rect.height));
+        const height = Math.ceil(bottom - top);
+        nav.style.setProperty('--header-submenu-top', `${top - nav.getBoundingClientRect().top}px`);
+        nav.style.setProperty('--header-submenu-height', `${height}px`);
+    };
+    sizeBackdrop();
+    window.addEventListener('resize', sizeBackdrop);
+    document.fonts?.ready.then(sizeBackdrop);
+    if (typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(sizeBackdrop);
+        groups.forEach(group => observer.observe(group));
+    }
+})();

@@ -45,7 +45,7 @@ class CourseNestedBindingTest {
         CourseService service = mock(CourseService.class);
         var mvc = MockMvcBuilders.standaloneSetup(new CourseController(service, mock(CountryCategoryService.class)))
                 .setSingleView(new MappingJackson2JsonView()).build();
-        mvc.perform(post("/course/write").param("days[9999].dayNumber", "10000"))
+        mvc.perform(post("/courses/new").param("days[9999].dayNumber", "10000"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }

@@ -65,7 +65,7 @@
                  th:href="@{/post/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
                  th:text="${comment.targetTitle}">원문 제목</a>
               <a th:if="${comment.commentType == 'course'}"
-                 th:href="@{/course/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
+                 th:href="@{/courses/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
                  th:text="${comment.targetTitle}">원문 제목</a>
             </h2>
           </div>
@@ -86,7 +86,7 @@
                th:href="@{/post/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
                th:text="#{mypage.comments.viewOriginal}">원문 보기</a>
             <a th:if="${comment.commentType == 'course'}"
-               th:href="@{/course/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
+               th:href="@{/courses/{id}(id=${comment.targetId},commentId=${comment.commentId})}"
                th:text="#{mypage.comments.viewOriginal}">원문 보기</a>
           </div>
         </article>

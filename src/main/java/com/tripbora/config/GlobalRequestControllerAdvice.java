@@ -3,6 +3,7 @@ package com.tripbora.config;
 import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.seo.SeoRobotsPolicy;
 import com.tripbora.seo.SeoSiteUrl;
+import com.tripbora.web.HeaderNavigation;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
@@ -39,6 +40,12 @@ public class GlobalRequestControllerAdvice {
         return query == null || query.isBlank()
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + query;
+    }
+
+    @ModelAttribute("headerNavigation")
+    public HeaderNavigation headerNavigation(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return new HeaderNavigation(path, request.getParameter("type"));
     }
 
     @ModelAttribute

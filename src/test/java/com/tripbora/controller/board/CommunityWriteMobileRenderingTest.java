@@ -86,11 +86,11 @@ class CommunityWriteMobileRenderingTest {
         overseas.setRegionName("일본");
         overseas.setParentId(1L);
         when(courseService.getCourseCountries(SupportedLanguage.KOREAN)).thenReturn(List.of(domestic, overseas));
-        var write = Jsoup.parse(render("/course/write", "course-write"));
+        var write = Jsoup.parse(render("/courses/new", "course-write"));
         assertThat(write.select("[data-course-country]").eachAttr("data-country-id")).containsExactly("7", "8");
         assertThat(write.select("[data-course-country]").eachAttr("data-country-code")).containsExactly("KR", "JP");
         assertThat(write.select("#course-country-id, input[name=countryId], [data-country-scope]")).isEmpty();
-        assertThat(write.selectFirst("#course-form").attr("action")).isEqualTo("/course/write");
+        assertThat(write.selectFirst("#course-form").attr("action")).isEqualTo("/courses/new");
         assertThat(write.selectFirst("#course-title").attr("name")).isEqualTo("title");
         for (long countryId : List.of(7L, 8L)) {
             CourseEditDto course = new CourseEditDto();
@@ -111,7 +111,7 @@ class CommunityWriteMobileRenderingTest {
             second.setItems(List.of(course.getStops().get(1)));
             course.setDays(List.of(first, second));
             when(courseService.getCourseForEdit(eq(10L), eq(5L), any())).thenReturn(course);
-            var edit = Jsoup.parse(render("/course/10/edit", "course-edit-" + countryId));
+            var edit = Jsoup.parse(render("/courses/10/edit", "course-edit-" + countryId));
             assertThat(edit.select("[data-initial-destination]").eachAttr("data-destination-id")).containsExactly("3", "1");
             assertThat(edit.select("[data-initial-day]").eachAttr("data-day-id")).containsExactly("50", "51");
             assertThat(edit.selectFirst("[data-initial-day]").attr("data-title")).isEqualTo("첫날 일정");
@@ -120,7 +120,7 @@ class CommunityWriteMobileRenderingTest {
             assertThat(edit.select("#course-country-id, input[name=countryId], [data-country-scope]")).isEmpty();
             assertThat(edit.selectFirst("#course-title").val()).isEqualTo(course.getTitle());
             assertThat(edit.selectFirst("#initial-content").val()).isEqualTo(CONTENT);
-            assertThat(edit.selectFirst("#course-form").attr("action")).isEqualTo("/course/10/edit");
+            assertThat(edit.selectFirst("#course-form").attr("action")).isEqualTo("/courses/10/edit");
         }
     }
 

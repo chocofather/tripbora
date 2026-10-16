@@ -127,6 +127,7 @@
             p.user_id AS userId,
             'post' AS boardType,
             p.post_type AS postType,
+            NULL AS courseKind,
             p.title,
             p.views,
             p.created_at AS createdAt,
@@ -150,6 +151,7 @@
             c.user_id AS userId,
             'course' AS boardType,
             NULL AS postType,
+            c.course_kind AS courseKind,
             c.title,
             c.views,
             c.created_at AS createdAt,
@@ -224,6 +226,7 @@
             board.userId,
             board.boardType,
             board.postType,
+            board.courseKind,
             board.title,
             board.commentCount,
             board.nickname,
@@ -294,6 +297,7 @@
             p.user_id AS userId,
             'post' AS boardType,
             p.post_type AS postType,
+            NULL AS courseKind,
             NULL AS countryId,
             p.title,
             p.views,
@@ -316,6 +320,7 @@
             c.user_id AS userId,
             'course' AS boardType,
             NULL AS postType,
+            c.course_kind AS courseKind,
             c.country_id AS countryId,
             c.title,
             c.views,
@@ -343,6 +348,7 @@
 
         <include refid="courseBoardSelectBase"/>
         WHERE c.user_id = #{userId}
+          AND c.course_kind = 'TRAVELER'
           AND c.deleted = 0
           AND c.deleted_at IS NULL
         <if test="publishedOnly">
@@ -366,6 +372,7 @@
             board.userId,
             board.boardType,
             board.postType,
+            board.courseKind,
             board.title,
             board.commentCount,
             board.nickname,

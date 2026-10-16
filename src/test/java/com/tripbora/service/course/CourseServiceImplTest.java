@@ -74,6 +74,31 @@ class CourseServiceImplTest {
     }
 
     @Test
+    void officialDetailNeverOffersTravelerControlsOrTranslation() {
+        CourseDetailDto detail = new CourseDetailDto();
+        detail.setCourseKind("OFFICIAL"); detail.setUserId(5L);
+        detail.setTitleSourceLanguage("en"); detail.setContentSourceLanguage("en");
+        when(courseMapper.incrementViews(10L)).thenReturn(1);
+        when(courseMapper.findCourseDetail(10L, 5L)).thenReturn(detail);
+        CourseDetailDto result = service.getCourseDetail(10L, 5L, SupportedLanguage.KOREAN);
+        assertThat(result.isTranslationAvailable()).isFalse();
+        assertThat(result.isMyCourse()).isFalse();
+    }
+
+    @Test
+    void officialCourseCreatorCannotUseTravelerEditOrDelete() {
+        Course official = activeCourse(10L, 5L);
+        official.setCourseKind("OFFICIAL");
+        when(courseMapper.findActiveCourse(10L)).thenReturn(official);
+        when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(official);
+        assertThatThrownBy(() -> service.getCourseForEdit(10L, 5L, SupportedLanguage.KOREAN))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.deleteCourse(10L, 5L))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(courseMapper, never()).softDeleteCourse(any(), any());
+    }
+
+    @Test
     void returnsSanitizedDetailAndStopsAfterIncrementingViews() {
         CourseDetailDto detail = new CourseDetailDto();
         detail.setId(10L);

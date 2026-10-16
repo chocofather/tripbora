@@ -16,3 +16,4 @@
 @media (max-width: 680px) {
     .mypage-post-main > .course-card-copy { grid-column: 1 / -1; grid-row: 1; }
 }
+.course-official-badge { display: inline-block; color: var(--tripbora-primary, #7453aa); font-size: 11px; font-weight: 600; line-height: 1.5; letter-spacing: .01em; }

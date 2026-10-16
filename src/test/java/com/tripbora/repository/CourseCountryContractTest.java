@@ -131,7 +131,10 @@ class CourseCountryContractTest {
         String writeTemplate = resource("/templates/course/write.html");
         String editTemplate = resource("/templates/course/edit.html");
         String script = resource("/static/js/course-write.js");
-        for (String template : new String[]{writeTemplate, editTemplate}) {
+        String schedule = resource("/templates/course/fragments/schedule-input.html");
+        for (String page : new String[]{writeTemplate, editTemplate}) {
+            assertThat(page).contains("course/fragments/schedule-input :: scheduleInput");
+            String template = page + schedule;
             assertThat(template)
                     .contains("${courseCountries}", "data-course-country")
                     .contains("data-country-id=${country.id}", "data-country-name=${country.regionName}")

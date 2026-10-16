@@ -80,7 +80,7 @@ public class CourseServiceImpl implements CourseService {
         }).toList();
     }
 
-    private List<String> readCountryNames(Long courseId, SupportedLanguage language) {
+    List<String> readCountryNames(Long courseId, SupportedLanguage language) {
         List<com.tripbora.model.CountryCategory> countries = courseStructureService.findCountries(courseId);
         if (countries == null || countries.isEmpty()) return List.of();
         Map<Long, String> names = referenceNameLocalizationService.localizeCountryCategories(countries, language);
@@ -101,6 +101,11 @@ public class CourseServiceImpl implements CourseService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "여행 코스를 찾을 수 없습니다.");
         }
 
+        return prepareDetail(courseId, course, currentUserId, requestedLanguage);
+    }
+
+    CourseDetailDto prepareDetail(Long courseId, CourseDetailDto course, Long currentUserId,
+                                  SupportedLanguage requestedLanguage) {
         course.setContent(postContentSanitizer.sanitize(course.getContent()));
         applyTranslationMetadata(course, requestedLanguage);
         List<CourseDayDto> days = readTransitionDays(courseId, requestedLanguage);
@@ -109,7 +114,9 @@ public class CourseServiceImpl implements CourseService {
         course.setCountryNames(readCountryNames(courseId, requestedLanguage));
         course.setThemes(courseThemeService.findByCourseIds(List.of(courseId)).getOrDefault(courseId, List.of()));
         course.setRepresentativeImageUrl(representativeImage(course.getCoverImageUrl(), days));
-        course.setMyCourse(currentUserId != null && Objects.equals(course.getUserId(), currentUserId));
+        boolean official = "OFFICIAL".equals(course.getCourseKind());
+        if (official) course.setTranslationAvailable(false);
+        course.setMyCourse(!official && currentUserId != null && Objects.equals(course.getUserId(), currentUserId));
         return course;
     }
 
@@ -118,12 +125,18 @@ public class CourseServiceImpl implements CourseService {
     public CourseEditDto getCourseForEdit(Long courseId, Long userId,
                                           SupportedLanguage requestedLanguage) {
         Course course = requireOwnedActiveCourse(courseMapper.findActiveCourse(courseId), userId);
+        return prepareEdit(course, requestedLanguage);
+    }
 
+    CourseEditDto prepareEdit(Course course, SupportedLanguage requestedLanguage) {
+        Long courseId = course.getId();
         CourseEditDto edit = new CourseEditDto();
         edit.setId(course.getId());
         edit.setCountryId(course.getCountryId());
         edit.setCountryName(course.getCountryName());
         edit.setTitle(course.getTitle());
+        edit.setSummary(course.getSummary());
+        edit.setStatus(course.getStatus());
         edit.setCoverImageUrl(course.getCoverImageUrl());
         edit.setContent(postContentSanitizer.sanitize(course.getContent()));
         List<CourseDayDto> days = readTransitionDays(courseId, requestedLanguage);
@@ -505,13 +518,7 @@ public class CourseServiceImpl implements CourseService {
     }
 
     private ValidatedCourse validateBasic(String requestedTitle, String content, List<CourseDayForm> days) {
-        String title = requestedTitle == null ? "" : requestedTitle.trim();
-        if (title.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "코스 제목을 입력해 주세요.");
-        }
-        if (title.length() > 255) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "코스 제목은 255자 이하로 입력해 주세요.");
-        }
+        String title = validateTitle(requestedTitle);
 
         String sanitizedContent = postContentSanitizer.sanitize(content);
         org.jsoup.nodes.Document document = Jsoup.parseBodyFragment(sanitizedContent);
@@ -522,6 +529,24 @@ public class CourseServiceImpl implements CourseService {
         }
 
         return new ValidatedCourse(title, sanitizedContent, CourseScheduleValidator.validate(days));
+    }
+
+    String validateTitle(String requestedTitle) {
+        String title = requestedTitle == null ? "" : requestedTitle.trim();
+        if (title.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "코스 제목을 입력해 주세요.");
+        }
+        if (title.length() > 255) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "코스 제목은 255자 이하로 입력해 주세요.");
+        }
+
+        return title;
+    }
+
+    Long validateScheduleAndCountries(List<CourseDayForm> days) {
+        List<Long> destinations = CourseScheduleValidator.validate(days);
+        validateDestinations(destinations);
+        return validateCourseCountries(days, destinations);
     }
 
     private String detectContentLanguage(String sanitizedContent) {
@@ -587,6 +612,9 @@ public class CourseServiceImpl implements CourseService {
 
     private Course requireOwnedActiveCourse(Course course, Long userId) {
         if (course == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "여행 코스를 찾을 수 없습니다.");
+        }
+        if (!"TRAVELER".equals(course.getCourseKind())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "여행 코스를 찾을 수 없습니다.");
         }
         if (!Objects.equals(course.getUserId(), userId)) {

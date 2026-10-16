@@ -13,6 +13,8 @@ public class CourseEditDto {
     private String countryName;
     private String title;
     private String content;
+    private String summary;
+    private String status;
     private List<CourseStopDto> stops;
     private List<CourseDayDto> days;
     private List<String> countryNames;

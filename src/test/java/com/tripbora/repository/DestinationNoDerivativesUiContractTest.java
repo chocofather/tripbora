@@ -30,6 +30,8 @@ class DestinationNoDerivativesUiContractTest {
         assertThat(resource("/templates/course/detail.html"))
                 .contains("${stop.imageNoDerivatives} ? 'is-no-derivatives'");
         assertThat(resource("/templates/course/edit.html"))
+                .contains("course/fragments/schedule-input :: scheduleInput");
+        assertThat(resource("/templates/course/fragments/schedule-input.html"))
                 .contains("data-image-no-derivatives=${stop.imageNoDerivatives}");
         assertThat(resource("/templates/mypage/bookmarks.html"))
                 .contains("${bookmark.imageNoDerivatives} ? 'is-no-derivatives'");

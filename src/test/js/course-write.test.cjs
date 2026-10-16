@@ -38,7 +38,7 @@ const initialDay = (id, title, items = []) => {
     const day = new Element(); day.dataset = {dayId: id, title};
     day.initialItems = items.map(data => { const item = new Element(); item.dataset = {countryId: '1', ...data}; return item; }); return day;
 };
-async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>', countryId: 1}, {id: 9, name: '다른 장소', countryId: 1}]) {
+async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>', countryId: 1}, {id: 9, name: '다른 장소', countryId: 1}], formConfig = {}) {
     const ids = {};
     ['course-form', 'destination-search-input', 'destination-search-button', 'destination-search-results',
         'selected-destinations', 'destination-id-inputs', 'course-write-message', 'course-submit-button',
@@ -46,6 +46,7 @@ async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>',
         'selected-course-count', 'course-search-panel', 'course-search-close',
         'course-search-target', 'course-search-message'].forEach(id => { ids[id] = new Element(); });
     ids['course-search-panel'].hidden = true;
+    Object.assign(ids['course-form'].dataset, formConfig);
     const countries = [{countryId: '1', countryCode: 'KR', countryName: '대한민국'}, {countryId: '2', countryCode: 'JP', countryName: '일본'}, {countryId: '3', countryCode: 'FR', countryName: '프랑스'}]
         .map(data => { const option = new Element('option'); option.dataset = data; return option; });
     let initialize;
@@ -57,17 +58,20 @@ async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>',
     };
     let confirmations = 0; let confirmed = true; const requests = [];
     const attachedLocations = [];
+    const quillCalls = [];
     const context = {
         document, URLSearchParams, AbortController,
         fetch: async url => { requests.push(url); return {ok: true, json: async () => url.startsWith('/api/search/regions')
             ? [{id: 11, regionName: '제주'}, {id: 12, regionName: '서울'}] : destinations}; },
-        window: {CourseLocation: {attach(container, item, onChange) { attachedLocations.push({container, item, onChange, countryCode: item.countryCode}); }}, initQuillEditor() {}, addEventListener() {}, confirm: () => { confirmations++; return confirmed; }, setTimeout, clearTimeout}
+        window: {CourseLocation: {attach(container, item, onChange) { attachedLocations.push({container, item, onChange, countryCode: item.countryCode}); }},
+            initQuillEditor(...args) { quillCalls.push(args); },
+            addEventListener() {}, confirm: () => { confirmations++; return confirmed; }, setTimeout, clearTimeout}
     };
     vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../../main/resources/static/js/course-write.js'), 'utf8'), context);
     initialize();
     const flush = () => new Promise(resolve => setImmediate(resolve)); await flush();
     return {
-        ids, requests, flush, attachedLocations,
+        ids, requests, flush, attachedLocations, quillCalls,
         payload: () => Object.fromEntries(ids['destination-id-inputs'].children.map(input => [input.name, input.value])),
         resultButtons: () => findClass(ids['destination-search-results'], 'destination-add-button'),
         add: (index = 0) => findClass(ids['destination-search-results'], 'destination-add-button')[index].fire('click'),
@@ -86,6 +90,27 @@ async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>',
         confirm(value) { confirmed = value; }
     };
 }
+
+test('검증 코스 폼은 소개 에디터 없이 기존 일정 검증과 payload를 사용한다', async () => {
+    const ui = await setup([initialDay('1', '', [{destinationId: '8', name: '서울'}])], [], {
+        contentEditor: 'none'
+    });
+    assert.equal(ui.quillCalls.length, 0);
+    assert.equal(ui.ids['course-form'].fire('submit').defaultPrevented, false);
+    assert.equal(ui.payload()['days[0].items[0].destinationId'], '8');
+    assert.equal(ui.ids['course-submit-button'].disabled, true);
+});
+
+test('소개 에디터가 없어도 빈 Day 저장은 거절하고 저장 버튼을 유지한다', async () => {
+    const ui = await setup([], [], {contentEditor: 'none'});
+    assert.equal(ui.ids['course-form'].fire('submit').defaultPrevented, true);
+    assert.equal(ui.ids['course-submit-button'].disabled, false);
+});
+
+test('일반 여행자 폼은 기존 Quill 초기화 계약을 유지한다', async () => {
+    const ui = await setup([], [], {initialContentId: 'initial-content'});
+    assert.deepEqual(ui.quillCalls[0], ['#editor', 'content-input', 'course-form', 'initial-content']);
+});
 
 test('기존 일정과 검색에서 추가한 일정은 서버의 동일 locationLabel을 표시한다', async () => {
     const ui = await setup([initialDay('1', '', [

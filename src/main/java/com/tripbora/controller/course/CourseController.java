@@ -60,7 +60,8 @@ public class CourseController {
                 id, currentUserId, requestedLanguage());
         model.addAttribute("course", course);
         String seoImage = course.getRepresentativeImageUrl();
-        SeoModel.apply(model, course.getTitle() + " | TripBora", course.getContent(),
+        String description = "OFFICIAL".equals(course.getCourseKind()) ? course.getSummary() : course.getContent();
+        SeoModel.apply(model, course.getTitle() + " | TripBora", description,
                 "/course/" + id, seoImage, "article");
         List<SeoStructuredData.ItineraryStop> itinerary = course.getStops() == null
                 ? List.of()
@@ -69,7 +70,7 @@ public class CourseController {
                         stop.getName(), stop.getDestinationId()))
                 .toList();
         SeoStructuredData.touristTrip(model, "/course/" + id,
-                course.getTitle(), course.getContent(), seoImage, itinerary);
+                course.getTitle(), description, seoImage, itinerary);
         return "course/detail";
     }
 

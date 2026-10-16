@@ -63,6 +63,17 @@ class MyPageBookmarkMapperContractTest {
     }
 
     @Test
+    void officialCourseBookmarksUseTheBrandInsteadOfTheirAdminCreator() throws IOException {
+        String xml = compact(read());
+        int start = xml.indexOf("'course' AS boardType");
+        String course = xml.substring(start, xml.indexOf("</sql>", start));
+
+        assertThat(course)
+                .contains("CASE c.course_kind WHEN 'OFFICIAL' THEN 'TripBora' ELSE u.nickname END AS nickname")
+                .contains("CASE c.course_kind WHEN 'OFFICIAL' THEN FALSE ELSE (u.status = 'DEACTIVATED') END AS writerWithdrawn");
+    }
+
+    @Test
     void travelInfoKeepsOnlyPublicCategoriesAndReusesThumbnailOrdering() throws IOException {
         String xml = compact(read());
 

@@ -48,6 +48,13 @@
     </section>
 
     <section class="admin-nav-group">
+      <h2 class="admin-nav-group-title">여행코스 관리</h2>
+      <a class="admin-nav-link"
+         th:classappend="${activeMenu == 'courses'} ? ' is-active' : ''"
+         th:href="@{/admin/courses}">검증 코스</a>
+    </section>
+
+    <section class="admin-nav-group">
       <h2 class="admin-nav-group-title">이벤트 관리</h2>
       <a class="admin-nav-link"
          th:classappend="${activeMenu == 'events'} ? ' is-active' : ''"

@@ -31,8 +31,10 @@ class CoursePublicStatusContractTest {
                 new String[]{"MyPageBookmarkMapper", "findCommunityBookmarks"},
                 new String[]{"MyPageBookmarkMapper", "countCommunityBookmarks"},
                 new String[]{"CourseCommentMapper", "existsActiveCourse"},
+                new String[]{"CourseCommentMapper", "findActiveRootIdForLocation"},
                 new String[]{"CourseCommentMapper", "findVisibleTranslationSource"},
-                new String[]{"CourseCommentMapper", "findVisibleTranslationSourceForUpdate"})) {
+                new String[]{"CourseCommentMapper", "findVisibleTranslationSourceForUpdate"},
+                new String[]{"CourseCommentMapper", "correctSourceLanguage"})) {
             assertThat(sql(query[0], query[1])).as(String.join(".", query))
                     .contains("status = 'PUBLISHED'");
         }
@@ -67,6 +69,15 @@ class CoursePublicStatusContractTest {
                 .contains("c.status = 'PUBLISHED'");
         assertThat(sql("BoardMapper", "countBoardByUserId"))
                 .doesNotContain("status = 'PUBLISHED'");
+    }
+
+    @Test
+    void personalAuthorshipListsAndCountsOnlyIncludeTravelerCourses() throws Exception {
+        for (String id : List.of("findBoardListByUserId", "countBoardByUserId",
+                "findPublicBoardListByUserId", "countPublicBoardByUserId")) {
+            assertThat(sql("BoardMapper", id)).as(id)
+                    .contains("c.course_kind = 'TRAVELER'");
+        }
     }
 
     private String sql(String mapper, String id) throws Exception {

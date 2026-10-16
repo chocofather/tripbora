@@ -57,6 +57,13 @@ class UploadPathExposureTest {
                 .doesNotContainAnyElementsOf(PRIVATE_DIRECTORIES);
     }
 
+    @Test
+    void courseBodyImagesHaveNoPublicMappingOrAnonymousAccess() throws Exception {
+        assertThat(WebConfig.PUBLIC_UPLOAD_DIRECTORIES).doesNotContain("course/content", "course");
+        mockMvc.perform(get("/uploads/course/content/123e4567-e89b-42d3-a456-426614174000.jpg"))
+                .andExpect(status().is3xxRedirection());
+    }
+
     /** 공개 콘텐츠 폴더는 그대로 열려 있어야 한다. */
     @Test
     void thePublicContentFoldersAreStillMapped() {

@@ -19,11 +19,11 @@
   <link rel="stylesheet" href="/css/community-detail-mobile.css" />
   <script src="/js/comment-deep-link.js" defer></script>
   <script src="/js/confirm-submit.js" defer></script>
-  <script src="/js/course-comments.js" defer></script>
+  <script src="/js/course-comments.js" defer th:unless="${adminPreview == true}"></script>
   <script src="/js/community-comment-mobile.js" defer></script>
   <script src="/js/user-post-translation.js" defer></script>
-  <script src="/js/content-bookmarks.js" defer></script>
-  <script src="/js/course-hide-modal.js" defer></script>
+  <script src="/js/content-bookmarks.js" defer th:unless="${adminPreview == true}"></script>
+  <script src="/js/course-hide-modal.js" defer th:unless="${adminPreview == true}"></script>
   <script src="/js/course-detail.js" defer></script>
 </th:block>
 
@@ -59,10 +59,14 @@
        th:data-comment-invalid-location-response="#{course.detail.comment.invalidLocationResponse}"></div>
 
   <main class="course-detail-container">
+    <aside class="course-admin-preview" th:if="${adminPreview == true}" aria-label="관리자 미리보기">
+      <span>관리자 미리보기 · 저장된 코스</span>
+      <a th:href="@{/admin/courses/{id}/edit(id=${course.id})}">수정으로 돌아가기</a>
+    </aside>
     <nav class="course-breadcrumb" aria-label="Breadcrumb">
       <a th:href="@{/board/list(boardType='course')}" th:text="#{search.type.course}">여행코스</a>
-      <span aria-hidden="true">/</span>
-      <span th:text="#{course.detail.label}">나만의 여행 코스</span>
+      <span aria-hidden="true" th:unless="${course.courseKind == 'OFFICIAL'}">/</span>
+      <span th:unless="${course.courseKind == 'OFFICIAL'}" th:text="#{course.detail.label}">나만의 여행 코스</span>
     </nav>
     <article class="course-summary" data-title-content-translation
              th:data-translation-url="@{/course/{id}/translation(id=${course.id})}"
@@ -74,7 +78,8 @@
              th:data-translation-failed="#{destination.detail.comment.translationFailed}">
       <header class="course-summary-header">
         <p class="course-summary-label">
-          <span th:text="#{course.detail.label}">나만의 여행 코스</span>
+          <span class="course-official-badge" th:if="${course.courseKind == 'OFFICIAL'}">✓ TripBora 검증 코스</span>
+          <span th:unless="${course.courseKind == 'OFFICIAL'}" th:text="#{course.detail.label}">나만의 여행 코스</span>
           <span class="course-stop-count"
                 th:if="${course.stops != null and !course.stops.isEmpty()}"
                 th:text="#{course.detail.stopCount(${course.stops.size()})}">총 3개의 여행지</span>
@@ -85,6 +90,7 @@
           <div class="course-header-actions">
             <button type="button"
                     class="content-bookmark-button"
+                    th:unless="${adminPreview == true}"
                     th:classappend="${course.bookmarked} ? ' is-bookmarked'"
                     th:data-bookmark-url="@{/bookmarks/courses/{id}(id=${course.id})}"
                     th:data-bookmarked="${course.bookmarked}"
@@ -93,7 +99,7 @@
               <span class="content-bookmark-label"
                     th:text="${course.bookmarked} ? '북마크 취소' : '북마크 저장'">북마크 저장</span>
             </button>
-            <details class="course-owner-menu" data-owner-menu th:if="${course.myCourse}">
+            <details class="course-owner-menu" data-owner-menu th:if="${course.myCourse and course.courseKind != 'OFFICIAL' and adminPreview != true}">
               <summary class="course-owner-toggle"
                        th:aria-label="|#{course.detail.edit} / #{course.detail.delete}|">
                 <span aria-hidden="true">⋯</span>
@@ -112,6 +118,7 @@
             </details>
             <!-- 관리자 moderation 전용 메뉴. 작성자 ⋯ 와 섞지 않고 ADMIN 에게만 렌더링한다. -->
             <details class="course-owner-menu course-admin-menu" data-owner-menu
+                     th:if="${course.courseKind != 'OFFICIAL' and adminPreview != true}"
                      sec:authorize="hasRole('ADMIN')">
               <summary class="course-owner-toggle course-admin-toggle" aria-label="코스 관리자 메뉴">
                 <span>관리</span><span aria-hidden="true">▾</span>
@@ -126,8 +133,9 @@
         </div>
         <dl class="course-meta">
           <div th:if="${!#strings.isEmpty(course.countryLabel)}"><dt th:text="#{course.detail.meta.countries}">국가</dt><dd th:text="${course.countryLabel}">일본 · 프랑스</dd></div>
+          <div th:if="${course.courseKind == 'OFFICIAL'}"><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd>TripBora</dd></div>
           <!-- 최종 탈퇴 회원은 공개 프로필이 없으므로 링크 없이 공통 문구만 보여준다. -->
-          <div><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd><a
+          <div th:unless="${course.courseKind == 'OFFICIAL'}"><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd><a
                                        th:unless="${course.writerWithdrawn}"
                                        class="content-writer-link"
                                        th:href="@{/users/{id}(id=${course.userId})}"
@@ -139,8 +147,9 @@
           <div><dt th:text="#{course.detail.meta.updatedAt}">수정일</dt><dd th:attr="data-mobile-date=${#dates.format(course.updatedAt, 'yyyy.MM.dd')}" th:text="${#dates.format(course.updatedAt, 'yyyy-MM-dd HH:mm')}">수정일</dd></div>
           <div><dt th:text="#{course.detail.meta.views}">조회수</dt><dd th:text="${course.views}">0</dd></div>
         </dl>
+        <p class="course-official-summary" th:if="${course.courseKind == 'OFFICIAL' and !#strings.isEmpty(course.summary)}" th:text="${course.summary}"></p>
         <div th:replace="~{course/fragments/themes :: badges(${course.themes}, false)}"></div>
-        <div class="content-translation-control" th:if="${course.translationAvailable}">
+        <div class="content-translation-control" th:if="${course.translationAvailable and course.courseKind != 'OFFICIAL' and adminPreview != true}">
           <button id="course-translation-toggle" type="button"
                   class="content-translation-button" data-translation-toggle
                   th:text="#{destination.detail.comment.translate}">번역 보기</button>
@@ -156,7 +165,7 @@
              fetchpriority="high" />
       </figure>
 
-      <section class="course-introduction">
+      <section class="course-introduction" th:unless="${course.courseKind == 'OFFICIAL'}">
         <h2 th:text="#{course.detail.section.introduction}">코스 소개</h2>
         <div id="course-translation-content"
              class="course-introduction-content rich-text-content"
@@ -283,7 +292,7 @@
     </footer>
 
     <!-- 숨김 사유 입력 모달 (ADMIN 전용) -->
-    <div sec:authorize="hasRole('ADMIN')" id="course-hide-modal" class="course-hide-modal" hidden>
+    <div sec:authorize="hasRole('ADMIN')" th:if="${course.courseKind != 'OFFICIAL' and adminPreview != true}" id="course-hide-modal" class="course-hide-modal" hidden>
       <div class="course-hide-dialog" role="dialog" aria-modal="true"
            aria-labelledby="course-hide-title">
         <button type="button" class="course-hide-close" data-course-hide-close
@@ -305,6 +314,7 @@
     </div>
 
     <section id="course-comments" class="course-comments content-comments"
+             th:unless="${adminPreview == true}"
              th:attr="data-course-id=${course.id}"
              th:data-translation-show="#{destination.detail.comment.translate}"
              th:data-translation-original="#{destination.detail.comment.original}"

@@ -10,6 +10,7 @@ public class BoardListDto {
     private Long id;
     private Long userId;
     private String boardType;      // "post" or "course"
+    private String courseKind;
     private String postType;       // (post만) "tip" "question"
     private String title;
     private int commentCount;

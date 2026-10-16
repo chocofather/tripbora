@@ -1,6 +1,7 @@
 package com.tripbora.repository.course;
 
 import com.tripbora.dto.CourseDetailDto;
+import com.tripbora.dto.OfficialCourseListDto;
 import com.tripbora.dto.CourseDestinationCountryDto;
 import com.tripbora.dto.CourseStopDto;
 import com.tripbora.dto.HomePopularCourseDto;
@@ -16,6 +17,15 @@ import java.util.List;
 
 @Mapper
 public interface CourseMapper {
+
+    List<OfficialCourseListDto> findOfficialCourses(@Param("keyword") String keyword,
+            @Param("status") String status, @Param("limit") int limit, @Param("offset") int offset);
+    int countOfficialCourses(@Param("keyword") String keyword, @Param("status") String status);
+    Course findOfficialCourse(@Param("courseId") Long courseId);
+    Course findOfficialCourseForUpdate(@Param("courseId") Long courseId);
+    CourseDetailDto findOfficialCourseDetail(@Param("courseId") Long courseId,
+                                            @Param("currentUserId") Long currentUserId);
+    int updateOfficialCourse(Course course);
 
     int incrementViews(@Param("courseId") Long courseId);
 

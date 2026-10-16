@@ -9,6 +9,8 @@
         <id property="id" column="course_id"/>
         <result property="userId" column="course_user_id"/>
         <result property="title" column="course_title"/>
+        <result property="courseKind" column="course_kind"/>
+        <result property="summary" column="summary"/>
         <result property="titleSourceLanguage" column="title_source_language"/>
         <result property="content" column="course_content"/>
         <result property="coverImageUrl" column="cover_image_url"/>
@@ -42,6 +44,7 @@
     <resultMap id="HomePopularCourseMap" type="com.tripbora.dto.HomePopularCourseDto">
         <id property="courseId" column="course_id"/>
         <result property="title" column="course_title"/>
+        <result property="courseKind" column="course_kind"/>
         <result property="nickname" column="writer_nickname"/>
         <result property="writerWithdrawn" column="writer_withdrawn"/>
         <result property="views" column="course_views"/>
@@ -70,6 +73,7 @@
             c.id AS course_id,
             c.user_id AS course_user_id,
             c.title AS course_title,
+            c.course_kind, c.summary,
             c.title_source_language,
             c.content AS course_content,
             c.cover_image_url,
@@ -105,6 +109,7 @@
                c.country_id,
                c.course_kind,
                c.status,
+               c.summary,
                country.region_name AS country_name,
                c.title,
                c.title_source_language,
@@ -120,7 +125,7 @@
 
     <select id="findActiveCourseForUpdate" resultType="com.tripbora.model.Course">
         SELECT id, user_id, country_id, course_kind, status, title, title_source_language,
-               content, content_source_language, cover_image_url, updated_at
+               content, content_source_language, cover_image_url, summary, updated_at
         FROM courses
         WHERE id = #{courseId}
           AND deleted = 0
@@ -150,6 +155,7 @@
           AND c.deleted = 0
           AND NOT <include refid="ActiveCourseModeration"/>
           AND c.status = 'PUBLISHED'
+          AND c.course_kind = 'TRAVELER'
     </select>
 
     <select id="findVisibleTranslationSourceForUpdate"
@@ -165,6 +171,7 @@
           AND c.deleted = 0
           AND NOT <include refid="ActiveCourseModeration"/>
           AND c.status = 'PUBLISHED'
+          AND c.course_kind = 'TRAVELER'
         FOR UPDATE
     </select>
 
@@ -286,6 +293,7 @@
         SELECT
             c.id AS course_id,
             c.title AS course_title,
+            c.course_kind,
             u.nickname AS writer_nickname,
             (u.status = 'DEACTIVATED') AS writer_withdrawn,
             c.views AS course_views,
@@ -314,7 +322,7 @@
         WHERE c.deleted = 0
           AND c.status = 'PUBLISHED'
           AND c.deleted_at IS NULL
-        GROUP BY c.id, c.title, u.nickname, u.status, c.views, c.created_at, c.cover_image_url
+        GROUP BY c.id, c.title, c.course_kind, u.nickname, u.status, c.views, c.created_at, c.cover_image_url
         ORDER BY c.views DESC, c.created_at DESC, c.id DESC
         LIMIT #{limit}
     </select>
@@ -415,10 +423,10 @@
     <insert id="insertCourse" parameterType="com.tripbora.model.Course" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO courses (
             title, title_source_language, user_id, country_id,
-            content, content_source_language, cover_image_url, course_kind, status, created_at, deleted
+            content, content_source_language, cover_image_url, course_kind, status, summary, created_at, deleted
         ) VALUES (
                      #{title}, #{titleSourceLanguage}, #{userId}, #{countryId},
-                     #{content}, #{contentSourceLanguage}, #{coverImageUrl}, #{courseKind}, #{status}, NOW(), 0
+                     #{content}, #{contentSourceLanguage}, #{coverImageUrl}, #{courseKind}, #{status}, #{summary}, NOW(), 0
                  )
     </insert>
 
@@ -434,6 +442,7 @@
     <update id="updateCoverImage">
         UPDATE courses SET cover_image_url = #{coverImageUrl}
         WHERE id = #{courseId} AND user_id = #{userId} AND deleted = 0
+          AND course_kind = 'TRAVELER'
     </update>
 
     <update id="updateCourse">
@@ -447,6 +456,7 @@
         WHERE id = #{courseId}
           AND user_id = #{userId}
           AND deleted = 0
+          AND course_kind = 'TRAVELER'
     </update>
 
     <delete id="deleteCourseDestinations">
@@ -500,5 +510,64 @@
         WHERE id = #{courseId}
           AND user_id = #{userId}
           AND deleted = 0
+          AND course_kind = 'TRAVELER'
     </update>
+
+    <sql id="OfficialCourseFilter">
+        c.course_kind = 'OFFICIAL' AND c.deleted = 0
+        <if test="keyword != null">AND c.title LIKE CONCAT('%', #{keyword}, '%') ESCAPE '='</if>
+        <if test="status != null">AND c.status = #{status}</if>
+    </sql>
+
+    <select id="findOfficialCourses" resultType="com.tripbora.dto.OfficialCourseListDto">
+        SELECT c.id, c.title, c.cover_image_url, c.status, c.created_at,
+               (SELECT COUNT(*) FROM course_days day WHERE day.course_id = c.id) AS day_count,
+               COALESCE(NULLIF(TRIM(c.cover_image_url), ''), (
+                   SELECT image.image_url FROM destination_images image
+                   WHERE image.destination_id = (
+                       SELECT item.destination_id FROM course_days day
+                       JOIN course_items item ON item.course_day_id = day.id
+                       WHERE day.course_id = c.id AND day.day_number = 1 AND item.destination_id IS NOT NULL
+                       ORDER BY item.display_order, item.id LIMIT 1
+                   )
+                   ORDER BY CASE WHEN image.is_main = 1 THEN 0 ELSE 1 END, image.order_index, image.id LIMIT 1
+               )) AS representative_image_url
+        FROM courses c WHERE <include refid="OfficialCourseFilter"/>
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countOfficialCourses" resultType="int">
+        SELECT COUNT(*) FROM courses c WHERE <include refid="OfficialCourseFilter"/>
+    </select>
+
+    <select id="findOfficialCourse" resultType="com.tripbora.model.Course">
+        SELECT c.*, country.region_name AS country_name
+        FROM courses c LEFT JOIN country_categories country ON country.id = c.country_id
+        WHERE c.id = #{courseId} AND c.course_kind = 'OFFICIAL' AND c.deleted = 0
+    </select>
+
+    <select id="findOfficialCourseForUpdate" resultType="com.tripbora.model.Course">
+        SELECT * FROM courses WHERE id = #{courseId} AND course_kind = 'OFFICIAL' AND deleted = 0 FOR UPDATE
+    </select>
+
+    <select id="findOfficialCourseDetail" resultMap="CourseDetailMap">
+        SELECT c.id AS course_id, c.user_id AS course_user_id, c.title AS course_title,
+               c.course_kind, c.summary, c.title_source_language,
+               c.content AS course_content, c.cover_image_url, c.content_source_language,
+               u.nickname AS writer_nickname, (u.status = 'DEACTIVATED') AS writer_withdrawn,
+               c.created_at AS course_created_at, c.updated_at AS course_updated_at,
+               c.views AS course_views, FALSE AS bookmarked
+        FROM courses c JOIN users u ON u.id = c.user_id
+        WHERE c.id = #{courseId} AND c.course_kind = 'OFFICIAL' AND c.deleted = 0
+    </select>
+
+    <update id="updateOfficialCourse" parameterType="com.tripbora.model.Course">
+        UPDATE courses SET title = #{title}, summary = #{summary}, status = #{status},
+            content = #{content}, country_id = #{countryId},
+            cover_image_url = #{coverImageUrl}, title_source_language = #{titleSourceLanguage},
+            content_source_language = #{contentSourceLanguage}, updated_at = NOW()
+        WHERE id = #{id} AND course_kind = 'OFFICIAL' AND deleted = 0
+    </update>
+
 </mapper>

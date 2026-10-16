@@ -93,8 +93,8 @@
             'course' AS boardType,
             CAST(NULL AS CHAR) AS postType,
             c.title,
-            u.nickname,
-            (u.status = 'DEACTIVATED') AS writerWithdrawn,
+            CASE c.course_kind WHEN 'OFFICIAL' THEN 'TripBora' ELSE u.nickname END AS nickname,
+            CASE c.course_kind WHEN 'OFFICIAL' THEN FALSE ELSE (u.status = 'DEACTIVATED') END AS writerWithdrawn,
             c.created_at AS createdAt,
             c.views,
             b.created_at AS bookmarkCreatedAt

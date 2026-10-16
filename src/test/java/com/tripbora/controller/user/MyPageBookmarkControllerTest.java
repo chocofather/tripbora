@@ -157,6 +157,27 @@ class MyPageBookmarkControllerTest {
     }
 
     @Test
+    void officialCourseBookmarkRendersTheProjectedBrandWithoutAPersonalAuthorLink() throws Exception {
+        MyPageCommunityBookmarkDto official = community(22L, "course", null, "공식 서울 코스");
+        official.setNickname("TripBora");
+        official.setWriterWithdrawn(false);
+        when(myPageBookmarkService.getBookmarks(7L, "community", "all", "course", 1))
+                .thenReturn(page(List.of(official), "community", "all", "course", 1, 1, 1));
+
+        mockMvc.perform(get("/mypage/bookmarks")
+                        .param("section", "community").param("type", "course")
+                        .with(user(principal(7L, UserRole.USER))))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    var document = Jsoup.parse(result.getResponse().getContentAsString());
+                    var row = document.selectFirst(".mypage-bookmark-community-row");
+                    assertThat(row.select(".mypage-bookmark-community-meta").text()).contains("TripBora");
+                    assertThat(row.select("a[href^=/users/]")).isEmpty();
+                    assertThat(row.text()).doesNotContain("탈퇴한 회원");
+                });
+    }
+
+    @Test
     void travelInfoRendersMetadataPlaceholderDetailAndDeleteUrl() throws Exception {
         MyPageTravelInfoBookmarkDto item = new MyPageTravelInfoBookmarkDto();
         item.setTargetId(30L);

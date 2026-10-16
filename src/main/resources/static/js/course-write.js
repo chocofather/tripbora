@@ -2,12 +2,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('course-form');
     if (!form) return;
 
-    window.initQuillEditor(
-        '#editor',
-        'content-input',
-        'course-form',
-        form.dataset.initialContentId || undefined
-    );
+    if (form.dataset.contentEditor !== 'none') {
+        window.initQuillEditor(
+            '#editor',
+            'content-input',
+            'course-form',
+            form.dataset.initialContentId || undefined
+        );
+    }
     const searchInput = document.getElementById('destination-search-input');
     const searchButton = document.getElementById('destination-search-button');
     const searchResults = document.getElementById('destination-search-results');

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'courses')}">
+<th:block th:fragment="headFragment">
+  <link rel="stylesheet" href="/css/course-write.css">
+  <link rel="stylesheet" href="/css/course-location.css">
+  <link rel="stylesheet" href="/css/course-themes.css">
+  <link rel="stylesheet" href="/css/admin-courses.css">
+  <script src="/js/map-init.js" defer></script>
+  <script src="/js/course-location.js" defer></script>
+  <script src="/js/course-write.js" defer></script>
+  <script src="/js/course-cover.js" defer></script>
+  <script src="/js/course-themes.js" defer></script>
+</th:block>
+<th:block th:fragment="body">
+  <section class="admin-page-section admin-courses-page">
+    <header class="admin-page-header">
+      <div class="admin-page-heading">
+        <h1 class="admin-page-title" th:text="${course.id != null ? '검증 코스 수정' : '검증 코스 등록'}">검증 코스 등록</h1>
+        <p class="admin-page-description">TripBora 검증 코스는 운영자가 확인한 여행 일정입니다.</p>
+      </div>
+      <div class="admin-page-actions">
+        <a th:if="${course.id != null}" th:href="@{/admin/courses/{id}/preview(id=${course.id})}" class="admin-btn">저장된 코스 미리보기</a>
+        <a th:href="@{/admin/courses}" class="admin-btn">목록</a>
+      </div>
+    </header>
+    <div class="course-write-wrapper admin-course-write">
+      <form id="course-form" th:action="${formAction}" method="post" enctype="multipart/form-data"
+            class="write-form" data-content-editor="none">
+        <p class="course-write-message is-error" role="alert" th:if="${formError}" th:text="${formError}"></p>
+
+        <section class="admin-course-section" aria-labelledby="course-basic-title">
+          <h2 id="course-basic-title">기본 정보</h2>
+          <div class="form-group">
+            <label for="course-title" class="write-mobile-field-label">제목</label>
+            <input id="course-title" name="title" type="text" class="input-text" maxlength="255" required
+                   th:value="${course.title}" placeholder="코스 제목을 입력하세요">
+          </div>
+          <div class="form-group">
+            <label for="course-summary" class="write-mobile-field-label">요약 <span class="admin-course-optional">선택</span></label>
+            <textarea id="course-summary" name="summary" class="input-text" maxlength="300" rows="3"
+                      th:text="${course.summary}" placeholder="코스의 특징을 300자 이내로 소개하세요"></textarea>
+          </div>
+          <div th:replace="~{course/fragments/cover-input :: coverInput}"></div>
+          <section th:replace="~{course/fragments/themes :: picker}"></section>
+        </section>
+
+        <section class="admin-course-section admin-course-schedule" aria-label="여행 일정 작성">
+          <th:block th:replace="~{course/fragments/schedule-input :: scheduleInput}"></th:block>
+        </section>
+
+        <section class="admin-course-section" aria-labelledby="course-status-title">
+          <h2 id="course-status-title">공개 설정</h2>
+          <label for="course-status" class="write-mobile-field-label">상태</label>
+          <select id="course-status" name="status" class="input-text" required>
+            <option value="DRAFT" th:selected="${course.status == 'DRAFT'}">임시저장</option>
+            <option value="PUBLISHED" th:selected="${course.status == 'PUBLISHED'}">공개</option>
+            <option value="HIDDEN" th:selected="${course.status == 'HIDDEN'}">숨김</option>
+          </select>
+          <p class="course-field-help">공개한 코스만 사용자 목록과 상세에 표시됩니다.</p>
+        </section>
+
+        <div class="button-group course-save-bar">
+          <button type="submit" id="course-submit-button" class="btn btn-primary">저장</button>
+          <a th:href="@{/admin/courses}" class="btn btn-secondary">취소</a>
+        </div>
+      </form>
+    </div>
+  </section>
+</th:block>
+</html>

@@ -12,8 +12,9 @@ public class Course {
     private String coverImageUrl;
     private Long id; // 코스번호
     private Long userId; // 작성자 id
-    private String courseKind;
+    private String courseKind = "TRAVELER";
     private String status;
+    private String summary;
     private Long countryId; // 코스 국가 id
     private String countryName; // 코스 국가명 (조회용)
     private String title; // 코스제목

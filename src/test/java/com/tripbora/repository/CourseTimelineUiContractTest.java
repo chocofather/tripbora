@@ -117,7 +117,8 @@ class CourseTimelineUiContractTest {
         var menu = document.selectFirst(".course-summary-header .course-owner-menu");
 
         assertThat(menu).isNotNull();
-        assertThat(menu.attr("th:if")).isEqualTo("${course.myCourse}");
+        assertThat(menu.attr("th:if"))
+                .isEqualTo("${course.myCourse and course.courseKind != 'OFFICIAL' and adminPreview != true}");
         assertThat(menu.selectFirst("summary")).isNotNull();
         assertThat(menu.selectFirst("a.course-edit-button").attr("th:href"))
                 .isEqualTo("@{/course/{id}/edit(id=${course.id})}");

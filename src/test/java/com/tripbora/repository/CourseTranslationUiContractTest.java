@@ -17,7 +17,7 @@ class CourseTranslationUiContractTest {
 
         assertThat(detail)
                 .contains("/js/user-post-translation.js")
-                .contains("th:if=\"${course.translationAvailable}\"")
+                .contains("th:if=\"${course.translationAvailable and course.courseKind != 'OFFICIAL' and adminPreview != true}\"")
                 .contains("data-title-content-translation")
                 .contains("data-translation-title")
                 .contains("data-translation-content")

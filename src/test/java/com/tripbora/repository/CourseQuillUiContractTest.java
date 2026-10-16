@@ -13,7 +13,9 @@ class CourseQuillUiContractTest {
     @Test
     void dayFormsRestoreNestedValuesAndKeepSelectionLimits() throws IOException {
         for (String name : new String[]{"write", "edit"}) {
-            String template = resource("/templates/course/" + name + ".html");
+            String page = resource("/templates/course/" + name + ".html");
+            assertThat(page).contains("course/fragments/schedule-input :: scheduleInput");
+            String template = page + resource("/templates/course/fragments/schedule-input.html");
             assertThat(template)
                     .contains("id=\"course-day-tabs\"", "id=\"course-add-day\"")
                     .contains("id=\"course-search-panel\"", "class=\"course-search-inline\" hidden")

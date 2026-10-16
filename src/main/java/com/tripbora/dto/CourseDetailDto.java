@@ -22,6 +22,7 @@ public class CourseDetailDto {
     private List<CourseStopDto> stops;
     private List<CourseDayDto> days;
     private List<String> countryNames;
+    private List<CourseThemeDto> themes = List.of();
     private String coverImageUrl;
     private String representativeImageUrl;
     private boolean myCourse;

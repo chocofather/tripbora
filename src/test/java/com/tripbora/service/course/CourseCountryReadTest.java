@@ -34,7 +34,7 @@ class CourseCountryReadTest {
             new DestinationLocalizationService(mock(DestinationMapper.class)),
             new ReferenceNameLocalizationService(namesMapper, mock(CategoryMapper.class), mock(InfoCategoryMapper.class),
                     new LocalizedReferenceNameResolver()), new LocalContentLanguageDetector(),
-            mock(DestinationImageService.class), structure, mock(CourseCoverStorageService.class), categories);
+            mock(DestinationImageService.class), structure, mock(CourseCoverStorageService.class), categories, mock(CourseThemeService.class));
 
     @Test
     void detailAndEditReadOrderedMembershipInsteadOfLegacyRepresentativeCountry() {

@@ -70,7 +70,7 @@ class CourseServiceImplTest {
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
                 new LocalContentLanguageDetector(), destinationImageService, courseStructureService,
                 org.mockito.Mockito.mock(CourseCoverStorageService.class),
-                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class));
+                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class), org.mockito.Mockito.mock(CourseThemeService.class));
     }
 
     @Test

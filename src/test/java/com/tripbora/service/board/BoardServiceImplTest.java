@@ -19,7 +19,7 @@ class BoardServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new BoardServiceImpl(boardMapper);
+        service = new BoardServiceImpl(boardMapper, org.mockito.Mockito.mock(com.tripbora.service.course.CourseThemeService.class));
     }
 
     @Test

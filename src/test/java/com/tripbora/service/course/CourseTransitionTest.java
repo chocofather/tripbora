@@ -48,7 +48,7 @@ class CourseTransitionTest {
         transition = new CourseStructureService(structure);
         service = new CourseServiceImpl(legacy, new PostContentSanitizer(), localization,
                 referenceNames, new LocalContentLanguageDetector(), images, transition,
-                mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class));
+                mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class), mock(CourseThemeService.class));
     }
 
     @Test

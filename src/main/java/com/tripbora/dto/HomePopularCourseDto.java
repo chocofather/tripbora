@@ -19,6 +19,7 @@ public class HomePopularCourseDto {
     private String representativeImageUrl;
     private List<String> previewDestinationNames = new ArrayList<>();
     private List<String> previewImageUrls = new ArrayList<>();
+    private List<CourseThemeDto> themes = List.of();
 
     public String getDetailUrl() {
         return "/course/" + courseId;

@@ -34,6 +34,22 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CourseControllerTest {
 
+    @Test
+    void themeIdsBindInSubmittedOrderAndRetryKeepsTheFinalSelection() {
+        CourseController controller = new CourseController(courseService, countryCategoryService);
+        CourseCreateRequest request = new CourseCreateRequest();
+        WebDataBinder binder = new WebDataBinder(request); controller.configureCourseBinding(binder);
+        binder.bind(new MutablePropertyValues(java.util.Map.of("themeIds", new String[]{"7", "4", "8"})));
+        assertThat(binder.getBindingResult().hasErrors()).isFalse();
+        assertThat(request.getThemeIds()).containsExactly(7L, 4L, 8L);
+        when(userDetails.getId()).thenReturn(5L);
+        when(courseService.createCourse(request, 5L)).thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "검증 실패"));
+        when(courseService.prepareFormForRetry(null, null, null, null)).thenReturn(new CourseEditDto());
+        var model = new ExtendedModelMap();
+        assertThat(controller.submitCourse(request, binder.getBindingResult(), userDetails, model)).isEqualTo("course/write");
+        assertThat(((CourseEditDto) model.getAttribute("course")).getThemeIds()).containsExactly(7L, 4L, 8L);
+    }
+
     @Mock
     private CourseService courseService;
     @Mock

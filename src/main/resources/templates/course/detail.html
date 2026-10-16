@@ -139,6 +139,7 @@
           <div><dt th:text="#{course.detail.meta.updatedAt}">수정일</dt><dd th:attr="data-mobile-date=${#dates.format(course.updatedAt, 'yyyy.MM.dd')}" th:text="${#dates.format(course.updatedAt, 'yyyy-MM-dd HH:mm')}">수정일</dd></div>
           <div><dt th:text="#{course.detail.meta.views}">조회수</dt><dd th:text="${course.views}">0</dd></div>
         </dl>
+        <div th:replace="~{course/fragments/themes :: badges(${course.themes}, false)}"></div>
         <div class="content-translation-control" th:if="${course.translationAvailable}">
           <button id="course-translation-toggle" type="button"
                   class="content-translation-button" data-translation-toggle

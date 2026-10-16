@@ -16,6 +16,7 @@ public class CourseEditDto {
     private List<CourseStopDto> stops;
     private List<CourseDayDto> days;
     private List<String> countryNames;
+    private List<Long> themeIds = List.of();
 
     public String getCountryLabel() {
         return CourseCountryLabel.of(countryNames);

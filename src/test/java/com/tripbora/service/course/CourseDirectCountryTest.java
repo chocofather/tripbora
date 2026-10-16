@@ -89,7 +89,7 @@ class CourseDirectCountryTest {
 
     private CourseServiceImpl service() {
         CourseServiceImpl service = new CourseServiceImpl(mapper, new PostContentSanitizer(), null, null,
-                new LocalContentLanguageDetector(), null, structure, mock(CourseCoverStorageService.class), countries);
+                new LocalContentLanguageDetector(), null, structure, mock(CourseCoverStorageService.class), countries, mock(CourseThemeService.class));
         return service;
     }
 

@@ -23,7 +23,7 @@ class CourseScheduleReadTest {
     private final CourseServiceImpl service = new CourseServiceImpl(mapper, new PostContentSanitizer(),
             mock(DestinationLocalizationService.class), mock(ReferenceNameLocalizationService.class),
             new LocalContentLanguageDetector(), mock(DestinationImageService.class), structure,
-            mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class));
+            mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class), mock(CourseThemeService.class));
 
     @Test
     void keepsDirectItemsAndSkipsThemWhenChoosingFirstLinkedCover() {

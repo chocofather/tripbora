@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.course.CourseThemeMapper">
+    <select id="findActiveThemes" resultType="com.tripbora.dto.CourseThemeDto">
+        SELECT id, code, name, display_order
+        FROM course_themes
+        WHERE is_active = TRUE
+        ORDER BY display_order, id
+    </select>
+    <select id="findByCourseIds" resultType="com.tripbora.dto.CourseThemeDto">
+        SELECT theme.id, theme.code, theme.name, mapping.course_id, mapping.display_order
+        FROM course_theme_mappings mapping
+        JOIN course_themes theme ON theme.id = mapping.theme_id
+        WHERE theme.is_active = TRUE
+          AND mapping.course_id IN
+        <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">#{courseId}</foreach>
+        ORDER BY mapping.course_id, mapping.display_order
+    </select>
+    <delete id="deleteMappings">
+        DELETE FROM course_theme_mappings WHERE course_id = #{courseId}
+    </delete>
+    <insert id="insertMapping">
+        INSERT INTO course_theme_mappings (course_id, theme_id, display_order)
+        SELECT #{courseId}, id, #{displayOrder} FROM course_themes
+        WHERE id = #{themeId} AND is_active = TRUE
+    </insert>
+</mapper>

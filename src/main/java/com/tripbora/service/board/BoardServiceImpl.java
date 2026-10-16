@@ -2,6 +2,7 @@ package com.tripbora.service.board;
 
 import com.tripbora.dto.BoardListDto;
 import com.tripbora.repository.board.BoardMapper;
+import com.tripbora.service.course.CourseThemeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +20,7 @@ public class BoardServiceImpl implements BoardService {
     private static final Set<String> COURSE_SCOPES = Set.of("all", "domestic", "overseas");
 
     private final BoardMapper boardMapper;
+    private final CourseThemeService courseThemeService;
 
     @Override
     public List<BoardListDto> getBoardList(String boardType, String postType, String scope,
@@ -29,7 +31,7 @@ public class BoardServiceImpl implements BoardService {
         String normalizedBoardType = normalizeBoardType(boardType);
         CourseFilter courseFilter = normalizeCourseFilter(normalizedBoardType, scope, countryId);
 
-        return boardMapper.findBoardList(
+        return withThemes(boardMapper.findBoardList(
                 normalizedBoardType,
                 normalizePostType(postType),
                 courseFilter.scope(),
@@ -37,7 +39,7 @@ public class BoardServiceImpl implements BoardService {
                 normalizeSort(sort),
                 offset,
                 safeSize
-        );
+        ));
     }
 
     @Override
@@ -59,13 +61,13 @@ public class BoardServiceImpl implements BoardService {
         long offset = (long) (safePage - 1) * safeSize;
         ProfileFilter filter = profileFilter(type);
 
-        return boardMapper.findBoardListByUserId(
+        return withThemes(boardMapper.findBoardListByUserId(
                 userId,
                 filter.boardType(),
                 filter.postType(),
                 offset,
                 safeSize
-        );
+        ));
     }
 
     @Override
@@ -79,8 +81,16 @@ public class BoardServiceImpl implements BoardService {
         int safePage = Math.max(page, 1);
         int safeSize = clampSize(size);
         ProfileFilter filter = profileFilter(type);
-        return boardMapper.findPublicBoardListByUserId(userId, filter.boardType(), filter.postType(),
-                (long) (safePage - 1) * safeSize, safeSize);
+        return withThemes(boardMapper.findPublicBoardListByUserId(userId, filter.boardType(), filter.postType(),
+                (long) (safePage - 1) * safeSize, safeSize));
+    }
+
+    private List<BoardListDto> withThemes(List<BoardListDto> rows) {
+        var ids = rows.stream().filter(row -> "course".equals(row.getBoardType())).map(BoardListDto::getId).toList();
+        var themes = courseThemeService.findByCourseIds(ids);
+        rows.stream().filter(row -> "course".equals(row.getBoardType()))
+                .forEach(row -> row.setThemes(themes.getOrDefault(row.getId(), List.of())));
+        return rows;
     }
 
     @Override

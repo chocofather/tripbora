@@ -11,6 +11,7 @@
         <span class="board-type"
               th:classappend="${item.boardType == 'course' ? ' board-type--course' : (item.postType == 'TIP' ? ' board-type--tip' : ' board-type--question')}"
               th:text="${item.boardType == 'course' ? '여행 코스' : (item.postType == 'TIP' ? '여행 팁' : '여행 질문')}"></span>
+        <div class="course-card-copy" th:remove="${item.boardType != 'course'} ? 'tag' : 'none'">
         <h2 class="board-title">
           <a th:if="${item.boardType == 'post'}"
              th:href="@{|/post/${item.id}|}"
@@ -21,6 +22,8 @@
              th:text="${item.title}"
              th:title="${item.title}"></a>
         </h2>
+        <div th:replace="~{course/fragments/themes :: badges(${item.themes}, true)}"></div>
+        </div>
       </div>
 
       <div class="board-meta">

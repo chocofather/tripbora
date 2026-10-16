@@ -38,7 +38,7 @@ public class CourseController {
     @InitBinder
     public void configureCourseBinding(WebDataBinder binder) {
         binder.setAutoGrowCollectionLimit(90);
-        binder.setAllowedFields("title", "content", "countryId", "coverImage", "removeCoverImage", "days[*].id", "days[*].dayNumber",
+        binder.setAllowedFields("title", "content", "countryId", "themeIds", "themeIds[*]", "coverImage", "removeCoverImage", "days[*].id", "days[*].dayNumber",
                 "days[*].title", "days[*].items[*].destinationId", "days[*].items[*].displayOrder",
                 "days[*].items[*].itemType", "days[*].items[*].countryId", "days[*].items[*].placeName", "days[*].items[*].address",
                 "days[*].items[*].latitude", "days[*].items[*].longitude",
@@ -90,13 +90,13 @@ public class CourseController {
                                @AuthenticationPrincipal CustomUserDetails principal,
                                Model model) {
         if (binding.hasErrors()) return retryForm(id, request.getTitle(), request.getContent(),
-                request.getCountryId(), request.getDays(), "입력한 일정 형식을 확인해 주세요.", principal.getId(), request.isRemoveCoverImage(), model);
+                request.getCountryId(), request.getDays(), request.getThemeIds(), "입력한 일정 형식을 확인해 주세요.", principal.getId(), request.isRemoveCoverImage(), model);
         try {
             courseService.updateCourse(id, principal.getId(), request);
         } catch (ResponseStatusException error) {
             if (error.getStatusCode() != HttpStatus.BAD_REQUEST) throw error;
             return retryForm(id, request.getTitle(), request.getContent(), request.getCountryId(),
-                    request.getDays(), error.getReason(), principal.getId(), request.isRemoveCoverImage(), model);
+                    request.getDays(), request.getThemeIds(), error.getReason(), principal.getId(), request.isRemoveCoverImage(), model);
         }
         return "redirect:/course/" + id;
     }
@@ -122,6 +122,7 @@ public class CourseController {
     }
 
     private void addCourseCountries(Model model) {
+        model.addAttribute("courseThemes", courseService.getCourseThemes());
         List<CountryCategory> countries = courseService.getCourseCountries(requestedLanguage());
         model.addAttribute("courseCountries", countries);
         model.addAttribute("domesticCourseCountries", countries.stream()
@@ -141,23 +142,24 @@ public class CourseController {
             Model model
     ) {
         if (binding.hasErrors()) return retryForm(null, request.getTitle(), request.getContent(),
-                request.getCountryId(), request.getDays(), "입력한 일정 형식을 확인해 주세요.", principal.getId(), false, model);
+                request.getCountryId(), request.getDays(), request.getThemeIds(), "입력한 일정 형식을 확인해 주세요.", principal.getId(), false, model);
         Long courseId;
         try {
             courseId = courseService.createCourse(request, principal.getId());
         } catch (ResponseStatusException error) {
             if (error.getStatusCode() != HttpStatus.BAD_REQUEST) throw error;
             return retryForm(null, request.getTitle(), request.getContent(), request.getCountryId(),
-                    request.getDays(), error.getReason(), principal.getId(), false, model);
+                    request.getDays(), request.getThemeIds(), error.getReason(), principal.getId(), false, model);
         }
         return "redirect:/course/" + courseId;
     }
 
     private String retryForm(Long id, String title, String content, Long countryId,
-                             List<com.tripbora.dto.CourseDayForm> days, String error, Long userId,
+                             List<com.tripbora.dto.CourseDayForm> days, List<Long> themeIds, String error, Long userId,
                              boolean removeCoverImage, Model model) {
         CourseEditDto course = courseService.prepareFormForRetry(title, content, countryId, days);
         course.setId(id);
+        course.setThemeIds(themeIds == null ? List.of() : themeIds);
         if (id != null) {
             course.setCoverImageUrl(courseService.getCourseForEdit(id, userId, requestedLanguage()).getCoverImageUrl());
         }

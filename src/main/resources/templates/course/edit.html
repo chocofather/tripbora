@@ -23,6 +23,7 @@
   <script src="/js/course-location.js" defer></script>
   <script src="/js/course-write.js" defer></script>
   <script src="/js/course-cover.js" defer></script>
+  <script src="/js/course-themes.js" defer></script>
 </th:block>
 
 <th:block th:fragment="body">
@@ -44,6 +45,7 @@
       </div>
 
       <div th:replace="~{course/fragments/cover-input :: coverInput}"></div>
+      <section th:replace="~{course/fragments/themes :: picker}"></section>
 
       <div class="form-group editor-group">
         <span class="write-mobile-field-label">소개</span>

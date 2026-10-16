@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<section th:fragment="picker" class="course-theme-picker" data-course-theme-picker
+         th:if="${courseThemes != null and !#lists.isEmpty(courseThemes)}" aria-labelledby="course-theme-title">
+  <h2 id="course-theme-title">테마</h2>
+  <p id="course-theme-help" class="course-theme-help">최대 3개까지 선택할 수 있어요.</p>
+  <div class="course-theme-options" role="group" aria-labelledby="course-theme-title" aria-describedby="course-theme-help">
+    <button th:each="theme : ${courseThemes}" type="button" class="course-theme-chip"
+            data-course-theme th:attr="data-theme-id=${theme.id},aria-pressed=${course != null and course.themeIds != null and #lists.contains(course.themeIds, theme.id)}"
+            th:text="${theme.name}"></button>
+  </div>
+  <div data-course-theme-inputs>
+    <th:block th:if="${course != null}">
+      <input th:each="themeId : ${course.themeIds}" type="hidden" name="themeIds" th:value="${themeId}">
+    </th:block>
+  </div>
+  <p class="course-theme-status" data-course-theme-status role="status" aria-live="polite"></p>
+</section>
+<div th:fragment="badges(themes, compact)" class="course-theme-badges"
+     th:if="${themes != null and !#lists.isEmpty(themes)}">
+  <span th:each="theme, position : ${themes}" th:if="${!compact or position.index < 2}"
+        class="course-theme-badge" th:text="${theme.name}"></span>
+  <span th:if="${compact and #lists.size(themes) > 2}" class="course-theme-badge course-theme-more"
+        th:text="|+${#lists.size(themes) - 2}|"></span>
+</div>
+</html>

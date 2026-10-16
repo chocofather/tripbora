@@ -13,4 +13,5 @@ public class CourseUpdateRequest {
     private String content;
     private List<Long> destinationIds;
     private List<CourseDayForm> days;
+    private List<Long> themeIds;
 }

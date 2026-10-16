@@ -2,6 +2,7 @@ package com.tripbora.dto;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -18,4 +19,5 @@ public class BoardListDto {
     private String createdAt;
     private int views;
     private int bookmarkCount;
+    private List<CourseThemeDto> themes = List.of();
 }

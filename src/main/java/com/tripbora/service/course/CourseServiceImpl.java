@@ -11,6 +11,7 @@ import com.tripbora.dto.CourseItemForm;
 import com.tripbora.dto.CourseDestinationSnapshotDto;
 import com.tripbora.dto.CourseStopDto;
 import com.tripbora.dto.CourseUpdateRequest;
+import com.tripbora.dto.CourseThemeDto;
 import com.tripbora.dto.HomePopularCourseDto;
 import com.tripbora.dto.HomePopularCourseStopDto;
 import com.tripbora.model.Course;
@@ -60,6 +61,12 @@ public class CourseServiceImpl implements CourseService {
     private final CourseStructureService courseStructureService;
     private final CourseCoverStorageService courseCoverStorageService;
     private final CountryCategoryService countryCategoryService;
+    private final CourseThemeService courseThemeService;
+
+    @Override
+    public List<CourseThemeDto> getCourseThemes() {
+        return courseThemeService.findActiveThemes();
+    }
 
     @Override
     public List<com.tripbora.model.CountryCategory> getCourseCountries(SupportedLanguage language) {
@@ -100,6 +107,7 @@ public class CourseServiceImpl implements CourseService {
         course.setDays(days);
         course.setStops(flatten(days));
         course.setCountryNames(readCountryNames(courseId, requestedLanguage));
+        course.setThemes(courseThemeService.findByCourseIds(List.of(courseId)).getOrDefault(courseId, List.of()));
         course.setRepresentativeImageUrl(representativeImage(course.getCoverImageUrl(), days));
         course.setMyCourse(currentUserId != null && Objects.equals(course.getUserId(), currentUserId));
         return course;
@@ -122,6 +130,8 @@ public class CourseServiceImpl implements CourseService {
         edit.setDays(days);
         edit.setStops(flatten(days));
         edit.setCountryNames(readCountryNames(courseId, requestedLanguage));
+        edit.setThemeIds(courseThemeService.findByCourseIds(List.of(courseId)).getOrDefault(courseId, List.of())
+                .stream().map(CourseThemeDto::getId).toList());
         return edit;
     }
 
@@ -136,6 +146,8 @@ public class CourseServiceImpl implements CourseService {
         if (courses.isEmpty()) {
             return courses;
         }
+        var themes = courseThemeService.findByCourseIds(courses.stream().map(HomePopularCourseDto::getCourseId).toList());
+        courses.forEach(course -> course.setThemes(themes.getOrDefault(course.getCourseId(), List.of())));
 
         // 경로 이름은 앞 3곳만 번역하고, 이미지는 뒤 STOP 까지 훑어 사용 가능한 3장을 고른다.
         Map<Long, List<HomePopularCourseStopDto>> previewStopsByCourseId = new LinkedHashMap<>();
@@ -255,6 +267,7 @@ public class CourseServiceImpl implements CourseService {
                 request == null ? null : request.getDays());
         validateDestinations(validated.destinationIds());
         Long countryId = validateCourseCountries(request.getDays(), validated.destinationIds());
+        courseThemeService.validate(request.getThemeIds());
 
         Course course = new Course();
         course.setTitle(validated.title());
@@ -274,6 +287,7 @@ public class CourseServiceImpl implements CourseService {
         }
 
         courseStructureService.replaceSchedule(course.getId(), countryId, request.getDays());
+        courseThemeService.replaceThemes(course.getId(), request.getThemeIds());
         return course.getId();
     }
 
@@ -288,6 +302,7 @@ public class CourseServiceImpl implements CourseService {
                 courseMapper.findActiveCourseForUpdate(courseId), userId);
         validateDestinations(validated.destinationIds());
         Long countryId = validateCourseCountries(request.getDays(), validated.destinationIds());
+        courseThemeService.validate(request.getThemeIds());
 
         String titleLanguage = Objects.equals(current.getTitle(), validated.title())
                 ? normalizeLanguage(current.getTitleSourceLanguage())
@@ -301,6 +316,7 @@ public class CourseServiceImpl implements CourseService {
         }
 
         courseStructureService.replaceSchedule(courseId, countryId, request.getDays());
+        courseThemeService.replaceThemes(courseId, request.getThemeIds());
         boolean hasNewCover = request.getCoverImage() != null && !request.getCoverImage().isEmpty();
         if (hasNewCover || request.isRemoveCoverImage()) {
             String coverUrl = hasNewCover ? courseCoverStorageService.save(request.getCoverImage(), userId) : null;

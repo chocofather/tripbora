@@ -71,7 +71,7 @@ class CourseStopResequenceTest {
                 new LocalContentLanguageDetector(), destinationImageService,
                 org.mockito.Mockito.mock(CourseStructureService.class),
                 org.mockito.Mockito.mock(CourseCoverStorageService.class),
-                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class));
+                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class), org.mockito.Mockito.mock(CourseThemeService.class));
     }
 
     @Test

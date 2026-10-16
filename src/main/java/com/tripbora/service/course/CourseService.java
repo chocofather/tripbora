@@ -6,10 +6,12 @@ import com.tripbora.dto.CourseCreateRequest;
 import com.tripbora.dto.CourseEditDto;
 import com.tripbora.dto.CourseUpdateRequest;
 import com.tripbora.dto.HomePopularCourseDto;
+import com.tripbora.dto.CourseThemeDto;
 
 import java.util.List;
 
 public interface CourseService {
+    List<CourseThemeDto> getCourseThemes();
     List<com.tripbora.model.CountryCategory> getCourseCountries(SupportedLanguage requestedLanguage);
 
     /** STOP 이름은 요청 언어로 바꿔 담는다. 코스 제목·소개·작성자는 원문 그대로 둔다. */

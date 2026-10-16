@@ -367,10 +367,17 @@
 
 .course-detail-container .course-route .course-stop:last-child { padding-bottom: 0; }
 
-/* 각 Day 안에서만 연결하고 마지막 번호 아래에는 선을 만들지 않는다. */
+/* 마지막 본문 아래 8px에서 끝내며 다음 Day까지 연결하지 않는다. */
 .course-detail-container .course-route .course-timeline > .course-stop:last-child::before {
-    content: none;
-    display: none;
+    content: "";
+    display: block;
+    position: absolute;
+    top: var(--route-marker-size);
+    bottom: -8px;
+    left: calc(var(--route-marker-size) / 2 - 1px);
+    width: 1px;
+    background: var(--route-line-color);
+    pointer-events: none;
 }
 
 .course-detail-container .course-route .course-stop-marker {
@@ -404,6 +411,11 @@
     color: inherit;
     text-decoration: none;
     box-shadow: none;
+}
+
+/* 직접 일정은 같은 timeline 안에서 이미지 자리만 생략한다. */
+.course-detail-container .course-route .course-stop-card.course-stop-direct {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .course-detail-container .course-route a.course-stop-card:hover h3,
@@ -524,6 +536,9 @@
 }
 
 .course-item-memo > summary { cursor: pointer; }
+.course-detail-container .course-map-link { display: inline-flex; align-items: center; align-self: flex-start; gap: 4px; max-width: 100%; min-height: 28px; padding: 2px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #7c6d93; font: inherit; font-size: 12px; line-height: 1.5; text-align: left; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+.course-detail-container .course-map-link:hover { color: var(--tripbora-primary); }
+.course-detail-container .course-map-link:focus-visible { outline: 2px solid var(--tripbora-primary); outline-offset: 3px; }
 .course-item-memo > summary::marker { color: #89929e; }
 .course-item-memo > summary > span {
     display: -webkit-inline-box;

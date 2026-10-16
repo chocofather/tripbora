@@ -69,7 +69,7 @@ public class CountryCategoryService {
             if (!visitedIds.add(currentId)) {
                 return List.of();
             }
-            CountryCategory region = mapper.selectById(currentId);
+            CountryCategory region = getById(currentId);
             if (region == null) {
                 return List.of();
             }

@@ -23,13 +23,30 @@ class CourseQuillUiContractTest {
                     .contains("th:each=\"day : ${course.days}\"")
                     .contains("th:each=\"stop : ${day.items}\"")
                     .contains("data-memo=${stop.memo}")
+                    .contains("data-item-id=${stop.itemId}", "data-address=${stop.address}")
+                    .contains("data-latitude=${stop.latitude}", "data-longitude=${stop.longitude}")
+                    .contains("/css/course-location.css", "/js/map-init.js", "/js/course-location.js")
+                    .contains("${courseCountries}", "data-course-country", "data-country-code=${country.code}")
+                    .doesNotContain("course-country-picker", "data-country-restriction", "name=\"countryId\"", "overseas-country")
                     .contains("th:text=\"${formError}\"");
         }
         assertThat(resource("/static/js/course-write.js"))
                 .contains("title.maxLength = 100", "input.maxLength = 1000", "input.type = 'time'")
                 .contains("days.length >= 90", "items.length >= 50")
                 .contains("name.textContent = destination.name")
-                .doesNotContain(".innerHTML", "addInput(`${itemPrefix}.itemType`");
+                .doesNotContain(".innerHTML")
+                .contains("if (item.id === null)", "`${itemPrefix}.placeName`")
+                .contains("TripBora 여행지", "직접 추가", "TRANSPORT: '교통'", "ETC: '기타'")
+                .contains("clientId: ++nextClientId", "window.CourseLocation?.attach");
+    }
+
+    @Test
+    void countriesBelongToDirectItemsAndSearchIsUnrestricted() throws IOException {
+        assertThat(resource("/static/js/course-write.js"))
+                .contains("countrySelect.dataset.directField = 'countryId'")
+                .contains("['countryId', 'itemType', 'address', 'latitude', 'longitude']")
+                .contains("일정의 국가를 선택해 주세요.")
+                .doesNotContain("requestCountryChange", "selectedCourseCountryId", "useCountrySelection");
     }
 
     @Test

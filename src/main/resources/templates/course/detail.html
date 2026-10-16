@@ -125,6 +125,7 @@
           </div>
         </div>
         <dl class="course-meta">
+          <div th:if="${!#strings.isEmpty(course.countryLabel)}"><dt th:text="#{course.detail.meta.countries}">국가</dt><dd th:text="${course.countryLabel}">일본 · 프랑스</dd></div>
           <!-- 최종 탈퇴 회원은 공개 프로필이 없으므로 링크 없이 공통 문구만 보여준다. -->
           <div><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd><a
                                        th:unless="${course.writerWithdrawn}"
@@ -190,16 +191,19 @@
         <div class="course-timeline">
           <article class="course-stop" th:each="stop : ${day.items}">
             <div class="course-stop-marker" th:text="${stop.visitOrder}">1</div>
-            <div class="course-stop-card">
+            <div class="course-stop-card" th:classappend="${stop.destinationId == null} ? 'course-stop-direct'">
               <h3 class="course-stop-heading">
                 <span class="course-item-time" th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}"
                       th:text="${stop.startTime}"></span>
                 <span class="course-item-time-separator" aria-hidden="true"
                       th:if="${stop.startTime != null and !#strings.isEmpty(stop.startTime)}">·</span>
-                <a class="course-stop-title-link" th:href="@{/destinations/{id}(id=${stop.destinationId})}"
+                <a class="course-stop-title-link" th:if="${stop.destinationId != null}"
+                   th:href="@{/destinations/{id}(id=${stop.destinationId})}"
                    th:text="${stop.name}">장소명</a>
+                <span th:if="${stop.destinationId == null}" th:text="${stop.name}">직접 추가 일정</span>
               </h3>
-              <a class="course-stop-image-wrap" th:href="@{/destinations/{id}(id=${stop.destinationId})}">
+              <a class="course-stop-image-wrap" th:if="${stop.destinationId != null}"
+                 th:href="@{/destinations/{id}(id=${stop.destinationId})}">
                 <img class="course-stop-image"
                      th:classappend="${stop.imageNoDerivatives} ? 'is-no-derivatives'"
                      th:src="${stop.imageUrl != null and !#strings.isEmpty(stop.imageUrl) ? stop.imageUrl : '/images/default.png'}"
@@ -207,17 +211,18 @@
               </a>
               <div class="course-stop-body">
                 <span class="course-item-type"
-                      th:text="${stop.itemType == 'STAY' ? '숙소' : (stop.itemType == 'FOOD' ? '음식' : '장소')}">장소</span>
+                      th:text="${stop.itemType == 'STAY' ? '숙소' : (stop.itemType == 'FOOD' ? '식당·카페' : (stop.itemType == 'TRANSPORT' ? '교통' : (stop.itemType == 'ETC' ? '기타' : '장소')))}">장소</span>
                 <p class="course-stop-description"
                    th:if="${stop.shortDescription != null and !#strings.isEmpty(#strings.trim(stop.shortDescription))}"
                    th:text="${stop.shortDescription}"></p>
                 <details class="course-item-memo" th:if="${stop.memo != null and !#strings.isEmpty(stop.memo)}">
                   <summary><span th:text="${stop.memo}"></span></summary>
                 </details>
-                <p class="course-stop-region">
+                <p class="course-stop-region" th:if="${stop.locationLabel != null}">
                   <span th:text="#{course.detail.stop.region}">지역</span>
-                  <strong th:text="${stop.regionName}">지역명</strong>
+                  <strong th:text="${stop.locationLabel}">지역명</strong>
                 </p>
+                <th:block th:replace="~{course/fragments/item-map :: itemMap(${stop})}"></th:block>
               </div>
             </div>
           </article>
@@ -252,9 +257,9 @@
               <p class="course-stop-description"
                  th:if="${stop.shortDescription != null and !#strings.isEmpty(#strings.trim(stop.shortDescription))}"
                  th:text="${stop.shortDescription}">간단 설명</p>
-              <p class="course-stop-region">
+              <p class="course-stop-region" th:if="${stop.locationLabel != null}">
                 <span th:text="#{course.detail.stop.region}">지역</span>
-                <strong th:text="${stop.regionName}">지역명</strong>
+                <strong th:text="${stop.locationLabel}">지역명</strong>
               </p>
             </div>
           </a>

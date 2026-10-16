@@ -1,5 +1,6 @@
 package com.tripbora.controller.course;
 
+import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.dto.CourseCreateRequest;
 import com.tripbora.dto.CourseDetailDto;
 import com.tripbora.dto.CourseEditDto;
@@ -79,18 +80,17 @@ class CourseControllerTest {
     }
 
     @Test
-    void writePageSeparatesRootAndOverseasCountriesFromServerData() {
+    void writePageUsesLocalizedCourseCountryOptionsFromService() {
         CourseController controller = new CourseController(courseService, countryCategoryService);
         CountryCategory korea = country(7L, "대한민국", null);
         CountryCategory japan = country(8L, "일본", 1L);
-        when(countryCategoryService.getCourseCountries()).thenReturn(List.of(korea, japan));
+        when(courseService.getCourseCountries(SupportedLanguage.KOREAN)).thenReturn(List.of(korea, japan));
         ExtendedModelMap model = new ExtendedModelMap();
 
         String view = controller.courseWritePage(model);
 
         assertThat(view).isEqualTo("course/write");
-        assertThat(model.get("domesticCourseCountries")).isEqualTo(List.of(korea));
-        assertThat(model.get("overseasCourseCountries")).isEqualTo(List.of(japan));
+        assertThat(model.get("courseCountries")).isEqualTo(List.of(korea, japan));
     }
 
     @Test
@@ -104,15 +104,14 @@ class CourseControllerTest {
         CountryCategory japan = country(8L, "일본", 1L);
         when(userDetails.getId()).thenReturn(5L);
         when(courseService.getCourseForEdit(eq(100L), eq(5L), any())).thenReturn(course);
-        when(countryCategoryService.getCourseCountries()).thenReturn(List.of(korea, japan));
+        when(courseService.getCourseCountries(SupportedLanguage.KOREAN)).thenReturn(List.of(korea, japan));
         ExtendedModelMap model = new ExtendedModelMap();
 
         String view = controller.courseEditPage(100L, userDetails, model);
 
         assertThat(view).isEqualTo("course/edit");
         assertThat(model.get("course")).isSameAs(course);
-        assertThat(model.get("domesticCourseCountries")).isEqualTo(List.of(korea));
-        assertThat(model.get("overseasCourseCountries")).isEqualTo(List.of(japan));
+        assertThat(model.get("courseCountries")).isEqualTo(List.of(korea, japan));
     }
 
     @Test
@@ -162,7 +161,7 @@ class CourseControllerTest {
         CourseEditDto retry = new CourseEditDto();
         retry.setTitle(request.getTitle());
         when(courseService.prepareFormForRetry(request.getTitle(), null, null, null)).thenReturn(retry);
-        when(countryCategoryService.getCourseCountries()).thenReturn(List.of());
+        when(courseService.getCourseCountries(SupportedLanguage.KOREAN)).thenReturn(List.of());
         ExtendedModelMap model = new ExtendedModelMap();
 
         assertThat(controller.submitCourse(request, new BeanPropertyBindingResult(request, "request"),
@@ -172,7 +171,7 @@ class CourseControllerTest {
     }
 
     @Test
-    void nestedBindingKeepsLastAllowedDayAndIgnoresClientSnapshotFields() {
+    void nestedBindingKeepsLastAllowedDayAndRejectsProtectedFields() {
         CourseController controller = new CourseController(courseService, countryCategoryService);
         CourseCreateRequest request = new CourseCreateRequest();
         WebDataBinder binder = new WebDataBinder(request);
@@ -194,9 +193,10 @@ class CourseControllerTest {
         assertThat(request.getDays().get(89).getItems().get(49).getDestinationId()).isEqualTo(12L);
         assertThat(request.getDays().get(89).getItems().get(49).getStartTime()).isEqualTo("09:00");
         assertThat(request.getDays().get(89).getItems().get(49).getEndTime()).isNull();
+        assertThat(request.getDays().get(89).getItems().get(49).getPlaceName()).isEqualTo("가짜 장소");
+        assertThat(request.getDays().get(89).getItems().get(49).getCountryId()).isEqualTo(999L);
         assertThat(binder.getBindingResult().getSuppressedFields())
-                .containsExactlyInAnyOrder("days[89].items[49].placeName", "days[89].items[49].countryId",
-                        "days[89].items[49].endTime", "coverImageUrl");
+                .containsExactlyInAnyOrder("days[89].items[49].endTime", "coverImageUrl");
     }
 
     private CourseStopDto stop(Long destinationId, int visitOrder, String name) {

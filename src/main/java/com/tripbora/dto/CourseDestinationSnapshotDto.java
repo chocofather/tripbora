@@ -10,6 +10,8 @@ public class CourseDestinationSnapshotDto {
     private Long destinationId;
     private DestinationType type;
     private Long countryId;
+    private Long regionId;
+    private String regionName;
     private String placeName;
     private BigDecimal latitude;
     private BigDecimal longitude;

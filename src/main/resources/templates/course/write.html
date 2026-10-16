@@ -14,11 +14,13 @@
         href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-kr@5.3.0/400.css">
   <link rel="stylesheet" href="/css/quill-content.css">
   <link rel="stylesheet" href="/css/course-write.css" />
+  <link rel="stylesheet" href="/css/course-location.css" />
   <link rel="stylesheet" href="/css/community-write-mobile.css">
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/quill-resize-module@2.1.3/dist/resize.js" defer></script>
   <script src="/js/quill-editor-init.js" defer></script>
-  <script src="/js/country-combobox.js" defer></script>
+  <script src="/js/map-init.js" defer></script>
+  <script src="/js/course-location.js" defer></script>
   <script src="/js/course-write.js" defer></script>
   <script src="/js/course-cover.js" defer></script>
 </th:block>
@@ -32,9 +34,7 @@
           method="post"
           enctype="multipart/form-data"
           class="write-form"
-          data-country-restriction="true"
-          data-initial-content-id="initial-content"
-          th:attr="data-initial-country-name=${course != null ? course.countryName : ''}">
+          data-initial-content-id="initial-content">
 
       <p class="course-write-message is-error" role="alert" th:if="${formError}" th:text="${formError}"></p>
 
@@ -68,8 +68,9 @@
         <div th:each="day : ${course.days}" data-initial-day
              th:attr="data-day-id=${day.id},data-title=${day.title}">
           <span th:each="stop : ${day.items}" data-initial-destination
-                th:attr="data-destination-id=${stop.destinationId},data-name=${stop.name},
-                         data-region-name=${stop.regionName},data-country-id=${stop.countryId},
+                th:attr="data-destination-id=${stop.destinationId},data-item-id=${stop.itemId},data-name=${stop.name},
+                         data-address=${stop.address},data-latitude=${stop.latitude},data-longitude=${stop.longitude},
+                         data-region-name=${stop.regionName},data-location-label=${stop.locationLabel},data-country-id=${stop.countryId},data-country-code=${stop.countryCode},
                          data-country-name=${stop.countryName},data-thumbnail-url=${stop.imageUrl},
                          data-image-no-derivatives=${stop.imageNoDerivatives},
                          data-start-time=${stop.startTime},
@@ -77,60 +78,12 @@
         </div>
       </div>
 
-      <section class="course-country-picker" aria-labelledby="course-country-title">
-        <div class="picker-heading">
-          <h2 id="course-country-title">코스 범위 <span aria-hidden="true">*</span></h2>
-          <p>국내 또는 해외를 선택한 뒤 코스 국가를 정해 주세요.</p>
-        </div>
-        <div class="course-country-control">
-          <div class="course-scope-options" role="group" aria-label="코스 범위 선택">
-            <button th:each="country : ${domesticCourseCountries}"
-                    type="button"
-                    class="course-scope-button"
-                    data-country-scope="domestic"
-                    th:attr="data-country-id=${country.id},data-country-name=${country.regionName}"
-                    aria-pressed="false">국내</button>
-            <button type="button"
-                    class="course-scope-button"
-                    data-country-scope="overseas"
-                    aria-pressed="false">해외</button>
-          </div>
-
-          <input type="hidden" id="course-country-id" name="countryId"
-                 th:value="${course != null ? course.countryId : null}" />
-
-          <div id="overseas-country-field" class="overseas-country-field" hidden>
-            <label for="overseas-country-input">해외 국가 선택 <span aria-hidden="true">*</span></label>
-            <div class="country-combobox">
-              <input type="text"
-                     id="overseas-country-input"
-                     placeholder="국가명을 검색해 주세요"
-                     autocomplete="off"
-                     role="combobox"
-                     aria-autocomplete="list"
-                     aria-required="true"
-                     aria-expanded="false"
-                     aria-controls="overseas-country-listbox" />
-              <div id="overseas-country-listbox"
-                   class="country-option-list"
-                   role="listbox"
-                   aria-label="해외 국가"
-                   hidden>
-                <button th:each="country, countryStatus : ${overseasCourseCountries}"
-                        type="button"
-                        class="country-option"
-                        role="option"
-                        aria-selected="false"
-                        th:id="|overseas-country-option-${countryStatus.index}|"
-                        th:attr="data-country-id=${country.id},data-country-name=${country.regionName}"
-                        th:text="${country.regionName}">국가명</button>
-                <p id="country-option-empty" class="country-option-empty" hidden>일치하는 국가가 없습니다.</p>
-              </div>
-            </div>
-          </div>
-          <p id="course-country-helper" class="course-country-helper">코스 국가를 먼저 선택해 주세요.</p>
-        </div>
-      </section>
+      <select id="course-country-options" hidden aria-hidden="true" tabindex="-1">
+        <option th:each="country : ${courseCountries}" data-course-country
+                th:value="${country.id}"
+                th:attr="data-country-id=${country.id},data-country-name=${country.regionName},data-country-code=${country.code}"
+                th:text="${country.regionName}"></option>
+      </select>
 
       <section class="selected-course-section" aria-labelledby="selected-course-title">
         <div class="picker-heading course-schedule-heading">
@@ -148,7 +101,7 @@
             <h3 id="destination-search-title">여행지 검색</h3>
             <p id="course-search-target"></p>
           </div>
-          <div class="destination-search-controls">
+          <div id="course-linked-search" class="destination-search-controls">
             <label for="destination-search-input" class="sr-only">여행지 검색어</label>
             <input type="search" id="destination-search-input" placeholder="장소명이나 지역 검색" autocomplete="off" />
             <button type="button" id="destination-search-button" class="btn btn-secondary">검색</button>

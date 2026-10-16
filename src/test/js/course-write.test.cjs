@@ -16,6 +16,7 @@ class Element {
         child.parentElement = this; this.children.push(child);
     }); }
     replaceChildren(...children) { this.children.forEach(child => { child.parentElement = null; }); this.children = []; this.append(...children); }
+    insertBefore(child, reference) { this.append(child); if (reference && this.children.includes(reference)) { this.children.pop(); this.children.splice(this.children.indexOf(reference), 0, child); } }
     contains(node) { return walk(this).includes(node); }
     remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(node => node !== this); this.parentElement = null; }
     setAttribute(name, value) { this.attributes[name] = value; }
@@ -35,36 +36,38 @@ const findClass = (element, name) => walk(element).filter(node => node.className
 const button = (element, label) => walk(element).find(node => node.tagName === 'button' && node.textContent === label);
 const initialDay = (id, title, items = []) => {
     const day = new Element(); day.dataset = {dayId: id, title};
-    day.initialItems = items.map(data => { const item = new Element(); item.dataset = data; return item; }); return day;
+    day.initialItems = items.map(data => { const item = new Element(); item.dataset = {countryId: '1', ...data}; return item; }); return day;
 };
-async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>', countryId: 1}, {id: 9, name: '다른 장소', countryId: 1}], restricted = false) {
+async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>', countryId: 1}, {id: 9, name: '다른 장소', countryId: 1}]) {
     const ids = {};
     ['course-form', 'destination-search-input', 'destination-search-button', 'destination-search-results',
         'selected-destinations', 'destination-id-inputs', 'course-write-message', 'course-submit-button',
-        'course-country-id', 'course-country-helper', 'course-add-day', 'course-day-tabs', 'destination-target-day',
+        'course-add-day', 'course-day-tabs', 'destination-target-day',
         'selected-course-count', 'course-search-panel', 'course-search-close',
         'course-search-target', 'course-search-message'].forEach(id => { ids[id] = new Element(); });
     ids['course-search-panel'].hidden = true;
-    ids['course-form'].dataset.countryRestriction = String(restricted);
-    if (restricted) ids['course-country-id'].value = '1';
+    const countries = [{countryId: '1', countryCode: 'KR', countryName: '대한민국'}, {countryId: '2', countryCode: 'JP', countryName: '일본'}, {countryId: '3', countryCode: 'FR', countryName: '프랑스'}]
+        .map(data => { const option = new Element('option'); option.dataset = data; return option; });
     let initialize;
     const document = {
         getElementById: id => ids[id] || Object.values(ids).flatMap(walk).find(node => node.id === id),
         createElement: tag => new Element(tag),
         addEventListener: (event, action) => { if (event === 'DOMContentLoaded') initialize = action; },
-        querySelectorAll: selector => selector === '[data-initial-day]' ? initialDays : []
+        querySelectorAll: selector => selector === '[data-initial-day]' ? initialDays : selector === '[data-course-country]' ? countries : []
     };
     let confirmations = 0; let confirmed = true; const requests = [];
+    const attachedLocations = [];
     const context = {
         document, URLSearchParams, AbortController,
-        fetch: async url => { requests.push(url); return {ok: true, json: async () => destinations}; },
-        window: {initQuillEditor() {}, addEventListener() {}, confirm: () => { confirmations++; return confirmed; }, setTimeout, clearTimeout}
+        fetch: async url => { requests.push(url); return {ok: true, json: async () => url.startsWith('/api/search/regions')
+            ? [{id: 11, regionName: '제주'}, {id: 12, regionName: '서울'}] : destinations}; },
+        window: {CourseLocation: {attach(container, item, onChange) { attachedLocations.push({container, item, onChange, countryCode: item.countryCode}); }}, initQuillEditor() {}, addEventListener() {}, confirm: () => { confirmations++; return confirmed; }, setTimeout, clearTimeout}
     };
     vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../../main/resources/static/js/course-write.js'), 'utf8'), context);
     initialize();
     const flush = () => new Promise(resolve => setImmediate(resolve)); await flush();
     return {
-        ids, requests, flush,
+        ids, requests, flush, attachedLocations,
         payload: () => Object.fromEntries(ids['destination-id-inputs'].children.map(input => [input.name, input.value])),
         resultButtons: () => findClass(ids['destination-search-results'], 'destination-add-button'),
         add: (index = 0) => findClass(ids['destination-search-results'], 'destination-add-button')[index].fire('click'),
@@ -73,12 +76,95 @@ async function setup(initialDays = [], destinations = [{id: 8, name: '<장소>',
         rows() { return findClass(this.days()[0], 'selected-destination-card'); },
         editor(index = 0) { return findClass(this.rows()[index], 'course-item-inline-editor')[0]; },
         switchDay(index) { this.tabs()[index].fire('click'); },
-        async openSearch() { button(this.days()[0], '+ 여행지 추가').fire('click'); await flush(); },
+        async openSearch(empty = false) {
+            // 기존 결과 조작 테스트는 이제 검색어를 명시해 검색한다.
+            if (!empty && !ids['destination-search-input'].value) ids['destination-search-input'].value = '장소';
+            button(this.days()[0], '+ 여행지 추가').fire('click'); await flush();
+        },
         openItem(index = 0) { findClass(this.rows()[index], 'course-item-edit')[0].fire('click'); },
         confirmations: () => confirmations,
         confirm(value) { confirmed = value; }
     };
 }
+
+test('기존 일정과 검색에서 추가한 일정은 서버의 동일 locationLabel을 표시한다', async () => {
+    const ui = await setup([initialDay('1', '', [
+        {destinationId: '15', name: '경복궁', regionName: '종로구', locationLabel: '서울 종로구'}
+    ])], [{id: 16, name: '오사카성', regionName: '오사카', parentRegionName: '기존 값', locationLabel: '일본 오사카'}]);
+    assert.equal(findClass(ui.rows()[0], 'selected-card-region')[0].textContent, '장소 · 서울 종로구');
+    await ui.openSearch();
+    assert.equal(findClass(ui.ids['destination-search-results'], 'destination-card-region')[0].textContent, '지역 일본 오사카');
+    ui.add();
+    assert.equal(findClass(ui.rows()[1], 'selected-card-region')[0].textContent, '장소 · 일본 오사카');
+    assert.ok(Object.keys(ui.payload()).every(key => !key.includes('locationLabel')));
+});
+
+test('빈 검색은 조회하지 않고 keyword-only 검색은 가능하다', async () => {
+    const ui = await setup(); await ui.openSearch(true);
+    assert.equal(ui.requests.length, 0);
+    assert.match(ui.ids['course-search-message'].textContent, /지역을 선택하거나/);
+    ui.ids['destination-search-input'].value = '에펠탑';
+    ui.ids['destination-search-button'].fire('click'); await ui.flush();
+    assert.equal(new URL(ui.requests.at(-1), 'https://test').searchParams.get('q'), '에펠탑');
+});
+
+test('직접 상세정보는 DOM과 값을 보존하고 국가 변경은 좌표만 초기화한다', async () => {
+    const ui = await setup([initialDay('1', '', [{destinationId: '', name: '호텔', itemType: 'STAY', latitude: '37', longitude: '127', address: '직접 쓴 주소'}])]);
+    ui.openItem();
+    const details = findClass(ui.editor(), 'course-direct-details')[0];
+    const toggle = findClass(ui.editor(), 'course-direct-details-toggle')[0];
+    assert.equal(details.hidden, true); toggle.fire('click');
+    assert.equal(toggle.attributes['aria-expanded'], 'true');
+    const memo = walk(details).find(node => node.tagName === 'textarea');
+    memo.value = '예약 정보'; memo.fire('input'); toggle.fire('click');
+    assert.equal(ui.payload()['days[0].items[0].memo'], '예약 정보');
+    assert.equal(ui.payload()['days[0].items[0].latitude'], '37');
+    const country = walk(ui.editor()).find(node => node.dataset.directField === 'countryId');
+    country.value = '2'; country.fire('change');
+    assert.equal(ui.payload()['days[0].items[0].latitude'], '');
+    assert.equal(ui.payload()['days[0].items[0].longitude'], '');
+    assert.equal(ui.payload()['days[0].items[0].address'], '직접 쓴 주소');
+});
+
+test('국내 지역과 해외 국가는 검색 조건만 바꾸고 혼합 일정과 중복 상태를 유지한다', async () => {
+    const ui = await setup(); await ui.openSearch(true);
+    const geography = findClass(ui.ids['course-search-panel'], 'course-search-geography')[0];
+    const selects = walk(geography).filter(node => node.tagName === 'select');
+    const [country, region] = selects;
+    button(geography, '국내').fire('click'); await ui.flush();
+    assert.equal(country.hidden, true); assert.equal(region.hidden, false);
+    region.value = '11'; region.fire('change'); await ui.flush();
+    let params = new URL(ui.requests.at(-1), 'https://test').searchParams;
+    assert.equal(params.get('scope'), 'domestic'); assert.equal(params.get('regionId'), '11');
+    region.value = '12'; region.fire('change'); await ui.flush();
+    assert.equal(new URL(ui.requests.at(-1), 'https://test').searchParams.get('regionId'), '12');
+    button(geography, '해외').fire('click'); country.value = '2'; country.fire('change'); await ui.flush();
+    params = new URL(ui.requests.at(-1), 'https://test').searchParams;
+    assert.equal(params.get('countryId'), '2'); assert.equal(params.has('regionId'), false);
+    ui.add(); country.value = '3'; country.fire('change'); await ui.flush(); ui.add(1);
+    assert.equal(ui.payload()['days[0].items[0].destinationId'], '8');
+    assert.equal(ui.payload()['days[0].items[1].destinationId'], '9');
+    assert.equal(ui.resultButtons()[0].textContent, '추가됨');
+    button(geography, '전체').fire('click'); await ui.flush();
+    assert.equal(ui.payload()['days[0].items[1].destinationId'], '9');
+    assert.equal(country.hidden, true); assert.equal(region.hidden, true);
+});
+
+test('국가 변경은 검색이 채운 주소만 비우고 사용자가 고친 주소는 보존한다', async () => {
+    const ui = await setup([initialDay('1', '', [{destinationId: '', name: '호텔', itemType: 'STAY'}])]);
+    ui.openItem();
+    const location = ui.attachedLocations.at(-1);
+    location.item.address = '검색 주소'; location.item.locationAddress = '검색 주소';
+    location.item.latitude = '37'; location.item.longitude = '127'; location.onChange();
+    const country = walk(ui.editor()).find(node => node.dataset.directField === 'countryId');
+    country.value = '2'; country.fire('change');
+    assert.equal(ui.payload()['days[0].items[0].address'], '');
+    location.item.address = '다시 검색'; location.item.locationAddress = '다시 검색'; location.onChange();
+    const address = walk(ui.editor()).find(node => node.dataset.directField === 'address');
+    address.value = '사용자가 수정한 주소'; address.fire('input');
+    country.value = '3'; country.fire('change');
+    assert.equal(ui.payload()['days[0].items[0].address'], '사용자가 수정한 주소');
+});
 
 test('현재 Day 한 개만 DOM에 노출하고 탭 전환 시 제목과 전체 payload를 보존한다', async () => {
     const ui = await setup();
@@ -93,11 +179,11 @@ test('현재 Day 한 개만 DOM에 노출하고 탭 전환 시 제목과 전체 
 });
 
 test('인라인 검색 연속 추가·전체 중복방지·제거 후 재추가가 동작한다', async () => {
-    const ui = await setup([], undefined, true);
+    const ui = await setup();
     assert.equal(ui.requests.length, 0, '검색을 열기 전에는 요청하지 않는다');
     await ui.openSearch(); assert.equal(ui.ids['course-search-panel'].hidden, false);
     assert.equal(ui.ids['course-search-panel'].parentElement, ui.days()[0]);
-    assert.ok(ui.requests[0].includes('countryId=1')); ui.add();
+    assert.equal(new URL(ui.requests[0], 'https://example.test').searchParams.has('countryId'), false); ui.add();
     assert.equal(ui.resultButtons()[1].focused, true, '연속 추가할 다음 결과로 포커스를 옮긴다');
     ui.add(1);
     assert.equal(ui.ids['course-search-panel'].hidden, false);
@@ -257,4 +343,105 @@ test('초기 편집값과 50곳 제한, 전체 Day hidden payload 및 90일 제�
     assert.equal(ui.payload()['days[0].items[49].memo'], '기존 메모');
     assert.equal(ui.ids['course-form'].fire('submit').defaultPrevented, true);
     assert.ok(Object.keys(ui.payload()).every(name => !/name|image|snapshot|destinationIds/.test(name)));
+});
+
+test('직접 항목은 같은 이름도 보존하고 연결 항목과 구분해 전송한다', async () => {
+    const ui = await setup([initialDay('1', '', [
+        {destinationId: '', itemId: '31', name: '우리 숙소', itemType: 'STAY', address: '서울', latitude: '37.5', longitude: '127', startTime: '14:00', memo: '예약'},
+        {destinationId: '', itemId: '32', name: '우리 숙소', itemType: 'ETC'},
+        {destinationId: '8', name: '등록 장소', itemType: 'PLACE', address: '전송 금지'}
+    ])]);
+    assert.equal(ui.rows().length, 3);
+    const payload = ui.payload();
+    assert.equal(payload['days[0].items[0].destinationId'], '');
+    assert.equal(payload['days[0].items[0].placeName'], '우리 숙소');
+    assert.equal(payload['days[0].items[0].latitude'], '37.5');
+    assert.equal(payload['days[0].items[1].itemType'], 'ETC');
+    assert.equal(payload['days[0].items[2].address'], undefined);
+    ui.openItem(); ui.openItem(1);
+    assert.notEqual(ui.editor().id, ui.editor(1).id);
+    assert.equal(findClass(ui.rows()[0], 'selected-card-image').length, 0);
+});
+
+test('직접 추가 모드는 유형 검증과 입력 보존 및 이름 중복 추가를 지원한다', async () => {
+    const ui = await setup(); await ui.openSearch();
+    const mode = button(ui.ids['course-search-panel'], '직접 추가'); assert.ok(mode); mode.fire('click');
+    const draft = findClass(ui.ids['course-search-panel'], 'course-direct-draft')[0];
+    const name = walk(draft).find(node => node.dataset.directField === 'name');
+    assert.deepEqual(findClass(draft, 'course-direct-types')[0].children.map(option => option.textContent), ['장소', '숙소', '식당·카페', '교통', '기타']);
+    button(draft, '일정에 추가').fire('click'); assert.equal(ui.rows().length, 0);
+    button(draft, '식당·카페').fire('click'); name.value = '동네 카페'; name.fire('input');
+    const country = walk(draft).find(node => node.dataset.directField === 'countryId');
+    country.value = '1'; country.fire('change');
+    ui.ids['course-search-close'].fire('click'); await ui.openSearch(); assert.equal(name.value, '동네 카페');
+    button(draft, '일정에 추가').fire('click');
+    name.value = '동네 카페'; name.fire('input'); button(draft, '식당·카페').fire('click');
+    country.value = '2'; country.fire('change');
+    button(draft, '일정에 추가').fire('click'); assert.equal(ui.rows().length, 2);
+    assert.equal(ui.payload()['days[0].items[1].placeName'], '동네 카페');
+    assert.ok(walk(draft).every(node => !node.required), '저장하지 않은 draft는 outer form native validation을 막지 않는다');
+});
+
+test('직접 항목 편집값과 DOM은 혼합 일정 재정렬·Day 이동·제거 중 보존된다', async () => {
+    const ui = await setup([
+        initialDay('1', '', [{destinationId: '', name: '이동', itemType: 'TRANSPORT'}, {destinationId: '8', name: '연결'}]),
+        initialDay('2', '', [{destinationId: '', name: '기타', itemType: 'ETC'}])
+    ]);
+    ui.openItem();
+    const name = walk(ui.editor()).find(node => node.dataset.directField === 'name');
+    name.value = '공항 버스'; name.fire('input');
+    button(ui.editor(), '아래로').fire('click');
+    assert.equal(walk(ui.editor(1)).find(node => node.dataset.directField === 'name'), name);
+    assert.equal(ui.payload()['days[0].items[1].placeName'], '공항 버스');
+    const move = walk(ui.editor(1)).find(node => node.tagName === 'select' && !node.dataset.directField);
+    move.value = '1'; move.fire('change'); ui.openItem(1);
+    assert.equal(walk(ui.editor(1)).find(node => node.dataset.directField === 'name'), name);
+    assert.equal(ui.payload()['days[1].items[1].displayOrder'], '2');
+    button(ui.editor(1), '일정에서 제거').fire('click');
+    assert.equal(ui.payload()['days[1].items[1].placeName'], undefined);
+    assert.equal(ui.payload()['days[0].items[0].destinationId'], '8');
+});
+
+test('직접 항목의 잘못된 좌표쌍과 빈 이름은 저장을 막고 해당 편집을 펼친다', async () => {
+    const ui = await setup([initialDay('1', '', [{destinationId: '', name: '장소', itemType: 'PLACE', latitude: '37'}])]);
+    assert.equal(ui.ids['course-form'].fire('submit').defaultPrevented, true);
+    assert.equal(ui.editor().hidden, false);
+    const valid = await setup([initialDay('1', '', [{destinationId: '', name: '장소', itemType: 'PLACE'}])]);
+    valid.openItem(); const name = walk(valid.editor()).find(node => node.dataset.directField === 'name');
+    name.value = ' '; name.fire('input');
+    assert.equal(valid.ids['course-form'].fire('submit').defaultPrevented, true);
+    name.value = '복원'; name.fire('input');
+    assert.equal(valid.ids['course-form'].fire('submit').defaultPrevented, false);
+});
+
+test('항목별 국가 선택은 위치 UI와 직접 payload에 반영하고 다른 항목을 보존한다', async () => {
+    const ui = await setup([initialDay('1', '', [{destinationId: '', name: '숙소', itemType: 'STAY'}])]);
+    ui.openItem(); assert.equal(ui.attachedLocations.at(-1).countryCode, 'KR');
+    const initialName = walk(ui.editor()).find(node => node.dataset.directField === 'name');
+    const initialCountry = walk(ui.editor()).find(node => node.dataset.directField === 'countryId');
+    initialCountry.value = '2'; initialCountry.fire('change');
+    assert.equal(ui.attachedLocations.at(-1).countryCode, 'JP');
+    assert.equal(walk(ui.editor()).find(node => node.dataset.directField === 'name'), initialName);
+    await ui.openSearch(); button(ui.ids['course-search-panel'], '직접 추가').fire('click');
+    const draft = findClass(ui.ids['course-search-panel'], 'course-direct-draft')[0];
+    button(draft, '장소').fire('click');
+    for (const [field, value] of [['countryId', '1'], ['name', '직접 장소']]) {
+        const input = walk(draft).find(node => node.dataset.directField === field); input.value = value; input.fire(field === 'itemType' || field === 'countryId' ? 'change' : 'input');
+    }
+    button(draft, '일정에 추가').fire('click');
+    ui.openItem(1); assert.equal(ui.attachedLocations.at(-1).countryCode, 'KR');
+    assert.equal(ui.payload()['days[0].items[0].countryId'], '2');
+    assert.equal(ui.payload()['days[0].items[1].countryId'], '1');
+    assert.ok(Object.keys(ui.payload()).every(key => !key.includes('countryCode')));
+});
+
+test('다른 국가의 등록 여행지는 국가 선택 없이 연속 추가하며 직접 항목만 국가를 검증한다', async () => {
+    const ui = await setup([], [{id: 8, name: '한국 장소', countryId: 1}, {id: 9, name: '일본 장소', countryId: 2}]);
+    await ui.openSearch(); ui.add(); ui.add(1);
+    assert.equal(ui.rows().length, 2); assert.equal(ui.confirmations(), 0);
+    assert.equal(ui.payload()['days[0].items[1].destinationId'], '9');
+    assert.equal(ui.payload()['days[0].items[1].countryId'], undefined);
+    const invalid = await setup([initialDay('1', '', [{destinationId: '', countryId: '', name: '직접 장소', itemType: 'PLACE'}])]);
+    assert.equal(invalid.ids['course-form'].fire('submit').defaultPrevented, true);
+    assert.ok(invalid.ids['course-write-message'].textContent.includes('국가'));
 });

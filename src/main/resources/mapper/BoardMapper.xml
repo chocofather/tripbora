@@ -65,8 +65,26 @@
         ) courseBookmarks ON courseBookmarks.target_id = c.id
     </sql>
 
+    <!-- 포함 국가 중 하나라도 일치하면 통과한다. 선언 행이 없는 legacy 코스만 단일 국가를 쓴다. -->
+    <sql id="courseCountryMembership">
+        (
+            EXISTS (
+                SELECT 1 FROM course_countries course_country
+                WHERE course_country.course_id = c.id
+                  AND course_country.country_id = country.id
+            )
+            OR (
+                NOT EXISTS (
+                    SELECT 1 FROM course_countries declared_country
+                    WHERE declared_country.course_id = c.id
+                )
+                AND country.id = c.country_id
+            )
+        )
+    </sql>
+
     <!--
-      코스 국가 조건. 예전에는 파생 테이블의 countryId 를 봤고 지금은 courses 를 바로 본다.
+      코스 국가 조건. 포함 국가 membership은 EXISTS로 확인해 목록 행과 개수를 늘리지 않는다.
       boardType 조건은 예전 그대로 남겨 둔다. 이 조각은 코스 분기에서만 쓰이지만,
       조각 자체가 "코스 게시판일 때만 거른다"는 계약을 스스로 들고 있어야 한다.
     -->
@@ -75,7 +93,7 @@
             AND EXISTS (
                 SELECT 1
                 FROM country_categories country
-                WHERE country.id = c.country_id
+                WHERE <include refid="courseCountryMembership"/>
                   AND country.is_visible = 1
                   AND country.parent_id IS NULL
                   AND EXISTS (
@@ -91,7 +109,7 @@
                 SELECT 1
                 FROM country_categories country
                 JOIN country_categories parent ON parent.id = country.parent_id
-                WHERE country.id = c.country_id
+                WHERE <include refid="courseCountryMembership"/>
                   AND country.is_visible = 1
                   AND country.parent_id IS NOT NULL
                   AND parent.parent_id IS NULL

@@ -12,12 +12,13 @@
         <result property="shortDescription" column="short_description"/>
         <result property="thumbnailUrl" column="thumbnail_url"/>
         <result property="regionName" column="region_name"/>
+        <result property="regionId" column="region_id"/>
         <result property="parentRegionName" column="parent_region_name"/>
         <result property="countryId" column="country_id"/>
         <result property="countryName" column="country_name"/>
     </resultMap>
 
-    <select id="searchDestinations" resultMap="DestinationSearchResultMap">
+    <sql id="searchQuery">
         WITH RECURSIVE destination_regions AS (
             SELECT
                 d.id AS destination_id,
@@ -64,7 +65,7 @@
             d.type,
             dt.short_description,
             di.image_url AS thumbnail_url,
-            cc.region_name,
+            cc.region_name, cc.id AS region_id,
             pcc.region_name AS parent_region_name,
             dc.country_id,
             dc.country_name
@@ -85,8 +86,29 @@
         <if test="countryId != null">
             AND dc.country_id = #{countryId}
         </if>
+        <if test="scope == 'domestic'">
+            AND EXISTS (SELECT 1 FROM country_categories country WHERE country.id = dc.country_id AND country.code = 'KR')
+        </if>
+        <if test="scope == 'overseas'">
+            AND EXISTS (SELECT 1 FROM country_categories country WHERE country.id = dc.country_id AND country.code != 'KR')
+        </if>
+        <if test="regionId != null">
+            AND EXISTS (
+                SELECT 1 FROM destination_regions ancestor
+                WHERE ancestor.destination_id = d.id AND ancestor.region_id = #{regionId}
+            )
+        </if>
         ORDER BY d.id DESC
             LIMIT #{limit}
+    </sql>
+
+    <select id="searchDestinations" resultMap="DestinationSearchResultMap">
+        <bind name="scope" value="null"/>
+        <bind name="regionId" value="null"/>
+        <include refid="searchQuery"/>
+    </select>
+    <select id="searchFilteredDestinations" resultMap="DestinationSearchResultMap">
+        <include refid="searchQuery"/>
     </select>
 
 </mapper>

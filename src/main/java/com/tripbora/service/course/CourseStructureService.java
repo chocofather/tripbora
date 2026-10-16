@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,6 +37,10 @@ public class CourseStructureService {
         return mapper.findCourseStops(courseId);
     }
 
+    public List<com.tripbora.model.CountryCategory> findCountries(Long courseId) {
+        return mapper.findCountries(courseId);
+    }
+
     public List<CourseDestinationSnapshotDto> findDestinationSnapshots(List<Long> destinationIds) {
         return destinationIds.isEmpty() ? List.of() : mapper.findDestinationSnapshots(destinationIds);
     }
@@ -43,12 +48,26 @@ public class CourseStructureService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void replaceSchedule(Long courseId, Long countryId, List<CourseDayForm> days) {
         List<Long> destinationIds = CourseScheduleValidator.validate(days);
-        Map<Long, CourseDestinationSnapshotDto> sources = mapper.findDestinationSnapshots(destinationIds)
+        Map<Long, CourseDestinationSnapshotDto> sources = findDestinationSnapshots(destinationIds)
                 .stream().collect(Collectors.toMap(CourseDestinationSnapshotDto::getDestinationId,
                         Function.identity()));
         if (sources.size() != destinationIds.size() || !sources.keySet().containsAll(destinationIds)) {
             throw new IllegalStateException("코스 여행지 snapshot을 확인할 수 없습니다.");
         }
+        // 모든 snapshot을 쓰기 전에 구성해 잘못된 입력이 기존 Day 삭제 뒤 발견되지 않게 한다.
+        List<CourseItem> preparedItems = days.stream().flatMap(day -> day.getItems().stream())
+                .map(input -> input.getDestinationId() == null ? direct(input)
+                        : snapshot(sources.get(input.getDestinationId())))
+                .toList();
+        LinkedHashSet<Long> countryIds = new LinkedHashSet<>();
+        for (CourseItem item : preparedItems) {
+            if (item.getCountryId() == null || item.getCountryId() <= 0) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "국가 정보를 확인할 수 없는 일정이 포함되어 있습니다.");
+            }
+            countryIds.add(item.getCountryId());
+        }
+        var prepared = preparedItems.iterator();
         List<CourseDay> existing = mapper.findDays(courseId);
         Map<Long, CourseDay> existingById = existing.stream()
                 .collect(Collectors.toMap(CourseDay::getId, Function.identity()));
@@ -86,7 +105,7 @@ public class CourseStructureService {
                 mapper.deleteDayItems(day.getId());
             }
             for (CourseItemForm input : form.getItems()) {
-                CourseItem item = snapshot(sources.get(input.getDestinationId()));
+                CourseItem item = prepared.next();
                 item.setCourseDayId(day.getId());
                 item.setDisplayOrder(input.getDisplayOrder());
                 item.setStartTime(CourseScheduleValidator.parseTime(input.getStartTime()));
@@ -96,11 +115,26 @@ public class CourseStructureService {
             }
         }
         mapper.deleteCountries(courseId);
-        CourseCountry country = new CourseCountry();
-        country.setCourseId(courseId);
-        country.setCountryId(countryId);
-        country.setDisplayOrder(1);
-        if (mapper.insertCountry(country) != 1) throw new IllegalStateException("코스 국가 저장에 실패했습니다.");
+        int countryOrder = 1;
+        for (Long itemCountryId : countryIds) {
+            CourseCountry country = new CourseCountry();
+            country.setCourseId(courseId);
+            country.setCountryId(itemCountryId);
+            country.setDisplayOrder(countryOrder++);
+            if (mapper.insertCountry(country) != 1) throw new IllegalStateException("코스 국가 저장에 실패했습니다.");
+        }
+        if (mapper.syncLegacyCountry(courseId) != 1) throw new IllegalStateException("코스 대표 국가 동기화에 실패했습니다.");
+    }
+
+    private CourseItem direct(CourseItemForm input) {
+        CourseItem item = new CourseItem();
+        item.setCountryId(input.getCountryId());
+        item.setItemType(input.getItemType());
+        item.setPlaceName(input.getPlaceName().trim());
+        item.setAddress(input.getAddress() == null || input.getAddress().isBlank() ? null : input.getAddress().trim());
+        item.setLatitude(input.getLatitude());
+        item.setLongitude(input.getLongitude());
+        return item;
     }
 
     private CourseItem snapshot(CourseDestinationSnapshotDto source) {

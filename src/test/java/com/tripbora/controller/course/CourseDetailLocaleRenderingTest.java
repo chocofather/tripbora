@@ -257,6 +257,112 @@ class CourseDetailLocaleRenderingTest {
         return course;
     }
 
+    @Test
+    void mixedTimelineOffersPlaceIdAndNameSearchEvenWithoutCoordinates() throws Exception {
+        CourseDetailDto course = course();
+        CourseStopDto linked = course.getStops().get(0);
+        linked.setItemId(100L);
+        linked.setLatitude(new java.math.BigDecimal("37.5"));
+        linked.setLongitude(new java.math.BigDecimal("127.1"));
+        linked.setCountryCode("KR");
+        CourseDayDto day = new CourseDayDto(); day.setDayNumber(1);
+        java.util.ArrayList<CourseStopDto> items = new java.util.ArrayList<>(); items.add(linked);
+        CourseStopDto overseas = course.getStops().get(1);
+        overseas.setName("난바역");
+        overseas.setGooglePlaceId("ChIJ_namba_test");
+        items.add(overseas); // 좌표가 없어도 Place ID로 정확한 장소를 연다.
+        for (String type : List.of("PLACE", "STAY", "FOOD", "TRANSPORT", "ETC")) {
+            CourseStopDto direct = stop(null, items.size() + 1, "<직접 " + type + ">", null);
+            direct.setItemId(100L + items.size()); direct.setItemType(type);
+            direct.setAddress("사용자 주소"); direct.setMemo("직접 일정 메모"); direct.setStartTime("09:00");
+            if (type.equals("STAY")) {
+                direct.setLatitude(java.math.BigDecimal.ZERO); direct.setLongitude(java.math.BigDecimal.ZERO);
+                direct.setAddress("서울 중구 을지로 30");
+            }
+            items.add(direct);
+        }
+        day.setItems(items); course.setDays(List.of(day));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/course/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var document = org.jsoup.Jsoup.parse(body);
+        assertThat(document.select(".course-day-route .course-stop")).hasSize(7);
+        assertThat(document.select(".course-stop-direct")).hasSize(5);
+        assertThat(document.select(".course-stop-direct .course-stop-image-wrap, .course-stop-direct a.course-stop-title-link")).isEmpty();
+        assertThat(document.select(".course-stop-direct .course-item-type").eachText())
+                .containsExactly("장소", "숙소", "식당·카페", "교통", "기타");
+        var links = document.select("a.course-map-link");
+        assertThat(links).hasSize(7);
+        assertThat(links.eachText())
+                .containsOnly("지도에서 보기 ↗");
+        assertThat(links).allSatisfy(link -> {
+            assertThat(link.attr("target")).isEqualTo("_blank");
+            assertThat(link.attr("rel")).isEqualTo("noopener noreferrer");
+            assertThat(link.attr("href")).startsWith("https://www.google.com/maps/search/?api=1&query=")
+                    .doesNotContain("key=", "embed");
+        });
+        assertThat(java.net.URLDecoder.decode(links.get(0).attr("href"), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("https://www.google.com/maps/search/?api=1&query=경복궁 종로구");
+        assertThat(java.net.URLDecoder.decode(links.get(1).attr("href"), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("https://www.google.com/maps/search/?api=1&query=난바역&query_place_id=ChIJ_namba_test");
+        assertThat(java.net.URLDecoder.decode(links.get(3).attr("href"), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("https://www.google.com/maps/search/?api=1&query=<직접 STAY> 서울 중구 을지로 30");
+        assertThat(document.select(".course-inline-map, .course-location-canvas, [data-course-map-toggle]")).isEmpty();
+        assertThat(body).doesNotContain("지도에서 크게 보기", "data-google-maps-key");
+        assertThat(body).contains("&lt;직접 STAY&gt;").doesNotContain("/destinations/null");
+    }
+
+    @Test
+    void mapsHideItemsWithoutSearchDataAndRetainCoordinateFallback() throws Exception {
+        CourseDetailDto course = course();
+        CourseDayDto day = new CourseDayDto(); day.setDayNumber(1);
+        CourseStopDto empty = stop(null, 1, null, null);
+        CourseStopDto fallback = stop(null, 2, null, null);
+        fallback.setLatitude(new java.math.BigDecimal("37.5"));
+        fallback.setLongitude(new java.math.BigDecimal("127.1"));
+        day.setItems(List.of(empty, fallback)); course.setDays(List.of(day));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/course/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var links = org.jsoup.Jsoup.parse(body).select("a.course-map-link");
+        assertThat(links).hasSize(1);
+        assertThat(java.net.URLDecoder.decode(links.first().attr("href"), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("https://www.google.com/maps/search/?api=1&query=37.5,127.1");
+    }
+
+    @Test
+    void multipleCountriesKeepOrderedMetaAndSingleCountryRemainsCompact() throws Exception {
+        CourseDetailDto course = course();
+        course.setCountryNames(List.of("일본", "프랑스", "스위스"));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/course/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(org.jsoup.Jsoup.parse(body).select(".course-meta").text()).contains("일본 · 프랑스 · 스위스");
+        course.setCountryNames(List.of("일본"));
+        assertThat(course.getCountryLabel()).isEqualTo("일본");
+        course.setCountryNames(List.of());
+        assertThat(course.getCountryLabel()).isEmpty();
+    }
+
+    @Test
+    void timelineUsesLocationLabelWhileKeepingMapQueryAndLayout() throws Exception {
+        CourseDetailDto course = course();
+        CourseStopDto palace = course.getStops().get(0);
+        palace.setLocationLabel("서울 종로구");
+        CourseStopDto paris = course.getStops().get(1);
+        paris.setRegionName("파리"); paris.setLocationLabel("프랑스 파리");
+        CourseDayDto day = new CourseDayDto(); day.setDayNumber(1); day.setItems(course.getStops());
+        course.setDays(List.of(day));
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/course/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var document = org.jsoup.Jsoup.parse(body);
+        assertThat(document.select(".course-stop-region strong").eachText())
+                .containsExactly("서울 종로구", "프랑스 파리");
+        assertThat(java.net.URLDecoder.decode(document.selectFirst("a.course-map-link").attr("href"),
+                java.nio.charset.StandardCharsets.UTF_8)).endsWith("query=경복궁 종로구");
+    }
+
     private CourseStopDto stop(Long destinationId, int visitOrder, String name, String regionName) {
         CourseStopDto stop = new CourseStopDto();
         stop.setDestinationId(destinationId);

@@ -119,7 +119,7 @@ class CourseCountryContractTest {
     @Test
     void destinationSearchCountryFilterIsOptionalAndServerSide() throws IOException {
         String mapper = resource("/mapper/DestinationSearchMapper.xml");
-        String query = between(mapper, "<select id=\"searchDestinations\"", "</select>");
+        String query = between(mapper, "<sql id=\"searchQuery\"", "</sql>");
 
         assertThat(query)
                 .contains("<if test=\"countryId != null\">")
@@ -127,49 +127,25 @@ class CourseCountryContractTest {
     }
 
     @Test
-    void createAndEditUseSharedScopedCountryComboboxAndChangeConfirmation() throws IOException {
+    void createAndEditUseItemCountriesAndUnrestrictedDestinationSearch() throws IOException {
         String writeTemplate = resource("/templates/course/write.html");
         String editTemplate = resource("/templates/course/edit.html");
         String script = resource("/static/js/course-write.js");
-        String combobox = resource("/static/js/country-combobox.js");
-
-        assertThat(writeTemplate).contains("data-country-restriction=\"true\"");
-        assertThat(writeTemplate)
-                .contains("data-country-scope=\"domestic\"")
-                .contains("data-country-scope=\"overseas\"")
-                .contains("id=\"overseas-country-input\"")
-                .contains("role=\"combobox\"")
-                .contains("role=\"listbox\"")
-                .contains("name=\"countryId\"")
-                .contains("domesticCourseCountries")
-                .contains("overseasCourseCountries");
-        assertThat(editTemplate)
-                .contains("data-country-restriction=\"true\"")
-                .contains("data-initial-country-id=${course.countryId}")
-                .contains("data-initial-country-name=${course.countryName}")
-                .contains("th:value=\"${course.countryId}\"")
-                .contains("data-country-scope=\"domestic\"")
-                .contains("data-country-scope=\"overseas\"")
-                .contains("id=\"overseas-country-input\"")
-                .contains("name=\"countryId\"")
-                .contains("data-country-id=${stop.countryId}")
-                .contains("data-country-name=${stop.countryName}");
+        for (String template : new String[]{writeTemplate, editTemplate}) {
+            assertThat(template)
+                    .contains("${courseCountries}", "data-course-country")
+                    .contains("data-country-id=${country.id}", "data-country-name=${country.regionName}")
+                    .contains("data-country-code=${country.code}")
+                    .contains("data-country-id=${stop.countryId}", "data-country-name=${stop.countryName}")
+                    .doesNotContain("data-country-restriction", "data-country-scope", "name=\"countryId\"", "overseas-country-input");
+        }
         assertThat(script)
-                .contains("form.dataset.countryRestriction === 'true' && countryIdInput !== null")
-                .contains("searchInput.disabled = !countrySelected")
-                .contains("params.set('countryId', String(countryId))")
-                .contains("selectedCountryId !== destinationCountryId")
-                .contains("국가를 변경하면 현재 선택한 여행지가 모두 제거됩니다. 변경하시겠습니까?")
-                .contains("days.forEach(day => day.items.splice(0, day.items.length))")
-                .contains("const initialCountryId = selectedCourseCountryId()")
-                .contains("domesticCountryButton ? 'domestic' : 'overseas'")
-                .contains("window.CountryCombobox?.init({");
-        assertThat(combobox)
-                .contains("event.key === 'ArrowDown'")
-                .contains("event.key === 'ArrowUp'")
-                .contains("event.key === 'Enter'")
-                .contains("event.key === 'Escape'")
-                .contains("if (!root.contains(event.target))");
+                .contains("countrySelect.dataset.directField = 'countryId'")
+                .contains("if (!countryOption(item.countryId))")
+                .contains("['countryId', 'itemType', 'address', 'latitude', 'longitude']")
+                .contains("item.countryCode = selected?.dataset.countryCode")
+                .doesNotContain("selectedCountryId !== destinationCountryId")
+                .doesNotContain("requestCountryChange", "days.forEach(day => day.items.splice(0, day.items.length))");
     }
 
     @Test

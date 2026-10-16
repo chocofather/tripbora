@@ -11,4 +11,8 @@ public interface DestinationSearchMapper {
     List<DestinationSearchResultDto> searchDestinations(@Param("keyword") String keyword,
                                                         @Param("limit") int limit,
                                                         @Param("countryId") Long countryId);
+
+    List<DestinationSearchResultDto> searchFilteredDestinations(@Param("keyword") String keyword,
+            @Param("limit") int limit, @Param("countryId") Long countryId,
+            @Param("scope") String scope, @Param("regionId") Long regionId);
 }

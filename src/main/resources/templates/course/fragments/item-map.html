@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="itemMap(stop)" th:if="${stop.googleMapsUrl != null}">
+  <a class="course-map-link"
+     th:href="${stop.googleMapsUrl}"
+     target="_blank" rel="noopener noreferrer">지도에서 보기 <span aria-hidden="true">↗</span></a>
+</th:block>
+</body>
+</html>

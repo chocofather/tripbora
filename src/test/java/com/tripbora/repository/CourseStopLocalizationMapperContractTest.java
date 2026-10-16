@@ -16,6 +16,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CourseStopLocalizationMapperContractTest {
 
     @Test
+    void legacyMapItemsReadDestinationCoordinatesAndCourseCountryCode() throws Exception {
+        var config = new org.apache.ibatis.session.Configuration();
+        String path = "mapper/CourseMapper.xml";
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(path)) {
+            new org.apache.ibatis.builder.xml.XMLMapperBuilder(input, config, path, config.getSqlFragments()).parse();
+        }
+        String query = config.getMappedStatement("com.tripbora.repository.course.CourseMapper.findCourseStops")
+                .getBoundSql(java.util.Map.of("courseId", 10L)).getSql().replaceAll("\\s+", " ");
+        assertThat(query).contains("d.latitude", "d.longitude", "d.google_place_id", "cc.region_name AS region_name", "country.code AS country_code");
+        assertThat(config.getResultMap("com.tripbora.repository.course.CourseMapper.CourseStopMap")
+                .getResultMappings()).extracting(org.apache.ibatis.mapping.ResultMapping::getProperty)
+                .contains("latitude", "longitude", "countryCode", "googlePlaceId");
+    }
+
+    @Test
     void courseStopsCarryTheirDestinationIdAndKeepVisitOrder() throws IOException {
         String xml = mapperXml();
 

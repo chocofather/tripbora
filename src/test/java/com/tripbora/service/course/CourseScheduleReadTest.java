@@ -23,7 +23,37 @@ class CourseScheduleReadTest {
     private final CourseServiceImpl service = new CourseServiceImpl(mapper, new PostContentSanitizer(),
             mock(DestinationLocalizationService.class), mock(ReferenceNameLocalizationService.class),
             new LocalContentLanguageDetector(), mock(DestinationImageService.class), structure,
-            mock(CourseCoverStorageService.class));
+            mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class));
+
+    @Test
+    void keepsDirectItemsAndSkipsThemWhenChoosingFirstLinkedCover() {
+        CourseStopDto direct = item(50L, 1, "/images/default.png");
+        direct.setDestinationId(null); direct.setName("직접 숙소"); direct.setItemType("STAY");
+        CourseStopDto linked = item(50L, 2, "/uploads/linked.png");
+        prepare(List.of(direct, linked));
+        CourseDetailDto detail = service.getCourseDetail(10L, null, SupportedLanguage.KOREAN);
+        assertThat(detail.getStops()).containsExactly(direct, linked);
+        assertThat(direct.getName()).isEqualTo("직접 숙소");
+        assertThat(detail.getRepresentativeImageUrl()).isEqualTo("/uploads/linked.png");
+    }
+
+    @Test
+    void retryPreservesDirectFieldsAndRepeatedNames() {
+        CourseDayForm day = new CourseDayForm(); day.setDayNumber(1);
+        day.setItems(List.of(CourseDirectItemTest.direct("ETC", 1), CourseDirectItemTest.direct("STAY", 2)));
+        day.getItems().get(0).setCountryId(8L);
+        CourseEditDto retry = service.prepareFormForRetry("제목", "<p>소개</p>", 7L, List.of(day));
+        assertThat(retry.getStops()).hasSize(2).allSatisfy(item -> {
+            assertThat(item.getDestinationId()).isNull();
+            assertThat(item.getName()).isEqualTo("직접 장소");
+            var bean = new org.springframework.beans.BeanWrapperImpl(item);
+            assertThat(bean.getPropertyValue("address")).isEqualTo("주소");
+            assertThat((java.math.BigDecimal) bean.getPropertyValue("latitude")).isEqualByComparingTo("37.5");
+            assertThat((java.math.BigDecimal) bean.getPropertyValue("longitude")).isEqualByComparingTo("127");
+        });
+        assertThat(retry.getStops()).extracting(CourseStopDto::getItemType).containsExactly("ETC", "STAY");
+        assertThat(retry.getStops()).extracting(CourseStopDto::getCountryId).containsExactly(8L, 7L);
+    }
 
     @Test
     void readsAllDaysAndItemTimesAndMemosInOrderWithoutLegacy() {

@@ -69,7 +69,8 @@ class CourseServiceImplTest {
                 new ReferenceNameLocalizationService(countryCategoryMapper, categoryMapper,
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
                 new LocalContentLanguageDetector(), destinationImageService, courseStructureService,
-                org.mockito.Mockito.mock(CourseCoverStorageService.class));
+                org.mockito.Mockito.mock(CourseCoverStorageService.class),
+                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class));
     }
 
     @Test
@@ -290,25 +291,22 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void rejectsDomesticAndJapaneseDestinationsBeforeAnyInsert() {
+    void createsDomesticAndJapaneseCourseUsingFirstItemCountryForLegacyColumn() {
         CourseCreateRequest request = request("혼합 코스", "<p>서울과 도쿄</p>", List.of(38L, 71L));
         when(courseMapper.countExistingDestinations(List.of(38L, 71L))).thenReturn(2);
         when(courseMapper.findDestinationCountries(List.of(38L, 71L))).thenReturn(List.of(
-                destinationCountry(38L, 7L, "대한민국"),
-                destinationCountry(71L, 8L, "일본")
+                destinationCountry(71L, 8L, "일본"),
+                destinationCountry(38L, 7L, "대한민국")
         ));
 
-        assertThatThrownBy(() -> service.createCourse(request, 5L))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("하나의 여행 코스에는 같은 국가의 여행지만 추가할 수 있습니다."));
-
-        verify(courseMapper, never()).insertCourse(any());
+        expectInsertedCountry(7L);
+        assertThat(service.createCourse(request, 5L)).isEqualTo(100L);
+        verify(courseStructureService).replaceSchedule(100L, 7L, request.getDays());
         verify(courseMapper, never()).insertCourseDestination(any());
     }
 
     @Test
-    void rejectsDestinationsFromDifferentOverseasCountriesBeforeAnyInsert() {
+    void createsCourseWithDifferentOverseasCountries() {
         CourseCreateRequest request = request("해외 혼합 코스", "<p>일본과 프랑스</p>", List.of(71L, 106L));
         when(courseMapper.countExistingDestinations(List.of(71L, 106L))).thenReturn(2);
         when(courseMapper.findDestinationCountries(List.of(71L, 106L))).thenReturn(List.of(
@@ -316,12 +314,9 @@ class CourseServiceImplTest {
                 destinationCountry(106L, 17L, "프랑스")
         ));
 
-        assertThatThrownBy(() -> service.createCourse(request, 5L))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode())
-                        .isEqualTo(HttpStatus.BAD_REQUEST));
-
-        verify(courseMapper, never()).insertCourse(any());
+        expectInsertedCountry(8L);
+        assertThat(service.createCourse(request, 5L)).isEqualTo(100L);
+        verify(courseStructureService).replaceSchedule(100L, 8L, request.getDays());
         verify(courseMapper, never()).insertCourseDestination(any());
     }
 
@@ -339,34 +334,28 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void rejectsCreateWhenCountryIsNotSelected() {
+    void createsLinkedCourseWithoutLegacyCountrySelection() {
         CourseCreateRequest request = request("국가 미선택", "<p>소개</p>", List.of(1L));
         request.setCountryId(null);
 
-        assertThatThrownBy(() -> service.createCourse(request, 5L))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("코스 국가를 선택해 주세요."));
-
-        verify(courseMapper, never()).countExistingDestinations(any());
-        verify(courseMapper, never()).findDestinationCountries(any());
-        verify(courseMapper, never()).insertCourse(any());
+        when(courseMapper.countExistingDestinations(List.of(1L))).thenReturn(1);
+        when(courseMapper.findDestinationCountries(List.of(1L)))
+                .thenReturn(destinationCountries(List.of(1L), 7L, "대한민국"));
+        expectInsertedCountry(7L);
+        assertThat(service.createCourse(request, 5L)).isEqualTo(100L);
     }
 
     @Test
-    void rejectsWhenSelectedCountryDoesNotMatchDestinationCountry() {
+    void ignoresLegacySelectedCountryWhenLinkedCountriesDiffer() {
         CourseCreateRequest request = request("국가 불일치", "<p>소개</p>", List.of(38L, 44L));
         request.setCountryId(8L);
         when(courseMapper.countExistingDestinations(List.of(38L, 44L))).thenReturn(2);
         when(courseMapper.findDestinationCountries(List.of(38L, 44L)))
                 .thenReturn(destinationCountries(List.of(38L, 44L), 7L, "대한민국"));
 
-        assertThatThrownBy(() -> service.createCourse(request, 5L))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("선택한 국가와 여행지의 국가가 일치하지 않습니다."));
-
-        verify(courseMapper, never()).insertCourse(any());
+        expectInsertedCountry(7L);
+        assertThat(service.createCourse(request, 5L)).isEqualTo(100L);
+        verify(courseStructureService).replaceSchedule(100L, 7L, request.getDays());
         verify(courseMapper, never()).insertCourseDestination(any());
     }
 
@@ -543,18 +532,17 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void updateRejectsMissingCountryWithoutChangingExistingData() {
+    void updateUsesItemCountryWithoutLegacyCountrySelection() {
         CourseUpdateRequest request = updateRequest("제목", "<p>소개</p>", List.of(1L));
         request.setCountryId(null);
         when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(activeCourse(10L, 5L));
 
-        assertThatThrownBy(() -> service.updateCourse(10L, 5L, request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("코스 국가를 선택해 주세요."));
-
-        verify(courseMapper, never()).countExistingDestinations(any());
-        verify(courseMapper, never()).updateCourse(any(), any(), any(), any(), any(), any(), any());
+        when(courseMapper.countExistingDestinations(List.of(1L))).thenReturn(1);
+        when(courseMapper.findDestinationCountries(List.of(1L)))
+                .thenReturn(destinationCountries(List.of(1L), 7L, "대한민국"));
+        when(courseMapper.updateCourse(10L, 5L, 7L, "제목", "<p>소개</p>", "ko", "ko")).thenReturn(1);
+        service.updateCourse(10L, 5L, request);
+        verify(courseStructureService).replaceSchedule(10L, 7L, request.getDays());
         verify(courseMapper, never()).deleteCourseDestinations(any());
     }
 
@@ -589,7 +577,7 @@ class CourseServiceImplTest {
     }
 
     @Test
-    void updateRejectsCountryMismatchBeforeChangingCourseOrDestinations() {
+    void updateIgnoresLegacyCountryMismatch() {
         CourseUpdateRequest request = updateRequest("제목", "<p>소개</p>", List.of(30L, 12L));
         request.setCountryId(8L);
         when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(activeCourse(10L, 5L));
@@ -597,18 +585,15 @@ class CourseServiceImplTest {
         when(courseMapper.findDestinationCountries(List.of(30L, 12L)))
                 .thenReturn(destinationCountries(List.of(30L, 12L), 7L, "대한민국"));
 
-        assertThatThrownBy(() -> service.updateCourse(10L, 5L, request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("선택한 국가와 여행지의 국가가 일치하지 않습니다."));
-
-        verify(courseMapper, never()).updateCourse(any(), any(), any(), any(), any(), any(), any());
+        when(courseMapper.updateCourse(10L, 5L, 7L, "제목", "<p>소개</p>", "ko", "ko")).thenReturn(1);
+        service.updateCourse(10L, 5L, request);
+        verify(courseStructureService).replaceSchedule(10L, 7L, request.getDays());
         verify(courseMapper, never()).deleteCourseDestinations(any());
         verify(courseMapper, never()).insertCourseDestination(any());
     }
 
     @Test
-    void updateRejectsMixedCountriesBeforeChangingExistingData() {
+    void updateAcceptsMixedCountriesAndUsesFirstItemCountryForLegacyColumn() {
         CourseUpdateRequest request = updateRequest("제목", "<p>소개</p>", List.of(30L, 71L));
         when(courseMapper.findActiveCourseForUpdate(10L)).thenReturn(activeCourse(10L, 5L));
         when(courseMapper.countExistingDestinations(List.of(30L, 71L))).thenReturn(2);
@@ -617,12 +602,9 @@ class CourseServiceImplTest {
                 destinationCountry(71L, 8L, "일본")
         ));
 
-        assertThatThrownBy(() -> service.updateCourse(10L, 5L, request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getReason())
-                        .isEqualTo("하나의 여행 코스에는 같은 국가의 여행지만 추가할 수 있습니다."));
-
-        verify(courseMapper, never()).updateCourse(any(), any(), any(), any(), any(), any(), any());
+        when(courseMapper.updateCourse(10L, 5L, 7L, "제목", "<p>소개</p>", "ko", "ko")).thenReturn(1);
+        service.updateCourse(10L, 5L, request);
+        verify(courseStructureService).replaceSchedule(10L, 7L, request.getDays());
         verify(courseMapper, never()).deleteCourseDestinations(any());
     }
 
@@ -785,6 +767,15 @@ class CourseServiceImplTest {
         return destinationIds.stream()
                 .map(destinationId -> destinationCountry(destinationId, countryId, countryName))
                 .toList();
+    }
+
+    private void expectInsertedCountry(Long countryId) {
+        when(courseMapper.insertCourse(any(Course.class))).thenAnswer(call -> {
+            Course course = call.getArgument(0);
+            assertThat(course.getCountryId()).isEqualTo(countryId);
+            course.setId(100L);
+            return 1;
+        });
     }
 
     private CourseDestinationCountryDto destinationCountry(

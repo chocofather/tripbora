@@ -60,7 +60,8 @@ class CourseStopLocalizationTest {
                         infoCategoryMapper, new LocalizedReferenceNameResolver()),
                 new LocalContentLanguageDetector(), destinationImageService,
                 org.mockito.Mockito.mock(CourseStructureService.class),
-                org.mockito.Mockito.mock(CourseCoverStorageService.class));
+                org.mockito.Mockito.mock(CourseCoverStorageService.class),
+                org.mockito.Mockito.mock(com.tripbora.service.category.CountryCategoryService.class));
     }
 
     @Test

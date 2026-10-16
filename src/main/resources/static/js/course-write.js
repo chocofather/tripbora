@@ -15,27 +15,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const hiddenInputs = document.getElementById('destination-id-inputs');
     const message = document.getElementById('course-write-message');
     const submitButton = document.getElementById('course-submit-button');
-    const countryIdInput = document.getElementById('course-country-id');
-    const countryHelper = document.getElementById('course-country-helper');
-    const scopeButtons = Array.from(document.querySelectorAll('[data-country-scope]'));
-    const overseasCountryField = document.getElementById('overseas-country-field');
-    const overseasCountryInput = document.getElementById('overseas-country-input');
-    const countryListbox = document.getElementById('overseas-country-listbox');
-    const countryOptions = Array.from(document.querySelectorAll('[data-country-id][role="option"]'));
-    const countryOptionEmpty = document.getElementById('country-option-empty');
-    const useCountrySelection = form.dataset.countryRestriction === 'true' && countryIdInput !== null;
+    const countryOptions = Array.from(document.querySelectorAll('[data-course-country]'));
 
+    function countryOption(countryId) {
+        return countryOptions.find(option => String(option.dataset.countryId) === String(countryId));
+    }
+
+    let nextClientId = 0;
+    const directTypes = {PLACE: '장소', STAY: '숙소', FOOD: '식당·카페', TRANSPORT: '교통', ETC: '기타'};
     function readInitialItem(element) {
         return {
-            id: Number(element.dataset.destinationId),
+            id: element.dataset.destinationId ? Number(element.dataset.destinationId) : null,
+            clientId: ++nextClientId,
+            itemId: element.dataset.itemId || '',
             name: element.dataset.name,
             regionName: element.dataset.regionName,
+            locationLabel: element.dataset.locationLabel,
             parentRegionName: element.dataset.parentRegionName,
             countryId: element.dataset.countryId,
-            countryName: element.dataset.countryName,
+            countryName: element.dataset.countryName || countryOption(element.dataset.countryId)?.dataset.countryName || '',
+            countryCode: element.dataset.countryCode || countryOption(element.dataset.countryId)?.dataset.countryCode || '',
             thumbnailUrl: element.dataset.thumbnailUrl,
             imageNoDerivatives: element.dataset.imageNoDerivatives === 'true',
             itemType: element.dataset.itemType,
+            address: element.dataset.address || '',
+            latitude: element.dataset.latitude || '',
+            longitude: element.dataset.longitude || '',
             startTime: element.dataset.startTime || '',
             memo: element.dataset.memo || ''
         };
@@ -45,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title: element.dataset.title || '',
         items: Array.from(element.querySelectorAll('[data-initial-destination]'))
             .map(readInitialItem)
-            .filter(item => Number.isSafeInteger(item.id) && item.id > 0)
+            .filter(item => item.id === null || (Number.isSafeInteger(item.id) && item.id > 0))
     }));
     if (days.length === 0) days.push({title: '', items: []});
     const dayTabs = document.getElementById('course-day-tabs');
@@ -64,77 +69,177 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer;
     let activeSearchController;
     let searchRequestNumber = 0;
-    let activeCountryScope = '';
-    let activeCountryId = countryIdInput?.value || '';
-    let activeCountryName = form.dataset.initialCountryName || '';
-    let countryCombobox;
-
-    function countryIdOf(destination) {
-        const countryId = Number(destination?.countryId);
-        return Number.isSafeInteger(countryId) && countryId > 0 ? countryId : null;
-    }
-
-    function selectedCourseCountryId() {
-        const countryId = Number(countryIdInput?.value);
-        return Number.isSafeInteger(countryId) && countryId > 0 ? countryId : null;
-    }
-
-    function updateCountrySearchState() {
-        if (!useCountrySelection) return;
-        const countrySelected = selectedCourseCountryId() !== null;
-        searchInput.disabled = !countrySelected;
-        searchButton.disabled = !countrySelected;
-        countryHelper.hidden = countrySelected;
-        if (!countrySelected) {
-            activeSearchController?.abort();
-            latestResults = [];
-            searchResults.replaceChildren();
+    const directDraft = {itemType: '', name: '', address: '', latitude: '', longitude: '', startTime: '', memo: '', countryId: '', countryCode: '', countryName: ''};
+    const draftView = createDirectFields(directDraft, true);
+    draftView.container.className += ' course-direct-draft';
+    const directAdd = createControlButton('일정에 추가', false, () => {
+        if (days[activeDayIndex].items.length >= 50) {
+            showMessage('Day당 여행지는 최대 50곳까지 추가할 수 있습니다.', true); return;
         }
+        const error = directItemError(directDraft);
+        if (error) { showMessage(error, true); return; }
+        days[activeDayIndex].items.push({...directDraft, id: null, clientId: ++nextClientId, name: directDraft.name.trim()});
+        Object.keys(directDraft).forEach(key => { directDraft[key] = ''; });
+        draftView.reset(); renderSelectedDestinations();
+        showMessage('직접 입력한 일정을 추가했습니다.');
+    }, 'course-direct-add');
+    draftView.container.append(directAdd);
+    const modes = document.createElement('div'); modes.className = 'course-add-modes';
+    modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '일정 추가 방식');
+    const linkedMode = createControlButton('TripBora 여행지', false, () => setAddMode(false));
+    const directMode = createControlButton('직접 추가', false, () => setAddMode(true));
+    modes.append(linkedMode, directMode);
+    searchPanel.insertBefore(modes, document.getElementById('course-linked-search'));
+    searchPanel.insertBefore(draftView.container, document.getElementById('course-search-message'));
+    let searchScope = '';
+    let regionRequestNumber = 0;
+    const geography = document.createElement('div'); geography.className = 'course-search-geography';
+    const scopes = document.createElement('div'); scopes.className = 'course-search-scopes';
+    scopes.setAttribute('role', 'group'); scopes.setAttribute('aria-label', '여행지 검색 범위');
+    const searchCountry = document.createElement('select'); searchCountry.setAttribute('aria-label', '검색 국가');
+    const searchRegion = document.createElement('select'); searchRegion.setAttribute('aria-label', '검색 지역');
+    const scopeButtons = [];
+    function resetSelect(select, label) {
+        const option = document.createElement('option'); option.value = ''; option.textContent = label;
+        select.replaceChildren(option); select.value = '';
     }
-
-    function applyCountrySelection(scope, countryId, countryName) {
-        activeCountryScope = scope;
-        activeCountryId = countryId ? String(countryId) : '';
-        activeCountryName = countryName || '';
-        countryIdInput.value = activeCountryId;
-
-        scopeButtons.forEach(button => {
-            const active = button.dataset.countryScope === scope;
-            button.classList.toggle('is-active', active);
-            button.setAttribute('aria-pressed', String(active));
-        });
-
-        if (overseasCountryField) {
-            overseasCountryField.hidden = scope !== 'overseas';
-        }
-        countryCombobox?.setSelected(activeCountryId, activeCountryName, scope === 'overseas');
-
-        latestResults = [];
-        searchResults.replaceChildren();
-        updateCountrySearchState();
-        if (selectedCourseCountryId() !== null && !searchPanel.hidden) {
+    async function loadSearchRegions(countryId) {
+        const version = ++regionRequestNumber;
+        resetSelect(searchRegion, '지역 전체'); searchRegion.hidden = !countryId;
+        if (!countryId) return;
+        searchRegion.disabled = true;
+        try {
+            const response = await fetch(`/api/search/regions?countryId=${encodeURIComponent(countryId)}`);
+            if (!response.ok) throw new Error('지역 조회 실패');
+            const regions = await response.json();
+            if (version !== regionRequestNumber) return;
+            regions.forEach(region => {
+                const option = document.createElement('option'); option.value = String(region.id);
+                option.textContent = region.regionName; searchRegion.append(option);
+            });
+            searchRegion.hidden = regions.length === 0;
+        } catch (error) {
+            if (version === regionRequestNumber) showMessage('지역 목록을 불러오지 못했습니다. 국가 또는 장소명으로 검색해 주세요.', true);
+        } finally { if (version === regionRequestNumber) searchRegion.disabled = false; }
+    }
+    ['', 'domestic', 'overseas'].forEach((value, index) => {
+        const control = createControlButton(['전체', '국내', '해외'][index], false, () => {
+            searchScope = value;
+            scopeButtons.forEach(([scope, button]) => button.setAttribute('aria-pressed', String(scope === value)));
+            resetSelect(searchCountry, '국가 전체');
+            countryOptions.filter(option => value === 'domestic' ? option.dataset.countryCode === 'KR' : option.dataset.countryCode !== 'KR')
+                .forEach(source => {
+                    const option = document.createElement('option'); option.value = source.dataset.countryId;
+                    option.textContent = source.dataset.countryName; searchCountry.append(option);
+                });
+            searchCountry.hidden = value !== 'overseas';
+            const domestic = countryOptions.find(option => option.dataset.countryCode === 'KR');
+            if (value === 'domestic') searchCountry.value = domestic?.dataset.countryId || '';
+            loadSearchRegions(value === 'domestic' ? searchCountry.value : '');
             searchDestinations();
-        } else if (selectedCourseCountryId() === null) {
-            showMessage('해외 국가를 선택해 주세요.');
-        }
+        });
+        control.setAttribute('aria-pressed', String(value === '')); scopeButtons.push([value, control]); scopes.append(control);
+    });
+    resetSelect(searchCountry, '국가 전체'); searchCountry.hidden = true;
+    resetSelect(searchRegion, '지역 전체'); searchRegion.hidden = true;
+    searchCountry.addEventListener('change', () => { loadSearchRegions(searchCountry.value); searchDestinations(); });
+    searchRegion.addEventListener('change', searchDestinations);
+    geography.append(scopes, searchCountry, searchRegion);
+    searchPanel.insertBefore(geography, document.getElementById('course-linked-search'));
+    function setAddMode(direct) {
+        draftView.container.hidden = !direct;
+        geography.hidden = direct;
+        const heading = document.getElementById('destination-search-title');
+        if (heading) heading.textContent = direct ? '직접 일정 추가' : '여행지 검색';
+        [searchInput, searchButton, searchResults].forEach(element => { element.hidden = direct; });
+        const searchFields = document.getElementById('course-linked-search');
+        if (searchFields) searchFields.hidden = direct;
+        linkedMode.setAttribute('aria-pressed', String(!direct)); directMode.setAttribute('aria-pressed', String(direct));
+        linkedMode.classList.toggle('is-active', !direct); directMode.classList.toggle('is-active', direct);
+    }
+    setAddMode(false);
+
+    function directItemError(item) {
+        if (!countryOption(item.countryId)) return '일정의 국가를 선택해 주세요.';
+        if (!Object.hasOwn(directTypes, item.itemType)) return '일정 유형을 선택해 주세요.';
+        if (!item.name?.trim() || item.name.length > 255) return '장소명을 255자 이내로 입력해 주세요.';
+        if ((item.address || '').length > 500 || (item.memo || '').length > 1000) return '주소는 500자, 메모는 1,000자 이내로 입력해 주세요.';
+        const hasLatitude = item.latitude !== '' && item.latitude != null;
+        const hasLongitude = item.longitude !== '' && item.longitude != null;
+        if (hasLatitude !== hasLongitude || (hasLatitude && (!Number.isFinite(Number(item.latitude)) || !Number.isFinite(Number(item.longitude)) || Math.abs(Number(item.latitude)) > 90 || Math.abs(Number(item.longitude)) > 180))) return '위도와 경도를 올바른 범위로 함께 설정해 주세요.';
+        return '';
     }
 
-    function requestCountryChange(scope, countryId, countryName) {
-        const nextCountryId = countryId ? String(countryId) : '';
-        if (activeCountryScope === scope && activeCountryId === nextCountryId) return true;
-
-        if (days.some(day => day.items.length > 0)) {
-            const confirmed = window.confirm(
-                '국가를 변경하면 현재 선택한 여행지가 모두 제거됩니다. 변경하시겠습니까?'
-            );
-            if (!confirmed) return false;
-            days.forEach(day => day.items.splice(0, day.items.length));
-            editingItem = null;
-            renderSelectedDestinations();
-        }
-
-        applyCountrySelection(scope, nextCountryId, countryName);
-        return true;
+    function createDirectFields(item, draft = false, onChange = () => {}) {
+        const container = document.createElement('div'); container.className = 'course-direct-fields';
+        const inputs = {};
+        const types = document.createElement('div'); types.className = 'course-direct-types';
+        types.setAttribute('role', 'group'); types.setAttribute('aria-label', '일정 유형');
+        const typeButtons = [];
+        const refreshTypes = () => typeButtons.forEach(([value, button]) => button.setAttribute('aria-pressed', String(item.itemType === value)));
+        Object.entries(directTypes).forEach(([value, title]) => {
+            const button = createControlButton(title, false, () => { item.itemType = value; refreshTypes(); onChange(); });
+            typeButtons.push([value, button]); types.append(button);
+        });
+        refreshTypes(); container.append(types);
+        const countryLabel = document.createElement('label'); countryLabel.textContent = '국가'; countryLabel.className = 'course-direct-country';
+        const countrySelect = document.createElement('select'); countrySelect.dataset.directField = 'countryId';
+        countrySelect.setAttribute('aria-required', 'true');
+        countrySelect.addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
+        const emptyCountry = document.createElement('option'); emptyCountry.value = ''; emptyCountry.textContent = '국가 선택';
+        countrySelect.append(emptyCountry);
+        countryOptions.forEach(source => {
+            const option = document.createElement('option'); option.value = source.dataset.countryId;
+            option.textContent = source.dataset.countryName; countrySelect.append(option);
+        });
+        countrySelect.value = item.countryId || '';
+        countryLabel.append(countrySelect); container.append(countryLabel); inputs.countryId = countrySelect;
+        const details = document.createElement('div'); details.className = 'course-direct-details';
+        details.id = `course-direct-details-${draft ? 'draft' : item.clientId}`; details.hidden = true;
+        const toggle = createControlButton('+ 상세정보', false, () => {
+            details.hidden = !details.hidden;
+            toggle.textContent = details.hidden ? '+ 상세정보' : '− 상세정보';
+            toggle.setAttribute('aria-expanded', String(!details.hidden));
+        }, 'course-direct-details-toggle');
+        toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', details.id);
+        const definitions = [['name', '장소명', 'text', 255], ['address', '주소 (선택)', 'text', 500],
+            ['startTime', '시작 시간 (선택)', 'time'], ['memo', '메모 (선택)', 'textarea', 1000]];
+        definitions.forEach(([field, text, type, maxLength]) => {
+            const label = document.createElement('label'); label.textContent = text;
+            const input = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+            if (type !== 'textarea') input.type = type;
+            input.dataset.directField = field;
+            if (maxLength) input.maxLength = maxLength;
+            input.value = item[field] || '';
+            if (field === 'name') input.placeholder = '호텔이나 장소명을 입력하세요';
+            input.addEventListener('input', () => { item[field] = input.value; onChange(); });
+            input.addEventListener('keydown', event => { if (event.key === 'Enter' && type !== 'textarea') event.preventDefault(); });
+            label.append(input); (field === 'name' ? container : details).append(label); inputs[field] = input;
+        });
+        container.append(toggle, details);
+        const location = document.createElement('div'); location.className = 'course-direct-location'; details.append(location);
+        const locationChanged = () => { inputs.address.value = item.address || ''; onChange(); };
+        countrySelect.addEventListener('change', () => {
+            if (String(item.countryId || '') !== countrySelect.value) {
+                item.latitude = null; item.longitude = null;
+                if (item.locationAddress && item.address === item.locationAddress) {
+                    item.address = ''; inputs.address.value = '';
+                }
+                item.locationAddress = null;
+            }
+            item.countryId = countrySelect.value;
+            const selected = countryOption(item.countryId);
+            item.countryCode = selected?.dataset.countryCode || '';
+            item.countryName = selected?.dataset.countryName || '';
+            window.CourseLocation?.attach(location, item, locationChanged);
+            onChange();
+        });
+        window.CourseLocation?.attach(location, item, locationChanged);
+        return {container, inputs, reset() {
+            Object.entries(inputs).forEach(([field, input]) => { input.value = item[field] || ''; });
+            refreshTypes(); details.hidden = true; toggle.textContent = '+ 상세정보'; toggle.setAttribute('aria-expanded', 'false');
+            location.replaceChildren(); window.CourseLocation?.attach(location, item, locationChanged);
+        }};
     }
 
     function showMessage(text, isError = false) {
@@ -163,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function regionText(destination) {
+        if (destination.locationLabel) return destination.locationLabel;
         return [destination.parentRegionName, destination.regionName]
             .filter(value => value && value.trim())
             .join(' ');
@@ -171,7 +277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function itemTypeLabel(destination) {
         const type = destination.itemType || destination.type;
         if (type === 'STAY' || type === 'ACCOMMODATION') return '숙소';
-        if (['FOOD', 'RESTAURANTS', 'CAFE'].includes(type)) return '음식';
+        if (['FOOD', 'RESTAURANTS', 'CAFE'].includes(type)) return '식당·카페';
+        if (type === 'TRANSPORT') return '교통';
+        if (type === 'ETC') return '기타';
         return '장소';
     }
 
@@ -183,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function isDestinationSelected(destination) {
-        return days.some(day => day.items.some(item => Number(item.id) === Number(destination.id)));
+        return destination.id != null && days.some(day => day.items.some(item => item.id != null && Number(item.id) === Number(destination.id)));
     }
 
     function renderSearchResults(results) {
@@ -365,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createItemView(destination) {
         const item = document.createElement('li');
         item.className = 'selected-destination-card';
+        if (destination.id === null) item.classList.add('is-direct');
         const order = document.createElement('span');
         order.className = 'selected-order';
         const image = createImage(destination.thumbnailUrl, `${destination.name || '여행지'} 썸네일`);
@@ -377,30 +486,27 @@ document.addEventListener('DOMContentLoaded', () => {
         preview.className = 'course-item-preview';
         info.append(preview);
         const edit = createControlButton('⋯', false, () => toggleItem(destination), 'course-item-edit');
-        edit.id = `course-item-edit-${destination.id}`;
+        edit.id = `course-item-edit-${destination.clientId}`;
         edit.setAttribute('aria-label', `${destination.name || '여행지'} 상세 편집`);
         const editor = document.createElement('div');
         editor.className = 'course-item-inline-editor';
-        editor.id = `course-item-editor-${destination.id}`;
+        editor.id = `course-item-editor-${destination.clientId}`;
         editor.hidden = true;
         editor.setAttribute('role', 'region');
         editor.setAttribute('aria-label', `${destination.name || '여행지'} 방문 정보`);
         edit.setAttribute('aria-controls', editor.id);
         edit.setAttribute('aria-expanded', 'false');
-        item.append(order, image, info, edit, editor);
+        item.append(order);
+        if (destination.id !== null) item.append(image);
+        item.append(info, edit, editor);
         item.addEventListener('click', event => {
             if (editor.contains(event.target) || event.target.closest('button, input, textarea, select, a, label, summary')) return;
             toggleItem(destination);
         });
-        return {item, order, region, preview, edit, editor};
+        return {item, order, name, region, preview, edit, editor};
     }
 
     function openSearch() {
-        if (useCountrySelection && selectedCourseCountryId() === null) {
-            showMessage('코스 국가를 먼저 선택해 주세요.', true);
-            (activeCountryScope === 'overseas' ? overseasCountryInput : scopeButtons[0])?.focus();
-            return;
-        }
         searchPanel.hidden = false;
         addDestinationButton.setAttribute('aria-expanded', 'true');
         searchDestinations();
@@ -422,7 +528,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateItemSummary(destination) {
         const view = itemViews.get(destination);
-        view.region.textContent = [itemTypeLabel(destination), regionText(destination), destination.startTime].filter(Boolean).join(' · ');
+        view.name.textContent = destination.name || '이름 없는 여행지';
+        view.region.textContent = [itemTypeLabel(destination), destination.id === null ? (destination.address || destination.countryName) : regionText(destination), destination.startTime].filter(Boolean).join(' · ');
         view.preview.textContent = destination.memo || '';
         view.preview.hidden = !destination.memo;
     }
@@ -451,11 +558,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createItemEditor(destination, view) {
         const fields = document.createElement('div'); fields.className = 'course-item-fields';
+        if (destination.id === null) {
+            fields.append(createDirectFields(destination, false, () => { updateItemSummary(destination); syncPayload(); }).container);
+        }
         const timeRange = document.createElement('div'); timeRange.className = 'course-item-time-range';
         ['startTime'].forEach(field => {
             const label = document.createElement('label'); label.textContent = '시작 시간 (선택)';
             const input = document.createElement('input'); input.type = 'time';
-            input.id = `course-item-start-time-${destination.id}`;
+            input.id = `course-item-start-time-${destination.clientId}`;
             input.step = '60'; input.value = destination[field] || '';
             // 기존 form 밖 편집과 같이 Enter로 코스 저장이 실행되지 않게 한다.
             input.addEventListener('keydown', event => {
@@ -471,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
         memoLabel.append(input);
         const help = document.createElement('p'); help.className = 'course-field-help';
         help.textContent = '입력한 내용은 바로 반영됩니다. 시작 시간은 비워 둘 수 있어요.';
-        fields.append(timeRange, memoLabel, help);
+        if (destination.id !== null) fields.append(timeRange, memoLabel, help);
         const controls = document.createElement('div'); controls.className = 'course-item-order-controls';
         const moveOrder = offset => {
             const dayIndex = days.findIndex(day => day.items.includes(destination));
@@ -525,6 +635,10 @@ document.addEventListener('DOMContentLoaded', () => {
             day.items.forEach((item, itemIndex) => {
                 const itemPrefix = `${prefix}.items[${itemIndex}]`;
                 addInput(`${itemPrefix}.destinationId`, item.id);
+                if (item.id === null) {
+                    ['countryId', 'itemType', 'address', 'latitude', 'longitude'].forEach(field => addInput(`${itemPrefix}.${field}`, item[field]));
+                    addInput(`${itemPrefix}.placeName`, item.name);
+                }
                 addInput(`${itemPrefix}.displayOrder`, itemIndex + 1);
                 ['startTime', 'memo'].forEach(field =>
                     addInput(`${itemPrefix}.${field}`, item[field]));
@@ -556,25 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (useCountrySelection) {
-            const selectedCountryId = selectedCourseCountryId();
-            if (selectedCountryId === null) {
-                showMessage('코스 국가를 먼저 선택해 주세요.', true);
-                (activeCountryScope === 'overseas' ? overseasCountryInput : scopeButtons[0])?.focus();
-                return;
-            }
-            const destinationCountryId = countryIdOf(destination);
-            if (destinationCountryId === null) {
-                showMessage('여행지의 국가 정보를 확인할 수 없습니다.', true);
-                return;
-            }
-            if (selectedCountryId !== destinationCountryId) {
-                showMessage('선택한 국가와 여행지의 국가가 일치하지 않습니다.', true);
-                return;
-            }
-        }
-
-        days[activeDayIndex].items.push({...destination, startTime: '', memo: ''});
+        days[activeDayIndex].items.push({...destination, clientId: ++nextClientId, startTime: '', memo: ''});
         showMessage(`${destination.name || '여행지'}을(를) 코스에 추가했습니다.`);
         renderSelectedDestinations();
         const resultIndex = latestResults.findIndex(result => Number(result.id) === Number(destination.id));
@@ -600,26 +696,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function searchDestinations() {
-        const countryId = selectedCourseCountryId();
-        if (useCountrySelection && countryId === null) {
-            updateCountrySearchState();
-            showMessage('코스 국가를 먼저 선택해 주세요.', true);
-            return;
-        }
-
         const requestNumber = ++searchRequestNumber;
         activeSearchController?.abort();
         activeSearchController = new AbortController();
+        if (!searchInput.value.trim() && !searchScope && !searchCountry.value && !searchRegion.value) {
+            latestResults = []; searchResults.replaceChildren(); searchAddButtons = [];
+            showMessage('지역을 선택하거나 장소명을 검색해 주세요.'); return;
+        }
         showMessage('여행지를 검색하고 있습니다.');
+        // 새 범위의 응답을 기다리는 동안 이전 지역 결과를 추가하지 않게 한다.
+        latestResults = []; searchResults.replaceChildren(); searchAddButtons = [];
 
         try {
             const params = new URLSearchParams({
                 q: searchInput.value.trim(),
                 size: '20'
             });
-            if (useCountrySelection) {
-                params.set('countryId', String(countryId));
-            }
+            if (searchScope) params.set('scope', searchScope);
+            if (searchCountry.value) params.set('countryId', searchCountry.value);
+            if (searchRegion.value) params.set('regionId', searchRegion.value);
             const response = await fetch(
                 `/api/search?${params.toString()}`,
                 {signal: activeSearchController.signal, headers: {'Accept': 'application/json'}}
@@ -664,46 +759,9 @@ document.addEventListener('DOMContentLoaded', () => {
         searchDestinations();
     });
 
-    countryCombobox = window.CountryCombobox?.init({
-        root: overseasCountryInput?.closest('.country-combobox'),
-        input: overseasCountryInput,
-        listbox: countryListbox,
-        options: countryOptions,
-        empty: countryOptionEmpty,
-        isDisabled: () => overseasCountryField?.hidden,
-        getSelectedName: () => activeCountryScope === 'overseas' ? activeCountryName : '',
-        onSelect: (countryId, countryName) => requestCountryChange('overseas', countryId, countryName)
-    });
-
-    scopeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const scope = button.dataset.countryScope;
-            if (scope === 'domestic') {
-                requestCountryChange(scope, button.dataset.countryId, button.dataset.countryName);
-                return;
-            }
-            if (scope === 'overseas' && activeCountryScope === 'overseas') {
-                overseasCountryInput?.focus();
-                countryCombobox?.filter();
-                return;
-            }
-            if (scope === 'overseas' && requestCountryChange(scope, '', '')) {
-                overseasCountryInput?.focus();
-                countryCombobox?.filter();
-            }
-        });
-    });
-
     form.addEventListener('submit', event => {
         submitButton.disabled = false;
         if (event.defaultPrevented) return;
-
-        if (useCountrySelection && selectedCourseCountryId() === null) {
-            event.preventDefault();
-            showMessage('코스 국가를 선택해 주세요.', true);
-            (activeCountryScope === 'overseas' ? overseasCountryInput : scopeButtons[0])?.focus();
-            return;
-        }
 
         if (days.some(day => day.items.length === 0)) {
             event.preventDefault();
@@ -711,6 +769,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('각 Day에 여행지를 한 곳 이상 추가해 주세요.', true);
             addDestinationButton?.focus();
             return;
+        }
+        for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+            const invalid = days[dayIndex].items.find(item => item.id === null && directItemError(item));
+            if (invalid) {
+                event.preventDefault(); selectDay(dayIndex); editingItem = invalid; renderSelectedDestinations();
+                showMessage(directItemError(invalid), true); return;
+            }
         }
         syncPayload();
         submitButton.disabled = true;
@@ -721,21 +786,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     renderSelectedDestinations();
-    const initialCountryId = selectedCourseCountryId();
-    if (useCountrySelection && initialCountryId !== null) {
-        const domesticCountryButton = scopeButtons.find(button =>
-            button.dataset.countryScope === 'domestic'
-            && button.dataset.countryId === String(initialCountryId)
-        );
-        applyCountrySelection(
-            domesticCountryButton ? 'domestic' : 'overseas',
-            String(initialCountryId),
-            activeCountryName || domesticCountryButton?.dataset.countryName || ''
-        );
-    } else if (!useCountrySelection) {
-        updateCountrySearchState();
-    } else {
-        updateCountrySearchState();
-        showMessage('코스 국가를 먼저 선택해 주세요.');
-    }
 });

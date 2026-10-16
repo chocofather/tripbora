@@ -18,13 +18,17 @@ function loadKakaoMap(lat, lng) {
 }
 
 function loadKakaoScript(callback) {
-    if (document.getElementById('kakao-map-script')) {
-        kakao.maps.load(callback);
+    const existingScript = document.getElementById('kakao-map-script');
+    if (existingScript) {
+        if (window.kakao?.maps?.load) kakao.maps.load(callback);
+        else existingScript.addEventListener('load', () => kakao.maps.load(callback), {once: true});
         return;
     }
     const script = document.createElement('script');
     script.id = 'kakao-map-script';
     script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=e5aca11993412c733289f668bac6c606&autoload=false';
+    script.src += '&libraries=services';
+    script.addEventListener('error', () => script.remove(), {once: true});
     script.onload = function () {
         kakao.maps.load(callback);
     };

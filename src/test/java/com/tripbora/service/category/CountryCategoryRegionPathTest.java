@@ -48,6 +48,21 @@ class CountryCategoryRegionPathTest {
     }
 
     @Test
+    void pathsReuseCachedCommonAncestorsAcrossDifferentCourseItems() {
+        when(mapper.selectById(7L)).thenReturn(region(7L, "대한민국", null));
+        when(mapper.selectById(38L)).thenReturn(region(38L, "서울", 7L));
+        when(mapper.selectById(235L)).thenReturn(region(235L, "종로구", 38L));
+        when(mapper.selectById(236L)).thenReturn(region(236L, "강서구", 38L));
+        service.getRegionPath(235L);
+        service.getRegionPath(236L);
+        service.getRegionPath(235L);
+        verify(mapper).selectById(7L);
+        verify(mapper).selectById(38L);
+        verify(mapper).selectById(235L);
+        verify(mapper).selectById(236L);
+    }
+
+    @Test
     void regionPathIsEmptyWhenRegionIsMissing() {
         assertThat(service.getRegionPath(null)).isEmpty();
 

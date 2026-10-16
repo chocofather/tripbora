@@ -10,6 +10,7 @@ import com.tripbora.dto.HomePopularCourseDto;
 import java.util.List;
 
 public interface CourseService {
+    List<com.tripbora.model.CountryCategory> getCourseCountries(SupportedLanguage requestedLanguage);
 
     /** STOP 이름은 요청 언어로 바꿔 담는다. 코스 제목·소개·작성자는 원문 그대로 둔다. */
     CourseDetailDto getCourseDetail(Long courseId, Long currentUserId,

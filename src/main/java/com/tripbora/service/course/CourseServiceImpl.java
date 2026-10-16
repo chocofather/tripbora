@@ -19,6 +19,7 @@ import com.tripbora.model.CourseDay;
 import com.tripbora.model.DestinationTranslation;
 import com.tripbora.repository.course.CourseMapper;
 import com.tripbora.service.category.ReferenceNameLocalizationService;
+import com.tripbora.service.category.CountryCategoryService;
 import com.tripbora.service.destination.DestinationImageService;
 import com.tripbora.service.destination.DestinationLocalizationService;
 import com.tripbora.service.post.PostContentSanitizer;
@@ -58,6 +59,27 @@ public class CourseServiceImpl implements CourseService {
     private final DestinationImageService destinationImageService;
     private final CourseStructureService courseStructureService;
     private final CourseCoverStorageService courseCoverStorageService;
+    private final CountryCategoryService countryCategoryService;
+
+    @Override
+    public List<com.tripbora.model.CountryCategory> getCourseCountries(SupportedLanguage language) {
+        List<com.tripbora.model.CountryCategory> countries = countryCategoryService.getCourseCountries();
+        Map<Long, String> names = referenceNameLocalizationService.localizeCountryCategories(countries, language);
+        return countries.stream().map(country -> {
+            var option = new com.tripbora.model.CountryCategory();
+            org.springframework.beans.BeanUtils.copyProperties(country, option);
+            option.setRegionName(names.getOrDefault(country.getId(), country.getRegionName()));
+            return option;
+        }).toList();
+    }
+
+    private List<String> readCountryNames(Long courseId, SupportedLanguage language) {
+        List<com.tripbora.model.CountryCategory> countries = courseStructureService.findCountries(courseId);
+        if (countries == null || countries.isEmpty()) return List.of();
+        Map<Long, String> names = referenceNameLocalizationService.localizeCountryCategories(countries, language);
+        return countries.stream().map(country -> names.getOrDefault(country.getId(), country.getRegionName()))
+                .filter(Objects::nonNull).filter(name -> !name.isBlank()).toList();
+    }
 
     @Override
     @Transactional
@@ -77,6 +99,7 @@ public class CourseServiceImpl implements CourseService {
         List<CourseDayDto> days = readTransitionDays(courseId, requestedLanguage);
         course.setDays(days);
         course.setStops(flatten(days));
+        course.setCountryNames(readCountryNames(courseId, requestedLanguage));
         course.setRepresentativeImageUrl(representativeImage(course.getCoverImageUrl(), days));
         course.setMyCourse(currentUserId != null && Objects.equals(course.getUserId(), currentUserId));
         return course;
@@ -98,6 +121,7 @@ public class CourseServiceImpl implements CourseService {
         List<CourseDayDto> days = readTransitionDays(courseId, requestedLanguage);
         edit.setDays(days);
         edit.setStops(flatten(days));
+        edit.setCountryNames(readCountryNames(courseId, requestedLanguage));
         return edit;
     }
 
@@ -199,14 +223,8 @@ public class CourseServiceImpl implements CourseService {
     /** 코스에 나온 지역 번호를 모아 한 번에 번역한다. 번역이 없으면 원래 이름이 남는다. */
     private Map<Long, String> resolveLocalizedRegionNames(List<CourseStopDto> stops,
                                                           SupportedLanguage requestedLanguage) {
-        Map<Long, String> baseRegionNames = new LinkedHashMap<>();
-        for (CourseStopDto stop : stops) {
-            if (stop != null && stop.getRegionId() != null) {
-                baseRegionNames.putIfAbsent(stop.getRegionId(), stop.getRegionName());
-            }
-        }
-        return referenceNameLocalizationService.localizeCountryCategoryNames(
-                baseRegionNames, requestedLanguage);
+        return CourseLocationLabels.localize(stops, requestedLanguage,
+                countryCategoryService, referenceNameLocalizationService);
     }
 
     private Map<Long, DestinationTranslation> resolveLocalizedContent(
@@ -235,9 +253,8 @@ public class CourseServiceImpl implements CourseService {
         ValidatedCourse validated = validateBasic(request == null ? null : request.getTitle(),
                 request == null ? null : request.getContent(),
                 request == null ? null : request.getDays());
-        Long requestedCountryId = validateRequestedCountryId(request == null ? null : request.getCountryId());
         validateDestinations(validated.destinationIds());
-        Long countryId = validateCourseCountry(requestedCountryId, validated.destinationIds());
+        Long countryId = validateCourseCountries(request.getDays(), validated.destinationIds());
 
         Course course = new Course();
         course.setTitle(validated.title());
@@ -269,9 +286,8 @@ public class CourseServiceImpl implements CourseService {
 
         Course current = requireOwnedActiveCourse(
                 courseMapper.findActiveCourseForUpdate(courseId), userId);
-        Long requestedCountryId = validateRequestedCountryId(request == null ? null : request.getCountryId());
         validateDestinations(validated.destinationIds());
-        Long countryId = validateCourseCountry(requestedCountryId, validated.destinationIds());
+        Long countryId = validateCourseCountries(request.getDays(), validated.destinationIds());
 
         String titleLanguage = Objects.equals(current.getTitle(), validated.title())
                 ? normalizeLanguage(current.getTitleSourceLanguage())
@@ -389,8 +405,7 @@ public class CourseServiceImpl implements CourseService {
             }
             for (CourseStopDto item : storedItems) {
                 CourseDayDto day = byId.get(item.getCourseDayId());
-                // 연결이 끊긴 snapshot은 보존하면서 현재 등록된 여행지만 편집 UI에 제공한다.
-                if (day != null && item.getDestinationId() != null) day.getItems().add(item);
+                if (day != null) day.getItems().add(item);
             }
         }
         for (CourseDayDto day : days) {
@@ -407,7 +422,9 @@ public class CourseServiceImpl implements CourseService {
     private String representativeImage(String cover, List<CourseDayDto> days) {
         if (cover != null && !cover.isBlank()) return cover;
         if (!days.isEmpty() && !days.get(0).getItems().isEmpty()) {
-            String image = days.get(0).getItems().get(0).getImageUrl();
+            String image = days.get(0).getItems().stream()
+                    .filter(item -> item.getDestinationId() != null).findFirst()
+                    .map(CourseStopDto::getImageUrl).orElse(null);
             if (image != null && !image.isBlank()) return image;
         }
         return HOME_COURSE_FALLBACK_IMAGE_URL;
@@ -428,7 +445,7 @@ public class CourseServiceImpl implements CourseService {
                     .filter(Objects::nonNull).map(CourseItemForm::getDestinationId)
                     .filter(Objects::nonNull).distinct().toList();
             Map<Long, CourseDestinationSnapshotDto> sources = new LinkedHashMap<>();
-            courseStructureService.findDestinationSnapshots(ids)
+            if (!ids.isEmpty()) courseStructureService.findDestinationSnapshots(ids)
                     .forEach(source -> sources.put(source.getDestinationId(), source));
             for (CourseDayForm form : forms) {
                 if (form == null) continue;
@@ -445,14 +462,27 @@ public class CourseServiceImpl implements CourseService {
                     CourseDestinationSnapshotDto source = sources.get(input.getDestinationId());
                     if (source != null) {
                         item.setName(source.getPlaceName());
+                        item.setRegionId(source.getRegionId());
+                        item.setRegionName(source.getRegionName());
                         item.setCountryId(source.getCountryId());
                         item.setItemType(CourseStructureService.itemType(source.getType()));
+                        item.setLatitude(source.getLatitude());
+                        item.setLongitude(source.getLongitude());
+                    } else if (input.getDestinationId() == null) {
+                        item.setName(input.getPlaceName());
+                        item.setItemType(input.getItemType());
+                        item.setAddress(input.getAddress());
+                        item.setLatitude(input.getLatitude());
+                        item.setLongitude(input.getLongitude());
+                        item.setCountryId(input.getCountryId());
                     }
                     day.getItems().add(item);
                 }
                 days.add(day);
             }
         }
+        resolveLocalizedRegionNames(flatten(days), SupportedLanguage.normalize(
+                org.springframework.context.i18n.LocaleContextHolder.getLocale()).orElse(SupportedLanguage.KOREAN));
         retry.setDays(days);
         retry.setStops(flatten(days));
         return retry;
@@ -501,6 +531,7 @@ public class CourseServiceImpl implements CourseService {
     }
 
     private void validateDestinations(List<Long> destinationIds) {
+        if (destinationIds.isEmpty()) return;
         if (destinationIds.stream().anyMatch(id -> id == null)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 여행지가 포함되어 있습니다.");
         }
@@ -509,35 +540,33 @@ public class CourseServiceImpl implements CourseService {
         }
     }
 
-    private Long validateRequestedCountryId(Long countryId) {
-        if (countryId == null || countryId <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "코스 국가를 선택해 주세요.");
-        }
-        return countryId;
-    }
-
-    private Long validateCourseCountry(Long requestedCountryId, List<Long> destinationIds) {
-        List<CourseDestinationCountryDto> destinations = courseMapper.findDestinationCountries(destinationIds);
+    private Long validateCourseCountries(List<CourseDayForm> days, List<Long> destinationIds) {
+        List<CourseDestinationCountryDto> destinations = destinationIds.isEmpty()
+                ? List.of() : courseMapper.findDestinationCountries(destinationIds);
         if (destinations.size() != destinationIds.size()
-                || destinations.stream().anyMatch(destination -> destination.getCountryId() == null)) {
+                || destinations.stream().anyMatch(destination -> destination.getCountryId() == null
+                || destination.getCountryId() <= 0)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "국가 정보를 확인할 수 없는 여행지가 포함되어 있습니다.");
         }
-
-        List<Long> countryIds = destinations.stream()
-                .map(CourseDestinationCountryDto::getCountryId)
-                .distinct()
-                .toList();
-        if (countryIds.size() != 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "하나의 여행 코스에는 같은 국가의 여행지만 추가할 수 있습니다.");
+        Map<Long, Long> linkedCountries = new LinkedHashMap<>();
+        destinations.forEach(destination -> linkedCountries.put(destination.getDestinationId(), destination.getCountryId()));
+        if (!linkedCountries.keySet().containsAll(destinationIds)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "여행지의 국가 정보를 확인할 수 없습니다.");
         }
-        Long actualCountryId = countryIds.get(0);
-        if (!Objects.equals(requestedCountryId, actualCountryId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "선택한 국가와 여행지의 국가가 일치하지 않습니다.");
+        List<CourseItemForm> items = days.stream().flatMap(day -> day.getItems().stream()).toList();
+        java.util.Set<Long> allowedDirectCountries = items.stream().anyMatch(item -> item.getDestinationId() == null)
+                ? countryCategoryService.getCourseCountries().stream().map(com.tripbora.model.CountryCategory::getId)
+                .collect(java.util.stream.Collectors.toSet()) : java.util.Set.of();
+        LinkedHashSet<Long> ordered = new LinkedHashSet<>();
+        for (CourseItemForm item : items) {
+            Long itemCountry = item.getDestinationId() == null ? item.getCountryId() : linkedCountries.get(item.getDestinationId());
+            if (item.getDestinationId() == null && !allowedDirectCountries.contains(itemCountry)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직접 일정의 유효한 국가를 선택해 주세요.");
+            }
+            ordered.add(itemCountry);
         }
-        return actualCountryId;
+        return ordered.iterator().next();
     }
 
     private Course requireOwnedActiveCourse(Course course, Long userId) {

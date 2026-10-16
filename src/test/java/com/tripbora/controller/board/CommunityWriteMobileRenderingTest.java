@@ -3,6 +3,7 @@ package com.tripbora.controller.board;
 import com.tripbora.config.CustomLoginSuccessHandler;
 import com.tripbora.config.CustomLogoutSuccessHandler;
 import com.tripbora.config.SecurityConfig;
+import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.controller.course.CourseController;
 import com.tripbora.controller.post.PostController;
 import com.tripbora.dto.CourseEditDto;
@@ -77,14 +78,18 @@ class CommunityWriteMobileRenderingTest {
     void courseWriteAndEditKeepServerCountriesInitialStopsAndSaveFields() throws Exception {
         CountryCategory domestic = new CountryCategory();
         domestic.setId(7L);
+        domestic.setCode("KR");
         domestic.setRegionName("대한민국");
         CountryCategory overseas = new CountryCategory();
         overseas.setId(8L);
+        overseas.setCode("JP");
         overseas.setRegionName("일본");
         overseas.setParentId(1L);
-        when(countryCategoryService.getCourseCountries()).thenReturn(List.of(domestic, overseas));
+        when(courseService.getCourseCountries(SupportedLanguage.KOREAN)).thenReturn(List.of(domestic, overseas));
         var write = Jsoup.parse(render("/course/write", "course-write"));
-        assertThat(write.selectFirst("[data-country-scope=domestic]").attr("data-country-id")).isEqualTo("7");
+        assertThat(write.select("[data-course-country]").eachAttr("data-country-id")).containsExactly("7", "8");
+        assertThat(write.select("[data-course-country]").eachAttr("data-country-code")).containsExactly("KR", "JP");
+        assertThat(write.select("#course-country-id, input[name=countryId], [data-country-scope]")).isEmpty();
         assertThat(write.selectFirst("#course-form").attr("action")).isEqualTo("/course/write");
         assertThat(write.selectFirst("#course-title").attr("name")).isEqualTo("title");
         for (long countryId : List.of(7L, 8L)) {
@@ -110,7 +115,9 @@ class CommunityWriteMobileRenderingTest {
             assertThat(edit.select("[data-initial-destination]").eachAttr("data-destination-id")).containsExactly("3", "1");
             assertThat(edit.select("[data-initial-day]").eachAttr("data-day-id")).containsExactly("50", "51");
             assertThat(edit.selectFirst("[data-initial-day]").attr("data-title")).isEqualTo("첫날 일정");
-            assertThat(edit.selectFirst("#course-country-id").val()).isEqualTo(String.valueOf(countryId));
+            assertThat(edit.select("[data-initial-destination]").eachAttr("data-country-id"))
+                    .containsExactly(String.valueOf(countryId), String.valueOf(countryId));
+            assertThat(edit.select("#course-country-id, input[name=countryId], [data-country-scope]")).isEmpty();
             assertThat(edit.selectFirst("#course-title").val()).isEqualTo(course.getTitle());
             assertThat(edit.selectFirst("#initial-content").val()).isEqualTo(CONTENT);
             assertThat(edit.selectFirst("#course-form").attr("action")).isEqualTo("/course/10/edit");

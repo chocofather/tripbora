@@ -77,7 +77,7 @@ class CourseDetailI18nContractTest {
                 .contains("th:utext=\"${course.content}\"")
                 .contains("th:text=\"${course.nickname}\"")
                 .contains("th:text=\"${stop.name}\"")
-                .contains("th:text=\"${stop.regionName}\"");
+                .contains("th:text=\"${stop.locationLabel}\"");
     }
 
     @Test

@@ -100,12 +100,13 @@ class BoardListSqlContractTest {
     }
 
     @Test
-    void domesticCourseScopeFiltersOnTheCoursesTable() throws IOException {
+    void domesticCourseScopeMatchesAnyDeclaredCountryWithLegacyFallback() throws IOException {
         String sql = listSql(params("course", null, "domestic", null, "latest"));
 
         assertThat(sql).contains("country.id = c.country_id");
         assertThat(sql).contains("country.parent_id IS NULL");
         assertThat(sql).doesNotContain("board.countryId");
+        assertCountryMembership(sql);
     }
 
     @Test
@@ -118,6 +119,28 @@ class BoardListSqlContractTest {
                 .contains("country.code NOT LIKE '%-%'")
                 .doesNotContain("AND country.id = ?");
         assertThat(withCountry).contains("AND country.id = ?");
+        assertCountryMembership(withoutCountry);
+        assertCountryMembership(withCountry);
+    }
+
+    @Test
+    void countryMembershipIsIdenticalForListAndCountAndNeverJoinsOuterCourseRows() throws IOException {
+        for (String scope : List.of("domestic", "overseas")) {
+            for (Long countryId : List.of(38L, 39L)) {
+                Map<String, Object> parameters = params("course", null, scope, countryId, "latest");
+                String list = listSql(parameters);
+                String count = countSql(parameters);
+                assertCountryMembership(list);
+                assertCountryMembership(count);
+                assertThat(countryFilterOf(list)).isEqualTo(countryFilterOf(count));
+                assertThat(list).doesNotContain("JOIN course_countries");
+                assertThat(count).doesNotContain("JOIN course_countries");
+            }
+        }
+        assertThat(listSql(params("course", null, "all", null, "latest")))
+                .doesNotContain("course_countries");
+        assertThat(countSql(countParams("course", null, "all", null)))
+                .doesNotContain("course_countries");
     }
 
     @Test
@@ -271,6 +294,22 @@ class BoardListSqlContractTest {
     }
 
     // ---------- 도우미 ----------
+
+    private void assertCountryMembership(String sql) {
+        assertThat(sql).contains("EXISTS (SELECT 1 FROM course_countries course_country"
+                + " WHERE course_country.course_id = c.id AND course_country.country_id = country.id)");
+        assertThat(sql).contains("OR (NOT EXISTS (SELECT 1 FROM course_countries declared_country"
+                + " WHERE declared_country.course_id = c.id) AND country.id = c.country_id)");
+    }
+
+    private String countryFilterOf(String sql) {
+        int start = sql.indexOf("AND EXISTS (SELECT 1 FROM country_categories country");
+        assertThat(start).isGreaterThanOrEqualTo(0);
+        int end = sql.indexOf(" ORDER BY", start);
+        if (end < 0) end = sql.length();
+        // 목록의 파생 테이블 닫힘은 필터 바깥이다.
+        return sql.substring(start, end).replaceFirst("\\) board$", "").trim();
+    }
 
     private Map<String, Object> params(String boardType, String postType,
                                        String scope, Long countryId, String sort) {

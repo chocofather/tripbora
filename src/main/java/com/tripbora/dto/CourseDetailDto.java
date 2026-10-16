@@ -21,9 +21,14 @@ public class CourseDetailDto {
     private Integer views;
     private List<CourseStopDto> stops;
     private List<CourseDayDto> days;
+    private List<String> countryNames;
     private String coverImageUrl;
     private String representativeImageUrl;
     private boolean myCourse;
     private boolean bookmarked;
     private boolean translationAvailable;
+
+    public String getCountryLabel() {
+        return CourseCountryLabel.of(countryNames);
+    }
 }

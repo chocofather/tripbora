@@ -15,6 +15,31 @@ class CourseTimelineUiContractTest {
     private static final Path RESOURCES = Path.of("src/main/resources");
 
     @Test
+    void mapLinkUsesCentralizedOutboundUrlWithoutInlineMapAssets() throws IOException {
+        var fragment = Jsoup.parse(resource("templates/course/fragments/item-map.html"));
+        var trigger = fragment.selectFirst("a.course-map-link");
+        assertThat(trigger).isNotNull();
+        assertThat(trigger.text()).isEqualTo("지도에서 보기 ↗");
+        assertThat(trigger.attr("target")).isEqualTo("_blank");
+        assertThat(trigger.attr("rel")).isEqualTo("noopener noreferrer");
+        assertThat(trigger.attr("th:href")).isEqualTo("${stop.googleMapsUrl}");
+        assertThat(trigger.hasAttr("aria-expanded")).isFalse();
+        assertThat(fragment.select("button, .course-inline-map, .course-location-canvas, iframe")).isEmpty();
+        assertThat(fragment.selectFirst("[th:fragment]").attr("th:if"))
+                .isEqualTo("${stop.googleMapsUrl != null}");
+        String css = resource("static/css/course-detail.css");
+        int start = css.indexOf(".course-detail-container .course-map-link {");
+        assertThat(start).isNotNegative();
+        String triggerRules = css.substring(start, css.indexOf('}', start));
+        assertThat(triggerRules).contains("border: 0", "background: transparent", "text-decoration: underline")
+                .doesNotContain("border: 1px", "min-height: 36px");
+        assertThat(css).contains(".course-detail-container .course-map-link:focus-visible");
+        assertThat(resource("templates/course/detail.html"))
+                .doesNotContain("/js/map-init.js", "/js/course-location.js", "courseGoogleMapsApiKey", "data-course-map-config");
+        assertThat(resource("static/js/course-detail.js")).doesNotContain("CourseLocation", "kakao", "relayoutVisible");
+    }
+
+    @Test
     void dayFilterEnhancesReadableDaysAndHeroUsesTheExistingRepresentativeImage() throws IOException {
         var document = Jsoup.parse(resource("templates/course/detail.html"));
         var nav = document.selectFirst("[data-course-day-nav]");
@@ -79,7 +104,7 @@ class CourseTimelineUiContractTest {
                 .contains("'/images/default.png'")
                 .contains("th:text=\"${stop.name}\"")
                 .contains("stop.shortDescription")
-                .contains("th:text=\"${stop.regionName}\"")
+                .contains("th:text=\"${stop.locationLabel}\"")
                 .doesNotContain("stopStat")
                 .doesNotContain("course-stop--left")
                 .doesNotContain("course-stop--right")

@@ -95,10 +95,18 @@ class BoardMapperContractTest {
         assertThat(between(mapper, "<sql id=\"publicCourseBranch\"", "</sql>"))
                 .contains("<include refid=\"courseCountryFilters\"/>");
         assertThat(countQuery).contains("<include refid=\"courseCountryFilters\"/>");
-        // 조건은 파생 테이블이 아니라 courses 를 바로 본다.
+        // 포함 국가 membership을 먼저 확인하고 선언 행이 없을 때만 legacy 국가를 쓴다.
         assertThat(filters)
-                .contains("country.id = c.country_id")
+                .contains("<include refid=\"courseCountryMembership\"/>")
                 .doesNotContain("board.countryId");
+        assertThat(between(mapper, "<sql id=\"courseCountryMembership\"", "</sql>"))
+                .contains("FROM course_countries course_country")
+                .contains("course_country.course_id = c.id")
+                .contains("course_country.country_id = country.id")
+                .contains("NOT EXISTS (")
+                .contains("FROM course_countries declared_country")
+                .contains("declared_country.course_id = c.id")
+                .contains("AND country.id = c.country_id");
     }
 
     private String resource(String path) throws IOException {

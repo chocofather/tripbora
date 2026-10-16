@@ -25,6 +25,17 @@ class CourseStructureMapperContractTest {
     }
 
     @Test
+    void countriesReadOrderedSetWithLegacyFallbackAndSyncLegacyFromFirstCountry() throws Exception {
+        String read = sql("findCountries", Map.of("courseId", 10L));
+        assertThat(read).contains("FROM course_countries countries", "countries.course_id = ?",
+                "NOT EXISTS (SELECT 1 FROM course_countries existing WHERE existing.course_id = course.id)",
+                "ORDER BY display_order ASC, id ASC");
+        String write = sql("syncLegacyCountry", Map.of("courseId", 10L));
+        assertThat(write).contains("UPDATE courses SET country_id", "FROM course_countries",
+                "WHERE course_id = ? ORDER BY display_order ASC LIMIT 1", "WHERE id = ?");
+    }
+
+    @Test
     void everyMapperMethodIsBoundAndDayAndItemIdsAreGenerated() throws Exception {
         Configuration config = configuration();
         for (var method : CourseStructureMapper.class.getMethods()) {
@@ -69,6 +80,8 @@ class CourseStructureMapperContractTest {
         String sql = sql("findCourseStops", Map.of("courseId", 10L));
         assertThat(sql).contains("FROM course_days day", "JOIN course_items item",
                 "LEFT JOIN destinations d", "item.place_name", "item.country_id",
+                "item.address", "item.latitude", "item.longitude", "country.code AS country_code",
+                "d.google_place_id", "region.region_name",
                 "TIME_FORMAT(item.start_time, '%H:%i')", "item.memo",
                 "ORDER BY day.day_number ASC, item.display_order ASC, item.id ASC");
         assertThat(sql).doesNotContain("course_destinations", "updated_at");

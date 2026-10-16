@@ -44,10 +44,11 @@ class CourseTransitionTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(structure.syncLegacyCountry(anyLong())).thenReturn(1);
         transition = new CourseStructureService(structure);
         service = new CourseServiceImpl(legacy, new PostContentSanitizer(), localization,
                 referenceNames, new LocalContentLanguageDetector(), images, transition,
-                mock(CourseCoverStorageService.class));
+                mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class));
     }
 
     @Test
@@ -124,6 +125,7 @@ class CourseTransitionTest {
         sequence.verify(structure, times(4)).insertItem(any());
         sequence.verify(structure).deleteCountries(10L);
         sequence.verify(structure).insertCountry(any());
+        sequence.verify(structure).syncLegacyCountry(10L);
     }
 
     @Test
@@ -161,7 +163,6 @@ class CourseTransitionTest {
         sources.get(1).setLongitude(null);
         sources.get(2).setLatitude(new BigDecimal("91"));
         sources.get(3).setPlaceName(null);
-        sources.get(3).setCountryId(null);
         when(structure.findDays(10L)).thenReturn(List.of(storedDay(50L, 1)));
         when(structure.updateDay(any())).thenReturn(1);
         when(structure.findDestinationSnapshots(anyList())).thenReturn(sources);
@@ -183,7 +184,7 @@ class CourseTransitionTest {
             assertThat(items.getAllValues().get(i).getLongitude()).isNull();
         }
         assertThat(items.getAllValues().get(3).getPlaceName()).isNull();
-        assertThat(items.getAllValues().get(3).getCountryId()).isNull();
+        assertThat(items.getAllValues().get(3).getCountryId()).isEqualTo(7L);
         assertThat(items.getAllValues()).allSatisfy(item -> {
             assertThat(item.getAddress()).isNull();
             assertThat(item.getStartTime()).isNull();
@@ -205,10 +206,10 @@ class CourseTransitionTest {
         when(structure.findCourseStops(10L)).thenReturn(List.of(stop, unlinked));
 
         assertThat(service.getCourseDetail(10L, null, SupportedLanguage.KOREAN).getStops())
-                .containsExactly(stop);
+                .containsExactly(stop, unlinked);
         verify(legacy, never()).findCourseStops(anyLong());
         when(structure.findCourseStops(10L)).thenReturn(List.of(unlinked));
-        assertThat(service.getCourseDetail(10L, null, SupportedLanguage.KOREAN).getStops()).isEmpty();
+        assertThat(service.getCourseDetail(10L, null, SupportedLanguage.KOREAN).getStops()).containsExactly(unlinked);
         verify(legacy, never()).findCourseStops(anyLong());
     }
 

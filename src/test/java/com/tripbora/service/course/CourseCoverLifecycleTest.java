@@ -42,7 +42,8 @@ class CourseCoverLifecycleTest {
         files = new FileUploadService(root.toString());
         covers = new CourseCoverStorageService(files);
         service = new CourseServiceImpl(mapper, new PostContentSanitizer(), null, null,
-                new LocalContentLanguageDetector(), null, structure, covers);
+                new LocalContentLanguageDetector(), null, structure, covers,
+                mock(com.tripbora.service.category.CountryCategoryService.class));
         transaction = new TransactionTemplate(new CourseTransitionTest.RecordingTransactionManager());
         when(mapper.countExistingDestinations(List.of(12L))).thenReturn(1);
         CourseDestinationCountryDto destination = new CourseDestinationCountryDto();
@@ -80,7 +81,7 @@ class CourseCoverLifecycleTest {
                 mock(com.tripbora.service.destination.DestinationLocalizationService.class),
                 mock(com.tripbora.service.category.ReferenceNameLocalizationService.class),
                 new LocalContentLanguageDetector(), mock(com.tripbora.service.destination.DestinationImageService.class),
-                structure, covers);
+                structure, covers, mock(com.tripbora.service.category.CountryCategoryService.class));
         assertThat(service.getCourseForEdit(10L, 5L, SupportedLanguage.KOREAN).getCoverImageUrl())
                 .isEqualTo(current.getCoverImageUrl());
     }

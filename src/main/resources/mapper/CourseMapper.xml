@@ -32,6 +32,10 @@
         <result property="regionName" column="region_name"/>
         <result property="countryId" column="country_id"/>
         <result property="countryName" column="country_name"/>
+        <result property="countryCode" column="country_code"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="googlePlaceId" column="google_place_id"/>
         <result property="imageUrl" column="image_url"/>
     </resultMap>
 
@@ -226,6 +230,8 @@
             cc.region_name AS region_name,
             course.country_id AS country_id,
             country.region_name AS country_name,
+            country.code AS country_code,
+            d.latitude, d.longitude, d.google_place_id,
             COALESCE(
                 (
                     SELECT di.image_url

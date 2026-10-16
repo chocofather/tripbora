@@ -22,6 +22,8 @@ public interface CourseStructureMapper {
     int insertItem(CourseItem item);
     int deleteCountries(@Param("courseId") Long courseId);
     int insertCountry(CourseCountry country);
+    int syncLegacyCountry(@Param("courseId") Long courseId);
+    List<com.tripbora.model.CountryCategory> findCountries(@Param("courseId") Long courseId);
     List<CourseDestinationSnapshotDto> findDestinationSnapshots(
             @Param("destinationIds") List<Long> destinationIds);
     List<CourseStopDto> findDayOneStops(@Param("courseId") Long courseId);

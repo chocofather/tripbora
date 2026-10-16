@@ -40,6 +40,8 @@ public class CourseController {
         binder.setAutoGrowCollectionLimit(90);
         binder.setAllowedFields("title", "content", "countryId", "coverImage", "removeCoverImage", "days[*].id", "days[*].dayNumber",
                 "days[*].title", "days[*].items[*].destinationId", "days[*].items[*].displayOrder",
+                "days[*].items[*].itemType", "days[*].items[*].countryId", "days[*].items[*].placeName", "days[*].items[*].address",
+                "days[*].items[*].latitude", "days[*].items[*].longitude",
                 "days[*].items[*].startTime", "days[*].items[*].memo");
     }
 
@@ -120,7 +122,8 @@ public class CourseController {
     }
 
     private void addCourseCountries(Model model) {
-        List<CountryCategory> countries = countryCategoryService.getCourseCountries();
+        List<CountryCategory> countries = courseService.getCourseCountries(requestedLanguage());
+        model.addAttribute("courseCountries", countries);
         model.addAttribute("domesticCourseCountries", countries.stream()
                 .filter(country -> country.getParentId() == null)
                 .toList());

@@ -1,0 +1,81 @@
+/* 저장된 일정 카드와 편집기에만 적용한다. 타입 토큰과 배지 색은 이 파일에서 관리한다. */
+.tp-item-card { --tp-type-bg: #fff; --tp-type-ink: #667085; --tp-type-border: #e9edf2; min-width: 0; overflow-wrap: anywhere; }
+.tp-item-card[hidden] { display: none !important; }
+.tp-item-card[data-type="SCHEDULE"] { --tp-type-ink: #8061ae; }
+.tp-item-card[data-type="FLIGHT"] { --tp-type-bg: #eff7fd; --tp-type-ink: #42779b; --tp-type-border: #dfedf8; }
+.tp-item-card[data-type="ACCOMMODATION"] { --tp-type-bg: #fcf8ed; --tp-type-ink: #957735; --tp-type-border: #f0e8d2; }
+.tp-item-card[data-type="TRANSPORT"] { --tp-type-bg: #edf8f5; --tp-type-ink: #4d8c7b; --tp-type-border: #dcefe8; }
+.tp-item-card[data-type="MEAL"] { --tp-type-ink: #ad7860; }
+.tp-item-card[data-type="SIGHTSEEING"] { --tp-type-ink: #83719d; }
+.tp-item-card[data-type="NOTE"] { --tp-type-ink: #748299; }
+.tp-item-card[data-type="FLIGHT"], .tp-item-card[data-type="ACCOMMODATION"], .tp-item-card[data-type="TRANSPORT"] { padding: 10px 12px; border: 1px solid var(--tp-type-border); border-radius: 8px; background: var(--tp-type-bg); }
+.tp-item-card-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tp-type-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--tp-type-ink); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.tp-type-badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.tp-card-time { flex-shrink: 0; color: #728093; font-size: 11px; font-variant-numeric: tabular-nums; }
+.tp-card-edit { flex-shrink: 0; margin-left: auto; border: 0; padding: 3px 2px 3px 6px; background: transparent; color: #798595; font: inherit; font-size: 11px; cursor: pointer; }
+.tp-card-edit-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tp-card-edit:hover { color: #354760; }
+.tp-card-edit::after { content: "⌄"; font-size: 16px; }
+.tp-card-edit[aria-expanded="true"]::after { content: "⌃"; }
+.tp-item-card .tp-card-title { flex: 1; min-width: 0; margin: 0; color: #344155; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.tp-card-details { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 11px; color: #4b5a6d; }
+.tp-card-details:empty { display: none; }
+.tp-card-reference { font-size: 11px; color: var(--tp-type-ink); }
+.tp-card-route { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tp-card-route > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.tp-card-route strong { font-size: 11px; font-weight: 500; }
+.tp-card-route span { font-size: 11px; color: #7d8794; }
+.tp-item-card .tp-card-note, .tp-item-card .tp-card-booking { margin: 4px 0 0; color: #7a8594; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+.tp-card-map { display: inline-block; margin-top: 7px; color: #7d8997; font-size: 11px; text-decoration: none; }
+.tp-card-map:hover { text-decoration: underline; }
+.tp-item-card [hidden], .travel-plan-item-editor [hidden], .travel-plan-slot-form [hidden], .tp-overview-editor-host[hidden] { display: none !important; }
+.is-planning .travel-plan-item-editor, .is-planning .travel-plan-slot-form { min-width: 0; box-sizing: border-box; border: 1px solid #e5eaf0; border-radius: 8px; background: #fafbfd; padding: 12px; }
+.is-planning form[data-editor-type="FLIGHT"] { background: #eff7fd; border-color: #dfedf8; }
+.is-planning form[data-editor-type="ACCOMMODATION"] { background: #fcf8ed; border-color: #f0e8d2; }
+.is-planning form[data-editor-type="TRANSPORT"] { background: #edf8f5; border-color: #dcefe8; }
+.is-planning .travel-plan-item-editor[hidden], .is-planning .travel-plan-slot-form[hidden] { display: none !important; }
+.is-planning .travel-plan-item-editor label, .is-planning .travel-plan-slot-form label { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: #7b8796; font-size: 11px; }
+.is-planning .travel-plan-item-editor input:not([type="hidden"]), .is-planning .travel-plan-slot-form input:not([type="hidden"]), .is-planning .travel-plan-item-editor textarea, .is-planning .travel-plan-slot-form textarea { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #e3e8ef; border-radius: 6px; background: #fff; color: #354358; padding: 9px 10px; font: inherit; font-size: 13px; line-height: 1.5; outline: none; }
+.is-planning .travel-plan-item-editor input:focus, .is-planning .travel-plan-slot-form input:focus, .is-planning .travel-plan-item-editor textarea:focus, .is-planning .travel-plan-slot-form textarea:focus { border-color: #afc6dd; }
+.tp-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.tp-editor-grid:first-of-type { margin-top: 0; }
+.tp-editor-datetime { min-width: 0; margin: 0; padding: 0; border: 0; }
+.tp-editor-datetime legend { margin-bottom: 4px; padding: 0; color: #7b8796; font-size: 11px; }
+.tp-editor-datetime > div { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 6px; }
+.is-planning .tp-editor-datetime input { padding: 8px 6px; }
+.tp-editor-wide { grid-column: 1 / -1; }
+.tp-editor-note, .tp-editor-booking { margin-top: 8px; }
+.is-planning .tp-item-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.is-planning .tp-item-editor-actions > span { margin-right: auto; font-size: 10px; color: #98a1ad; }
+.is-planning .tp-item-editor-actions button { border: 1px solid #dfe5ec; background: #fff; color: #63738a; border-radius: 5px; padding: 5px 11px; font-size: 11px; cursor: pointer; }
+.is-planning .tp-item-editor-actions button[type="submit"] { background: #657e9b; border-color: #657e9b; color: #fff; }
+.is-planning .tp-item-add-types { display: flex; gap: 8px; flex-wrap: wrap; }
+.is-planning .tp-item-add-type { border: 1px solid #e8edf2; background: #fff; padding: 5px 10px; border-radius: 5px; color: #8a96a5; font: inherit; font-size: 11px; cursor: pointer; }
+.is-planning .travel-plan-line.is-slot.is-editing .tp-item-add-types { display: none; }
+.is-planning .travel-plan-line.is-slot { flex-wrap: wrap; }
+.is-planning .travel-plan-slot-form { flex: 1 1 0; }
+.tp-planner-summary-items { display: grid; gap: 6px; margin: 8px 0 4px; }
+.tp-overview-item { min-width: 0; }
+.tp-overview-item .tp-card-title { font-size: 13px; }
+.tp-overview-item .tp-card-note, .tp-overview-item .tp-card-booking { display: none; }
+.tp-overview-editor-host { margin-top: 8px; }
+.tp-overview-editor-host:empty { margin-top: 0; }
+.tp-summary-add-types { margin-top: 8px; }
+.tp-draft-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 6px 2px; }
+.tp-draft-state { color: #8893a1; font-size: 11px; }
+.tp-draft-summary { padding: 8px 0; }
+.tp-draft-heading[data-type="SCHEDULE"] { --tp-type-ink: #8061ae; }
+.tp-draft-heading[data-type="FLIGHT"] { --tp-type-ink: #42779b; }
+.tp-draft-heading[data-type="ACCOMMODATION"] { --tp-type-ink: #957735; }
+.tp-draft-heading[data-type="TRANSPORT"] { --tp-type-ink: #4d8c7b; }
+.is-planning .travel-plan-line.is-item:hover { background: #fff; }
+.tp-item-card-heading .tp-card-map { margin-top: 0; }
+@media (max-width: 540px) {
+  .tp-item-card[data-type="FLIGHT"], .tp-item-card[data-type="ACCOMMODATION"], .tp-item-card[data-type="TRANSPORT"] { padding: 9px 10px; }
+  .tp-item-card-heading { gap: 6px; }
+  .tp-card-route { gap: 6px; }
+  .tp-editor-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .is-planning .travel-plan-item-editor, .is-planning .travel-plan-slot-form { padding: 12px; }
+  .is-planning .tp-item-editor-actions > span { flex-basis: 100%; }
+}

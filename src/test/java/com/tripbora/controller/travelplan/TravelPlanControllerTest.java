@@ -92,6 +92,48 @@ class TravelPlanControllerTest {
     private UserMapper userMapper;
 
     @Test
+    void ajaxEmptyTypedCardReturnsThePersistedItemId() throws Exception {
+        when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "MOVE")).thenReturn(500L);
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "MOVE"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(content().json("{\"itemId\":500}"));
+        verify(travelPlanService).addEmptyTypedItem(7L, 42L, 100L, "MOVE");
+        verify(travelPlanService, never()).addItem(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void normalEmptyTypedCardRequestRedirectsToTheDay() throws Exception {
+        when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "STAY")).thenReturn(500L);
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .param("emptyCard", "true").param("itemType", "STAY"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/travel-plans/42#day-100"));
+    }
+
+    @Test
+    void emptyTypedCardRequestStillRequiresCsrf() throws Exception {
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member()))
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "FLIGHT"))
+                .andExpect(status().isForbidden());
+        verify(travelPlanService, never()).addEmptyTypedItem(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void invalidAjaxEmptyCardReturnsTheExistingValidationResponse() throws Exception {
+        when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "NOTE"))
+                .thenThrow(new TravelPlanValidationException("content", "Unsupported card type"));
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "NOTE"))
+                .andExpect(status().isConflict())
+                .andExpect(content().string("Unsupported card type"));
+    }
+
+    @Test
     void loggedInUserGetsAnEmptyCreateForm() throws Exception {
         mockMvc.perform(get("/travel-plans/new").with(user(member())))
                 .andExpect(status().isOk())
@@ -974,6 +1016,152 @@ class TravelPlanControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(travelPlanService, never()).addItem(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void typedItemCreationAndUpdateKeepTheExistingRoutesAndVersion() throws Exception {
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .param("content", "공항\n터미널 확인").param("itemType", "FLIGHT").param("startTime", "09:30"))
+                .andExpect(redirectedUrl("/travel-plans/42#day-100"));
+        verify(travelPlanService).addTypedItem(7L, 42L, 100L, "공항\n터미널 확인", "FLIGHT", "09:30");
+        mockMvc.perform(post("/travel-plans/42/days/100/items/500/update").with(user(member())).with(csrf())
+                        .param("content", "숙소").param("version", "3").param("itemType", "ACCOMMODATION").param("startTime", "15:00"))
+                .andExpect(redirectedUrl("/travel-plans/42#day-100"));
+        verify(travelPlanService).updateTypedItem(7L, 42L, 100L, 500L, "숙소", 3, "ACCOMMODATION", "15:00");
+    }
+
+    @Test
+    void flightAndStayNestedFieldsUseStructuredOverloadsWhileLegacyRequestsStayUnchanged() throws Exception {
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .param("content", "항공\n메모").param("itemType", "FLIGHT").param("startTime", "09:30")
+                        .param("details.flightNumber", "KE123").param("details.departureDate", "2026-10-18")
+                        .param("details.departureTime", "09:30"))
+                .andExpect(redirectedUrl("/travel-plans/42#day-100"));
+        var created = org.mockito.ArgumentCaptor.forClass(com.tripbora.model.TravelPlanItemDetails.class);
+        verify(travelPlanService).addTypedItem(eq(7L), eq(42L), eq(100L), eq("항공\n메모"), eq("FLIGHT"), eq("09:30"), created.capture());
+        assertThat(created.getValue().getFlightNumber()).isEqualTo("KE123");
+        assertThat(created.getValue().getDepartureDate()).isEqualTo("2026-10-18");
+        mockMvc.perform(post("/travel-plans/42/days/100/items/500/update").with(user(member())).with(csrf())
+                        .param("content", "숙소").param("version", "3").param("itemType", "ACCOMMODATION").param("startTime", "15:00")
+                        .param("details.stayName", "서울 호텔").param("details.bookingMemo", "조식 포함"))
+                .andExpect(redirectedUrl("/travel-plans/42#day-100"));
+        var updated = org.mockito.ArgumentCaptor.forClass(com.tripbora.model.TravelPlanItemDetails.class);
+        verify(travelPlanService).updateTypedItem(eq(7L), eq(42L), eq(100L), eq(500L), eq("숙소"), eq(3),
+                eq("ACCOMMODATION"), eq("15:00"), updated.capture());
+        assertThat(updated.getValue().getStayName()).isEqualTo("서울 호텔");
+        assertThat(updated.getValue().getBookingMemo()).isEqualTo("조식 포함");
+    }
+
+    @Test
+    void typedItemsRenderEscapedContentAndKeepTheirDayMapping() throws Exception {
+        var detail = planDetail();
+        var item = new com.tripbora.model.TravelPlanItem();
+        item.setId(500L);
+        item.setTravelPlanDayId(100L);
+        item.setDisplayOrder(1);
+        item.setVersion(0);
+        item.setContent("<script>alert(1)</script>\n터미널 확인");
+        item.setTag("FLIGHT");
+        item.setStartTime(java.time.LocalTime.of(9, 30));
+        detail.setItemsByDayId(Map.of(100L, List.of(item)));
+        when(travelPlanService.getActivePlanDetail(7L, 42L)).thenReturn(detail);
+        String html = mockMvc.perform(get("/travel-plans/42").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        var rendered = doc.selectFirst("#day-100 [data-travel-plan-item]");
+        assertThat(rendered).isNotNull();
+        assertThat(rendered.attr("data-item-type")).isEqualTo("FLIGHT");
+        assertThat(rendered.attr("data-start-time")).isEqualTo("09:30");
+        assertThat(rendered.selectFirst("[data-travel-plan-item-form]").hasAttr("hidden")).isTrue();
+        assertThat(rendered.select("select")).isEmpty();
+        assertThat(rendered.selectFirst("[name='details.departureTime']").val()).isEqualTo("09:30");
+        assertThat(rendered.select("[data-travel-plan-item-content] script")).isEmpty();
+        assertThat(rendered.selectFirst("[data-travel-plan-item-content]").wholeText())
+                .isEqualTo("<script>alert(1)</script>\n터미널 확인");
+        assertThat(doc.selectFirst("[data-planner-summary='100'] .tp-card-title").wholeText())
+                .isEqualTo("<script>alert(1)</script>");
+    }
+
+    @Test
+    void blankRowsRenderInsideOneBarAndDayTitleIsAnInlineControl() throws Exception {
+        var detail = planDetail();
+        detail.getDays().get(0).setTitle("난바 체크인 뒤 도톤보리");
+        detail.getDays().get(0).setTitleVersion(3);
+        var items = new java.util.ArrayList<com.tripbora.model.TravelPlanItem>();
+        String[] types = {"SCHEDULE", "FLIGHT", "ACCOMMODATION", "TRANSPORT"};
+        for (int i = 0; i < types.length; i++) {
+            var item = new com.tripbora.model.TravelPlanItem();
+            item.setId(700L + i); item.setTravelPlanDayId(100L); item.setDisplayOrder(i + 1);
+            item.setVersion(0); item.setTag(types[i]); item.setContent("");
+            items.add(item);
+        }
+        detail.setItemsByDayId(Map.of(100L, items));
+        when(travelPlanService.getActivePlanDetail(7L, 42L)).thenReturn(detail);
+        String html = mockMvc.perform(get("/travel-plans/42").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        assertThat(doc.selectFirst("#day-100 .tp-detail-day-tile").attr("aria-label")).isEqualTo("DAY 1");
+        assertThat(doc.selectFirst("#day-100 .tp-detail-day-tile strong").text()).isEqualTo("1");
+        assertThat(doc.selectFirst("#day-100 [data-day-title-edit]").text()).isEqualTo("난바 체크인 뒤 도톤보리");
+        assertThat(doc.selectFirst("#day-100 [data-day-title-form][hidden] [name=titleVersion]").val()).isEqualTo("3");
+        for (int i = 0; i < types.length; i++) {
+            var row = doc.selectFirst("#day-100 [data-item-id='" + (700 + i) + "']");
+            var bar = row.selectFirst(".tp-detail-item-shell");
+            assertThat(bar.attr("data-type")).isEqualTo(types[i]);
+            assertThat(bar.select("[data-item-drag-handle], .travel-plan-line-order, .tp-detail-item-view, [data-travel-plan-menu-button]"))
+                    .hasSize(3);
+            assertThat(bar.select("[data-travel-plan-menu-button], [data-travel-plan-menu-list]")).isEmpty();
+            assertThat(bar.select("[data-travel-plan-item-form][hidden]")).hasSize(1);
+            var editor = bar.selectFirst("[data-travel-plan-item-form][hidden]");
+            assertThat(editor.selectFirst("[data-item-editor-delete]").attr("formaction")).endsWith("/delete");
+            assertThat(editor.select("input[name=_csrf]")).hasSize(1);
+            assertThat(bar.select("[data-travel-plan-reorder-forms][hidden] form")).hasSize(2);
+            assertThat(bar.selectFirst(".tp-detail-item-title").text()).isNotBlank();
+            if (i > 0) assertThat(bar.text()).contains("날짜 미정");
+        }
+        assertThat(doc.select("[data-planner-summary='100'] .tp-overview-item .tp-item-card")).hasSize(3);
+        assertThat(doc.select("[data-planner-summary='100'] .tp-detail-item-shell")).isEmpty();
+    }
+
+    @Test
+    void persistedFlightAndStayDetailsRenderInsideClosedEditorsAndPastelCards() throws Exception {
+        var detail = planDetail();
+        var flight = new com.tripbora.model.TravelPlanItem();
+        flight.setId(501L); flight.setTravelPlanDayId(100L); flight.setDisplayOrder(1); flight.setVersion(2);
+        flight.setTag("FLIGHT"); flight.setContent("대한항공 KE123\n예약 확인");
+        var air = new com.tripbora.model.TravelPlanItemDetails();
+        air.setFlightNumber("대한항공 KE123"); air.setDeparturePlace("인천"); air.setArrivalPlace("간사이");
+        air.setDepartureDate("2026-12-31"); air.setDepartureTime("09:30"); air.setArrivalTime("11:20");
+        flight.setDetails(air);
+        var stay = new com.tripbora.model.TravelPlanItem();
+        stay.setId(502L); stay.setTravelPlanDayId(100L); stay.setDisplayOrder(2); stay.setVersion(0);
+        stay.setTag("ACCOMMODATION"); stay.setContent("오사카 호텔\n체크인 안내");
+        stay.setStartTime(java.time.LocalTime.of(15, 0));
+        var hotel = new com.tripbora.model.TravelPlanItemDetails();
+        hotel.setStayName("오사카 호텔"); hotel.setCheckInDate("2026-12-31"); hotel.setCheckOutDate("2027-01-02");
+        hotel.setAddress("오사카"); hotel.setBookingMemo("조식 포함");
+        stay.setDetails(hotel);
+        detail.setItemsByDayId(Map.of(100L, List.of(flight, stay)));
+        when(travelPlanService.getActivePlanDetail(7L, 42L)).thenReturn(detail);
+        String html = mockMvc.perform(get("/travel-plans/42").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        var card = doc.selectFirst("#day-100 [data-item-id='501'] [data-item-view]");
+        assertThat(card.attr("data-type")).isEqualTo("FLIGHT");
+        assertThat(card.text()).contains("인천", "간사이", "09:30");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='501'] [name='details.arrivalTime']").val()).isEqualTo("11:20");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='502'] [name='details.checkInTime']").val()).isEqualTo("15:00");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='502'] [data-item-view]").text())
+                .contains("오사카 호텔", "2026-12-31");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='502'] [name='details.checkOutDate']").val()).isEqualTo("2027-01-02");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='502'] input[type=hidden][name='details.bookingMemo']").val())
+                .isEqualTo("조식 포함");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='502'] input[type=hidden][name='details.address']").val())
+                .isEqualTo("오사카");
+        assertThat(doc.selectFirst("#day-100 [data-item-id='501'] [data-item-type-fields=ROUTE] input[name='details.departureDate']"))
+                .isNotNull();
+        assertThat(doc.select("#day-100 [data-travel-plan-item-form][hidden]")).hasSize(2);
+        assertThat(doc.select("[data-planner-summary='100'] .tp-overview-item")).hasSize(2);
     }
 
     @Test

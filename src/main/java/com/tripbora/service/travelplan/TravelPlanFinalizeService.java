@@ -259,6 +259,8 @@ public class TravelPlanFinalizeService {
                 finalItem.setFinalDayId(finalDay.getId());
                 finalItem.setContent(item.getContent());
                 finalItem.setTag(item.getTag());
+                finalItem.setStartTime(item.getStartTime());
+                finalItem.setDetails(item.getDetails());
                 finalItem.setDisplayOrder(item.getDisplayOrder());
                 requireOneRow(travelPlanFinalMapper.insertItem(finalItem));
 

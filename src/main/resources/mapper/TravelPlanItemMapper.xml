@@ -5,9 +5,15 @@
 
 <mapper namespace="com.tripbora.repository.travelplan.TravelPlanItemMapper">
 
+    <resultMap id="itemWithDetails" type="com.tripbora.model.TravelPlanItem" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="details" column="detail_json"
+                typeHandler="com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler"/>
+    </resultMap>
+
     <!-- DAY 의 A 일정 목록 -->
-    <select id="findByDayId" resultType="com.tripbora.model.TravelPlanItem">
-        SELECT id, travel_plan_day_id, content, tag, display_order,
+    <select id="findByDayId" resultMap="itemWithDetails">
+        SELECT id, travel_plan_day_id, content, tag, start_time, detail_json, display_order,
                created_by_member_id, version, created_at, updated_at
         FROM travel_plan_items
         WHERE travel_plan_day_id = #{travelPlanDayId}
@@ -15,8 +21,8 @@
     </select>
 
     <!-- 방 전체의 A 일정. DAY 수만큼 조회가 나가지 않도록 한 문장으로 읽는다 -->
-    <select id="findByPlanId" resultType="com.tripbora.model.TravelPlanItem">
-        SELECT i.id, i.travel_plan_day_id, i.content, i.tag, i.display_order,
+    <select id="findByPlanId" resultMap="itemWithDetails">
+        SELECT i.id, i.travel_plan_day_id, i.content, i.tag, i.start_time, i.detail_json, i.display_order,
                i.created_by_member_id, i.version, i.created_at, i.updated_at
         FROM travel_plan_items i
                  JOIN travel_plan_days d ON d.id = i.travel_plan_day_id
@@ -33,20 +39,22 @@
 
     <!--
       A 일정 1건 등록.
-      tag 는 아직 화면이 없어 항상 NULL 이고, version / created_at / updated_at 은 DB DEFAULT 를 쓴다.
+      tag는 일정 타입 코드, start_time은 선택 시간이다. version / created_at / updated_at은 DB DEFAULT.
     -->
     <insert id="insertItem" parameterType="com.tripbora.model.TravelPlanItem"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO travel_plan_items (
-            travel_plan_day_id, content, tag, display_order, created_by_member_id
+            travel_plan_day_id, content, tag, start_time, detail_json, display_order, created_by_member_id
         ) VALUES (
-            #{travelPlanDayId}, #{content}, #{tag}, #{displayOrder}, #{createdByMemberId}
+            #{travelPlanDayId}, #{content}, #{tag}, #{startTime},
+            #{details,jdbcType=VARCHAR,typeHandler=com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler},
+            #{displayOrder}, #{createdByMemberId}
         )
     </insert>
 
     <!-- 일정 1건. DAY 소속까지 함께 확인한다 -->
-    <select id="findByIdAndDayId" resultType="com.tripbora.model.TravelPlanItem">
-        SELECT id, travel_plan_day_id, content, tag, display_order,
+    <select id="findByIdAndDayId" resultMap="itemWithDetails">
+        SELECT id, travel_plan_day_id, content, tag, start_time, detail_json, display_order,
                created_by_member_id, version, created_at, updated_at
         FROM travel_plan_items
         WHERE id = #{id}
@@ -65,6 +73,25 @@
         WHERE id = #{id}
           AND travel_plan_day_id = #{travelPlanDayId}
           AND version = #{version}
+    </update>
+
+    <!-- 원문·타입·시간을 같은 version 조건으로 함께 변경한다. -->
+    <update id="updateDetails">
+        UPDATE travel_plan_items
+        SET content = #{content},
+            detail_json = CASE WHEN tag = #{tag} AND #{tag} IN ('FLIGHT', 'ACCOMMODATION')
+                               THEN detail_json ELSE NULL END,
+            tag = #{tag}, start_time = #{startTime},
+            version = version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND travel_plan_day_id = #{travelPlanDayId} AND version = #{version}
+    </update>
+
+    <update id="updateStructuredDetails">
+        UPDATE travel_plan_items
+        SET content = #{content}, tag = #{tag}, start_time = #{startTime},
+            detail_json = #{details,jdbcType=VARCHAR,typeHandler=com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler},
+            version = version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND travel_plan_day_id = #{travelPlanDayId} AND version = #{version}
     </update>
 
     <delete id="deleteByIdAndDayId">
@@ -86,8 +113,8 @@
     </update>
 
     <!-- 바로 위 일정 -->
-    <select id="findPreviousItem" resultType="com.tripbora.model.TravelPlanItem">
-        SELECT id, travel_plan_day_id, content, tag, display_order,
+    <select id="findPreviousItem" resultMap="itemWithDetails">
+        SELECT id, travel_plan_day_id, content, tag, start_time, detail_json, display_order,
                created_by_member_id, version, created_at, updated_at
         FROM travel_plan_items
         WHERE travel_plan_day_id = #{travelPlanDayId}
@@ -97,8 +124,8 @@
     </select>
 
     <!-- 바로 아래 일정 -->
-    <select id="findNextItem" resultType="com.tripbora.model.TravelPlanItem">
-        SELECT id, travel_plan_day_id, content, tag, display_order,
+    <select id="findNextItem" resultMap="itemWithDetails">
+        SELECT id, travel_plan_day_id, content, tag, start_time, detail_json, display_order,
                created_by_member_id, version, created_at, updated_at
         FROM travel_plan_items
         WHERE travel_plan_day_id = #{travelPlanDayId}
@@ -137,6 +164,8 @@
         UPDATE travel_plan_items
         SET content = #{content},
             tag = #{tag},
+            start_time = NULL,
+            detail_json = NULL,
             created_by_member_id = #{createdByMemberId},
             version = version + 1,
             updated_at = CURRENT_TIMESTAMP

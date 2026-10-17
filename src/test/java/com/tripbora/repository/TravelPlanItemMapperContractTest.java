@@ -67,9 +67,10 @@ class TravelPlanItemMapperContractTest {
                 .contains("useGeneratedKeys=\"true\"")
                 .contains("keyProperty=\"id\"")
                 .contains("INSERT INTO travel_plan_items")
-                .contains("travel_plan_day_id, content, tag, display_order, created_by_member_id")
-                .contains("#{travelPlanDayId}, #{content}, #{tag}, #{displayOrder}, "
-                        + "#{createdByMemberId}");
+                .contains("travel_plan_day_id, content, tag, start_time, detail_json, display_order, created_by_member_id")
+                .contains("#{travelPlanDayId}, #{content}, #{tag}, #{startTime}")
+                .contains("#{details,jdbcType=VARCHAR,typeHandler=com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler}")
+                .contains("#{displayOrder}, #{createdByMemberId}");
         // version / created_at / updated_at 은 DB DEFAULT 에 맡긴다
         assertThat(insert)
                 .doesNotContain("version")

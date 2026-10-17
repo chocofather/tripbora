@@ -4,7 +4,21 @@
 
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/travel-plan.css">
+  <link rel="stylesheet" href="/css/travel-plan-planner.css">
+  <link rel="stylesheet" href="/css/travel-plan-dashboard.css">
+  <link rel="stylesheet" href="/css/travel-plan-item-types.css">
+  <link rel="stylesheet" href="/css/travel-plan-datetime-picker.css">
+  <link rel="stylesheet" href="/css/travel-plan-airport-autocomplete.css">
+  <link rel="stylesheet" href="/css/travel-plan-reorder.css">
+  <link rel="stylesheet" href="/css/travel-plan-detail-rows.css">
+  <script src="/js/travel-plan-datetime-picker.js" defer></script>
+  <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
+  <script src="/js/travel-plan-item-types.js" defer></script>
   <script src="/js/travel-plan-scheduler.js" defer></script>
+  <script src="/js/travel-plan-day-title.js" defer></script>
+  <script src="/js/travel-plan-reorder.js" defer></script>
+  <script src="/js/travel-plan-overview.js" defer></script>
+  <script src="/js/travel-plan-dashboard.js" defer></script>
   <!-- 접속 표시. STOMP 클라이언트는 CDN 이 아니라 WebJar 로 함께 배포한다 -->
   <script src="/webjars/stomp__stompjs/7.0.0/bundles/stomp.umd.min.js" defer></script>
   <script src="/js/travel-plan-realtime.js" defer></script>
@@ -22,9 +36,8 @@
 
 <th:block th:fragment="body">
   <!--
-    바깥은 연한 바탕, 그 위에 플래너 종이 한 장이 놓인 구조.
-    is-planning: 좁은 화면 정리(종이 테두리 없애기, 상단 액션 한 줄 등)를 이 편집 화면에만 건다.
-    최종본·초대 미리보기도 같은 .travel-plan-page 를 쓴다.
+    is-planning 범위에서만 현대형 플래너를 적용한다.
+    최종본·초대 미리보기와 채팅은 기존 스타일을 유지한다.
   -->
   <div class="travel-plan-page is-planning">
     <div class="travel-plan-page-top">
@@ -95,7 +108,9 @@
       이후 실시간 편집(draft, lock, "OO님이 입력 중")이 위치를 집어낼 때 쓴다.
     -->
     <article class="travel-plan-paper" aria-labelledby="travel-plan-detail-title"
-             th:attr="data-plan-id=${travelPlan.plan.id}">
+             th:attr="data-plan-id=${travelPlan.plan.id},
+                      data-trip-start=${travelPlan.plan.startDate},
+                      data-trip-end=${travelPlan.plan.endDate}">
 
       <!-- 여행 제목 / 기간. 관리 액션은 위의 상단 액션 줄에 있다 -->
       <header class="travel-plan-detail-header">
@@ -116,13 +131,72 @@
               2박 3일
             </span>
           </h1>
-          <p class="travel-plan-detail-period"
-             th:text="${#temporals.format(travelPlan.plan.startDate, 'yyyy.MM.dd')} + ' ~ '
-                      + ${#temporals.format(travelPlan.plan.endDate, 'yyyy.MM.dd')}">
-            2026.09.13 ~ 2026.09.15
-          </p>
+          <div class="tp-planner-period">
+            <p class="travel-plan-detail-period"
+               th:text="${#temporals.format(travelPlan.plan.startDate, 'yyyy.MM.dd')} + ' ~ '
+                        + ${#temporals.format(travelPlan.plan.endDate, 'yyyy.MM.dd')}">
+              2026.09.13 ~ 2026.09.15
+            </p>
+            <span class="tp-planner-dday" hidden data-planner-dday></span>
+          </div>
         </div>
       </header>
+
+      <section class="tp-planner-overview" aria-labelledby="tp-overview-title">
+        <div class="tp-planner-section-heading">
+          <div>
+            <h2 id="tp-overview-title">주요 일정</h2>
+            <p>항공, 숙소와 이동을 날짜별로 확인하세요.</p>
+          </div>
+          <a class="tp-planner-text-link" href="#tp-schedule-title">상세 일정 ↓</a>
+        </div>
+        <div class="tp-planner-overview-grid">
+          <nav class="tp-planner-calendar" aria-label="여행 캘린더" data-planner-calendar>
+            <!-- JS를 사용할 수 없어도 날짜별 상세 일정으로 이동할 수 있다. -->
+            <a th:each="day : ${travelPlan.days}" th:href="|#day-${day.id}|"
+               th:text="${#temporals.format(day.planDate, 'M월 d일')}">9월 13일</a>
+          </nav>
+          <div class="tp-planner-summaries">
+            <section class="tp-planner-summary" th:each="day : ${travelPlan.days}"
+               th:with="dayItems=${travelPlan.itemsByDayId.get(day.id)}"
+               th:attr="data-planner-summary=${day.id}">
+              <div class="tp-planner-summary-heading">
+                <span class="tp-planner-day-label" th:text="|Day ${day.dayNumber}|">Day 1</span>
+                <time th:datetime="${day.planDate}"
+                      th:text="${#temporals.format(day.planDate, 'MM.dd (E)')}">09.13 (일)</time>
+                <span class="tp-planner-summary-count" data-planner-summary-count
+                      th:text="|${dayItems == null ? 0 : dayItems.size()}개 일정|">0개 일정</span>
+              </div>
+              <div class="tp-planner-summary-items" data-planner-summary-items>
+                <div class="tp-overview-item" th:each="item : ${dayItems}"
+                     th:if="${item.itemType.name() == 'FLIGHT' or item.itemType.name() == 'ACCOMMODATION' or item.itemType.name() == 'TRANSPORT'}"
+                     th:attr="data-type=${item.itemType}">
+                  <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, false)}"></th:block>
+                  <button type="button" class="tp-card-edit" aria-expanded="false"
+                          th:attr="data-overview-item-edit=${item.id}">펼치기</button>
+                  <div class="tp-overview-editor-host" th:attr="data-overview-editor-host=${item.id}"></div>
+                </div>
+              </div>
+              <p class="tp-planner-summary-content" data-planner-summary-content>아래에서 상세 일정을 확인하세요.</p>
+              <div class="tp-item-add-types tp-summary-add-types" aria-label="주요 일정 추가">
+                <button type="button" class="tp-item-add-type" data-overview-add-type="FLIGHT" th:attr="data-day-id=${day.id}">+ 항공</button>
+                <button type="button" class="tp-item-add-type" data-overview-add-type="ACCOMMODATION" th:attr="data-day-id=${day.id}">+ 숙소</button>
+                <button type="button" class="tp-item-add-type" data-overview-add-type="TRANSPORT" th:attr="data-day-id=${day.id}">+ 이동</button>
+              </div>
+              <a class="tp-planner-summary-action" th:href="|#day-${day.id}|">상세 일정 <span aria-hidden="true">↗</span></a>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <th:block th:replace="~{travelplan/fragments/dashboard :: preparation}"></th:block>
+
+      <div class="tp-planner-section-heading tp-planner-schedule-heading">
+        <div>
+          <h2 id="tp-schedule-title">상세 일정</h2>
+          <p>일정을 눌러 편집하고, ··· 메뉴에서 이동하거나 대안을 추가하세요.</p>
+        </div>
+      </div>
 
       <!--
         DAY 한 구역의 markup 은 fragment 하나로 모아 두었다.
@@ -139,6 +213,8 @@
                       ${openDayId != null and openDayId == day.id})}"></th:block>
         </th:block>
       </div>
+
+      <th:block th:replace="~{travelplan/fragments/dashboard :: expenses}"></th:block>
 
     </article>
 

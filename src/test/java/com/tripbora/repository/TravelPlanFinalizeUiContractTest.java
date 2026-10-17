@@ -405,7 +405,7 @@ class TravelPlanFinalizeUiContractTest {
         // 고치는 길은 모두 잠그고 읽는 쪽을 쓴다. 읽기만 하는 세 곳은 그대로 둔다
         // (방 상세 / DAY 상세 / 참여자 명단)
         assertThat(countOf(planService, "requireActiveAccessForWrite(userId, travelPlanId)"))
-                .isEqualTo(8);
+                .isEqualTo(12);
         assertThat(countOf(planService, "requireActiveAccess(userId, travelPlanId)"))
                 .isEqualTo(3);
     }

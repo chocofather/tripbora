@@ -19,8 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // 화면 전체에서 열려 있는 편집기는 항상 하나뿐이다.
     // 추가 슬롯과 기존 일정 수정도 서로 동시에 열리지 않는다.
     let activeLine = null;
+    let activePortal = null;
+    const initialEditorStates = new WeakMap();
+    const draftSummaries = new WeakMap();
     // 저장 중에는 focus-out 이 한 번 더 저장하지 않도록 잠근다.
     let submitting = false;
+    let creatingCard = false;
+    let editorOpening = false;
+    const collapsedDays = new Set();
 
     // 대안 편집기도 같은 규칙을 따른다. 열려 있는 것은 A 쪽이든 대안 쪽이든 하나뿐이다.
     let activeAlt = null;
@@ -39,13 +45,79 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function formOf(line) {
+        if (activePortal?.line === line) return activePortal.form;
         return line.querySelector("[data-travel-plan-slot-form], [data-travel-plan-item-form]");
     }
 
     function textareaOf(line) {
         // 대안 편집기의 textarea 까지 집히지 않게 A 일정 폼 안에서만 찾는다.
         const form = formOf(line);
-        return form ? form.querySelector("textarea") : null;
+        return form ? form.querySelector("textarea[name=content]") : null;
+    }
+
+    function setEditorType(form, type) {
+        const route = type === "FLIGHT" || type === "TRANSPORT";
+        const special = route || type === "ACCOMMODATION";
+        const input = form.querySelector("[name=itemType]");
+        if (input) input.value = type;
+        form.dataset.editorType = type;
+        form.querySelectorAll("[data-item-type-fields]").forEach(group => {
+            const key = group.dataset.itemTypeFields;
+            const active = key === (special ? type : "GENERAL") || (key === "ROUTE" && route) ||
+                (key === "SPECIAL" && special);
+            group.hidden = !active;
+            group.querySelectorAll("input, select, textarea").forEach(field => { field.disabled = !active; });
+        });
+        form.querySelectorAll("[data-item-booking-field]").forEach(group => {
+            group.hidden = !special;
+            group.querySelectorAll("input, textarea").forEach(field => { field.disabled = !special; });
+        });
+    }
+
+    function syncContent(form) {
+        const content = form.querySelector("textarea[name=content]");
+        const titleInput = form.querySelector("[data-item-title-input]");
+        if (!content || !titleInput) return;
+        const type = form.querySelector("[name=itemType]")?.value;
+        const named = type === "FLIGHT" ? form.querySelector('[name="details.flightNumber"]') :
+            type === "ACCOMMODATION" ? form.querySelector('[name="details.stayName"]') : null;
+        const departure = form.querySelector('[name="details.departurePlace"]')?.value.trim();
+        const arrival = form.querySelector('[name="details.arrivalPlace"]')?.value.trim();
+        const route = ["FLIGHT", "TRANSPORT"].includes(type) ? [departure, arrival].filter(Boolean).join(" → ") : "";
+        const fallback = {FLIGHT: "항공", ACCOMMODATION: "숙소", TRANSPORT: "이동"}[type] || "";
+        // 기존 자유 텍스트 첫 줄은 숨긴 제목 필드에 보존한다. 전용 필드 수정으로 원문을 버리지 않는다.
+        const title = titleInput.value.trim() || named?.value.trim() || route || fallback;
+        const note = form.querySelector("[data-item-note-input]")?.value || "";
+        content.value = title + (note ? `\n${note}` : "");
+    }
+
+    function editorState(form) {
+        return JSON.stringify(Array.from(form.querySelectorAll("input[name], select[name], textarea[name]"))
+            .filter(field => !field.disabled && field.name !== "_csrf" && field.name !== "version")
+            .map(field => [field.name, field.value]));
+    }
+
+    function focusEditor(form) {
+        const field = form.querySelector('[data-item-type-fields]:not([hidden]) input:not([disabled]):not([type=hidden])') ||
+            form.querySelector("[data-item-title-input]") || form.querySelector("textarea[name=content]");
+        field?.focus();
+    }
+
+    function restorePortal() {
+        if (!activePortal) return;
+        const {form, parent, sibling, host, button} = activePortal;
+        parent.insertBefore(form, sibling?.parentNode === parent ? sibling : null);
+        host.classList.remove("is-editing");
+        button.setAttribute("aria-expanded", "false");
+        activePortal = null;
+    }
+
+    function attachPortal(line, form, portal) {
+        restorePortal();
+        activePortal = {line, form, parent: form.parentNode, sibling: form.nextSibling, ...portal};
+        portal.host.append(form);
+        portal.host.classList.add("is-editing");
+        portal.button.setAttribute("aria-expanded", "true");
     }
 
     function isItem(line) {
@@ -60,20 +132,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function closeActive() {
+        if (submitting) return;
         if (!activeLine) return;
+        const closing = activeLine;
         const form = formOf(activeLine);
         const textarea = textareaOf(activeLine);
+        form?.reset();
         if (isItem(activeLine)) {
             // 수정 취소는 원래 내용으로 되돌린다.
             const content = activeLine.querySelector("[data-travel-plan-item-content]");
             if (textarea && content) textarea.value = content.textContent.trim();
-            if (content) content.hidden = false;
+            const view = activeLine.querySelector("[data-item-view]");
+            if (view) view.hidden = false;
+            else if (content) content.hidden = false;
+            activeLine.querySelector("[data-item-edit-button]")?.setAttribute("aria-expanded", "false");
         } else if (textarea) {
             textarea.value = "";
+            form?.querySelectorAll("[data-item-title-input], [data-item-note-input], [name^='details.']")
+                .forEach(field => { field.value = ""; });
         }
+        const type = form?.querySelector("[name=itemType]");
+        const time = form?.querySelector("[name=startTime]");
+        if (type) type.value = activeLine.dataset.itemType || "SCHEDULE";
+        if (time) time.value = activeLine.dataset.startTime || "";
         if (form) form.hidden = true;
+        if (form) {
+            initialEditorStates.delete(form);
+            setEditorType(form, type?.value || "SCHEDULE");
+        }
+        restorePortal();
         activeLine.classList.remove("is-editing");
         activeLine = null;
+        if (closing.hasAttribute("data-travel-plan-draft")) {
+            draftSummaries.get(closing)?.remove();
+            draftSummaries.delete(closing);
+            closing.remove();
+        }
+        window.TravelPlanDateTimePicker?.refresh(planner);
         // 자리를 놓아 다른 사람이 곧바로 편집할 수 있게 한다.
         realtime()?.releaseLock();
         notifyEditorIdle();
@@ -110,14 +205,57 @@ document.addEventListener("DOMContentLoaded", () => {
         return window.travelPlanRealtime;
     }
 
+    async function requestEditorLock(live, spot) {
+        if (editorOpening) return {granted: false};
+        editorOpening = true;
+        planner.dataset.editorOpening = "true";
+        try {
+            return await live.requestLock(spot);
+        } finally {
+            editorOpening = false;
+            delete planner.dataset.editorOpening;
+        }
+    }
+
+    async function finishCurrentLine() {
+        if (!activeLine) return true;
+        const form = formOf(activeLine);
+        syncContent(form);
+        if (form.querySelector("[data-item-title-input]") && form.dataset.userEdited === "true" &&
+            initialEditorStates.get(form) !== editorState(form)) {
+            await save(activeLine);
+            return !activeLine; // 저장 실패/입력 오류면 원래 편집기를 유지한다.
+        }
+        closeActive();
+        return true;
+    }
+
     /**
      * 편집기를 열기 전에 서버에서 그 자리를 받아 온다.
      * 받지 못하면 열지 않는다. "아마 됐겠지" 로 두 사람이 같은 줄을 고치지 않게 한다.
      */
-    async function open(line) {
-        if (activeLine === line) return;
-        const form = formOf(line);
+    async function open(line, portal = null, created = false) {
+        if (submitting || editorOpening || window.travelPlanDayTitle?.isEditing() || (creatingCard && !created)) return;
+        if (activeLine === line) {
+            if (portal && activePortal?.host !== portal.host) attachPortal(line, formOf(line), portal);
+            return line;
+        }
+        let form = formOf(line);
         if (!form) return;
+        if (!await finishCurrentLine()) return;
+        // 이전 편집 저장이 DAY를 새로 그렸다면 최신 row/host를 다시 찾는다.
+        if (!line.isConnected) {
+            const fresh = isItem(line) ? planner.querySelector(`[data-travel-plan-item][data-item-id="${line.dataset.itemId}"]`) :
+                planner.querySelector(`[data-travel-plan-slot][data-day-id="${line.dataset.dayId}"]`);
+            if (fresh) return open(fresh, portal, created);
+            return;
+        }
+        if (portal && !portal.host.isConnected) {
+            const host = planner.querySelector(`[data-overview-editor-host="${line.dataset.itemId}"]`);
+            const button = planner.querySelector(`[data-overview-item-edit="${line.dataset.itemId}"]`);
+            if (!host || !button) return;
+            portal = {host, button};
+        }
 
         const spot = spotOf(line);
         const live = realtime();
@@ -125,9 +263,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (live.isLockedByOther(spot)) return;
             closeActive();
             closeAlt();
-            const result = await live.requestLock(spot);
+            const result = await requestEditorLock(live, spot);
             // 그 사이 다른 곳을 열었거나 자리를 못 받았으면 그만둔다.
-            if (!result.granted || activeLine) return;
+            if (!result.granted || activeLine || activeAlt) return;
+            // 잠금 응답을 기다리는 동안 다른 참여자의 갱신으로 DAY가 교체될 수 있다.
+            if (!line.isConnected) {
+                const fresh = isItem(line) ? planner.querySelector(`[data-travel-plan-item][data-item-id="${line.dataset.itemId}"]`) :
+                    planner.querySelector(`[data-travel-plan-slot][data-day-id="${line.dataset.dayId}"]`);
+                const freshForm = fresh && formOf(fresh);
+                if (!freshForm) { live.releaseLock(); return; }
+                line = fresh;
+                form = freshForm;
+            }
+            if (portal && !portal.host.isConnected) {
+                const host = planner.querySelector(`[data-overview-editor-host="${line.dataset.itemId}"]`);
+                const button = planner.querySelector(`[data-overview-item-edit="${line.dataset.itemId}"]`);
+                if (!host || !button) { live.releaseLock(); return; }
+                portal = {host, button};
+            }
         } else {
             closeActive();
             closeAlt();
@@ -135,17 +288,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (isItem(line)) {
             const content = line.querySelector("[data-travel-plan-item-content]");
-            if (content) content.hidden = true;
+            const view = line.querySelector("[data-item-view]");
+            if (view) view.hidden = !line.querySelector(".tp-detail-item-shell") || !!portal;
+            else if (content) content.hidden = true;
+            line.querySelector("[data-item-edit-button]")?.setAttribute("aria-expanded", "true");
+        }
+        setEditorType(form, form.querySelector("[name=itemType]")?.value || "SCHEDULE");
+        syncContent(form);
+        form.dataset.userEdited = "false";
+        initialEditorStates.set(form, editorState(form));
+        if (portal) {
+            attachPortal(line, form, portal);
         }
         form.hidden = false;
         line.classList.add("is-editing");
         activeLine = line;
         const textarea = textareaOf(line);
-        autoResize(textarea);
-        textarea?.focus();
-        textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
+        if (!form.querySelector("[data-item-title-input]")) autoResize(textarea);
+        focusEditor(form);
+        document.dispatchEvent(new CustomEvent("travelplan:editor-opened"));
         // 열자마자 지금 값을 한 번 알려 다른 화면이 자리를 비워 두게 한다.
         live?.sendDraft({ content: textarea ? textarea.value : "" });
+        return line;
     }
 
     function originalContentOf(line) {
@@ -155,7 +319,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /** 저장 실패 사유를 그 줄 안에 짧게 보여 준다. 입력은 그대로 둔다. */
     function showSaveError(line, message) {
-        let notice = line.querySelector("[data-travel-plan-save-error]");
+        let notice = line.querySelector("[data-travel-plan-save-error]") ||
+            formOf(line)?.querySelector("[data-travel-plan-save-error]");
         if (!notice) {
             notice = document.createElement("p");
             notice.className = "travel-plan-slot-error";
@@ -172,6 +337,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function clearSaveError(line) {
         line.querySelector("[data-travel-plan-save-error]")?.remove();
+        formOf(line)?.querySelector("[data-travel-plan-save-error]")?.remove();
+    }
+
+    function setSaving(form, saving) {
+        form.querySelectorAll("textarea, select, input:not([type=hidden]), button")
+            .forEach(field => { field.disabled = saving; });
+        form.setAttribute("aria-busy", String(saving));
+        if (!saving && form.querySelector("[name=itemType]")) {
+            setEditorType(form, form.querySelector("[name=itemType]").value);
+        }
     }
 
     /**
@@ -179,18 +354,30 @@ document.addEventListener("DOMContentLoaded", () => {
      * 다만 화면이 통째로 새로 뜨지 않도록 form submit 대신 직접 보낸다.
      */
     async function save(line) {
+        if (submitting) return;
         const textarea = textareaOf(line);
         const form = formOf(line);
         if (!textarea || !form) return;
+        syncContent(form);
 
         const value = textarea.value.trim();
         // 공백만 있으면 저장하지 않는다. 수정이면 원래 내용을 되살린다.
         if (value === "") {
+            if (form.querySelector("[data-item-title-input]")) {
+                showSaveError(line, "제목이나 항공편·숙소 이름을 입력해 주세요.");
+                focusEditor(form);
+                return;
+            }
             closeActive();
             return;
         }
         // 내용이 그대로면 불필요한 UPDATE 를 보내지 않는다.
-        if (isItem(line) && value === originalContentOf(line)) {
+        const type = form.querySelector("[name=itemType]");
+        const time = form.querySelector("[name=startTime]");
+        const metadataChanged = (type && type.value !== (line.dataset.itemType || "SCHEDULE")) ||
+            (time && time.value !== (line.dataset.startTime || "")) ||
+            (initialEditorStates.has(form) && initialEditorStates.get(form) !== editorState(form));
+        if (isItem(line) && value === originalContentOf(line) && !metadataChanged) {
             closeActive();
             return;
         }
@@ -208,6 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const body = new FormData(form);
             body.set("content", textarea.value);
+            setSaving(form, true);
             const response = await fetch(form.action, {
                 method: "POST",
                 headers: { "X-Requested-With": "XMLHttpRequest" },
@@ -216,21 +404,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!response.ok) {
                 // 입력을 날리지 않는다. 사유만 알리고 그 자리에서 다시 시도할 수 있게 둔다.
                 submitting = false;
+                setSaving(form, false);
                 showSaveError(line, (await response.text()).trim());
-                textarea.focus();
+                focusEditor(form);
                 return;
             }
         } catch (error) {
             submitting = false;
+            setSaving(form, false);
             showSaveError(line, null);
-            textarea.focus();
+            focusEditor(form);
             return;
         }
 
         submitting = false;
+        setSaving(form, false);
         // 저장된 뒤에는 DB 내용이 기준이다. 그 DAY 를 서버에서 다시 읽어 온다.
         closeActive();
-        if (dayId) live.refreshDay(dayId);
+        if (dayId) await live.refreshDay(dayId);
     }
 
     /*
@@ -308,7 +499,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (onBlur) {
-            field.addEventListener("blur", () => {
+            field.addEventListener("blur", event => {
                 if (submitting || composing) return;
                 /*
                   창 전체가 비활성화된 것뿐이라면 편집을 끝낸 것이 아니다.
@@ -317,27 +508,267 @@ document.addEventListener("DOMContentLoaded", () => {
                   같은 페이지 안에서 다른 곳을 눌렀을 때만 편집을 끝낸 것으로 본다.
                 */
                 if (!document.hasFocus()) return;
-                onBlur();
+                onBlur(event);
             });
         }
+    }
+
+    function handleItemDelete(event, line) {
+        const button = event.submitter;
+        if (!button?.hasAttribute("data-item-editor-delete")) return false;
+        if (submitting || creatingCard || editorOpening || realtime()?.hasAlternativeEditing(line.dataset.itemId)) {
+            event.preventDefault();
+            showSaveError(line, "진행 중인 저장이나 공동 편집을 마친 뒤 삭제해 주세요.");
+        } else if (!window.confirm(button.dataset.deleteConfirm || "이 일정을 삭제할까요?")) {
+            event.preventDefault();
+        }
+        // 확인한 삭제는 버튼의 formaction으로 기존 POST를 전송한다. 일정 저장으로 바꾸지 않는다.
+        return true;
     }
 
     function bind(line) {
         const textarea = textareaOf(line);
         if (!textarea) return;
 
-        bindEditableField(textarea, {
+        const form = formOf(line);
+        const structured = !!form.querySelector("[data-item-title-input]");
+        setEditorType(form, form.querySelector("[name=itemType]")?.value || "SCHEDULE");
+        if (!structured) bindEditableField(textarea, {
             readDraft: () => ({ content: textarea.value }),
             onEnter: () => save(line),
             onEscape: () => closeActive(),
-            onBlur: () => save(line)
+            onBlur: event => {
+                if (!formOf(line)?.contains(event.relatedTarget)) save(line);
+            }
         });
+        if (structured) form.querySelectorAll("input:not([name=itemType]):not([name=_csrf]):not([name=version]), textarea:not([name=content])").forEach(field => {
+            field.addEventListener("input", () => { form.dataset.userEdited = "true"; });
+            field.addEventListener("change", () => { form.dataset.userEdited = "true"; syncContent(form); });
+            bindEditableField(field, {
+                readDraft: () => { syncContent(form); return {content: textarea.value}; },
+                onEnter: field.tagName === "TEXTAREA" ? null : () => save(line),
+                onEscape: () => closeActive()
+            });
+            field.addEventListener("keydown", event => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+                    event.preventDefault(); save(line);
+                }
+            });
+        });
+        form?.addEventListener("submit", event => {
+            if (handleItemDelete(event, line)) return;
+            syncContent(form);
+            if (!realtime()) return; // requestSubmit fallback은 원래 POST 폼으로 전송한다.
+            event.preventDefault();
+            save(line);
+        });
+        form?.querySelector("[data-item-editor-cancel]")?.addEventListener("click", event => {
+            event.stopPropagation();
+            closeActive();
+        });
+        if (!structured) form?.querySelectorAll("select, input[type=time]").forEach(field => {
+            field.addEventListener("blur", event => {
+                if (activeLine === line && document.hasFocus() && !form.contains(event.relatedTarget)) save(line);
+            });
+            field.addEventListener("keydown", event => {
+                if (event.key === "Escape") { event.preventDefault(); closeActive(); }
+            });
+        });
+    }
+
+    /** 클릭 즉시 로컬 카드를 표시한다. 저장 전까지 실제 row는 만들지 않는다. */
+    async function createDraftCard(line, type, fromOverview = false) {
+        if (submitting || creatingCard || editorOpening || window.travelPlanDayTitle?.isEditing()) return;
+        creatingCard = true;
+        const dayId = line.dataset.dayId;
+        const slot = planner.querySelector(`[data-travel-plan-slot][data-day-id="${dayId}"]`);
+        if (!slot || !formOf(slot)) { creatingCard = false; return; }
+        const form = formOf(slot).cloneNode(true);
+        form.querySelectorAll("[id]").forEach(field => field.removeAttribute("id"));
+        form.querySelectorAll("input:not([name=_csrf]), textarea").forEach(field => { field.value = ""; });
+        form.querySelectorAll("[data-travel-plan-save-error], .travel-plan-slot-error").forEach(node => node.remove());
+        form.querySelector("[type=submit]").textContent = "저장";
+        form.hidden = false;
+        const draft = document.createElement("li");
+        draft.className = "travel-plan-line is-draft is-editing";
+        draft.setAttribute("data-travel-plan-draft", "");
+        draft.dataset.dayId = dayId;
+        draft.dataset.itemType = type;
+        const body = document.createElement("div");
+        body.className = "travel-plan-line-body";
+        const heading = document.createElement("div");
+        heading.className = "tp-draft-heading";
+        heading.dataset.type = type;
+        const badge = document.createElement("span");
+        badge.className = "tp-type-badge";
+        badge.dataset.itemTypeBadge = type;
+        const label = {SCHEDULE: "일정", FLIGHT: "항공", ACCOMMODATION: "숙소", TRANSPORT: "이동"}[type];
+        badge.textContent = label;
+        const state = document.createElement("span");
+        state.className = "tp-draft-state";
+        state.textContent = "새 일정 · 편집 준비 중";
+        heading.append(badge, state);
+        body.append(heading, form);
+        draft.append(body);
+        slot.before(draft);
+        const dateName = type === "ACCOMMODATION" ? "details.checkInDate" : "details.departureDate";
+        const date = form.querySelector(`[name="${dateName}"]`);
+        if (date) date.value = slot.closest("[data-plan-date]")?.dataset.planDate || "";
+        setEditorType(form, type);
+        setSaving(form, true);
+        window.decorateTravelPlanTypes?.(draft);
+        let summary = null;
+        if (fromOverview) {
+            summary = document.createElement("div");
+            summary.className = "tp-overview-item tp-item-card tp-draft-summary";
+            summary.dataset.type = type;
+            summary.append(heading.cloneNode(true));
+            planner.querySelector(`[data-planner-summary="${dayId}"] [data-planner-summary-items]`)?.append(summary);
+            draftSummaries.set(draft, summary);
+        }
+        try {
+            if (!await finishCurrentLine()) { summary?.remove(); draft.remove(); return; }
+            closeAlt();
+            const live = realtime();
+            if (live) {
+                const result = await requestEditorLock(live, {mode: "ADD", dayId, itemId: null});
+                if (!result.granted) throw new Error("다른 참여자가 이 날짜에 일정을 추가 중입니다.");
+            }
+            activeLine = draft;
+            bind(draft);
+            setSaving(form, false);
+            state.textContent = "새 일정 · 저장 전";
+            if (summary) {
+                const host = document.createElement("div");
+                host.className = "tp-overview-editor-host";
+                summary.append(host);
+                attachPortal(draft, form, {host, button: summary});
+                summary.querySelector(".tp-draft-state").textContent = "새 일정 · 저장 전";
+            }
+            initialEditorStates.set(form, editorState(form));
+            form.dataset.userEdited = "false";
+            document.dispatchEvent(new CustomEvent("travelplan:editor-opened"));
+            focusEditor(form);
+        } catch (error) {
+            summary?.remove(); draft.remove();
+            const errorHost = fromOverview ? planner.querySelector(`[data-planner-summary="${dayId}"]`) : slot;
+            showSaveError(errorHost || slot, error.message);
+        } finally {
+            creatingCard = false;
+            notifyEditorIdle();
+        }
+    }
+
+    function pendingDetailRow(slot, type) {
+        const row = document.createElement("li");
+        row.className = "travel-plan-line is-creating is-editing tp-item-enter";
+        row.dataset.itemType = type;
+        const shell = document.createElement("div");
+        shell.className = "tp-detail-item-shell tp-item-card";
+        shell.dataset.type = type;
+        const controls = document.createElement("div");
+        controls.className = "tp-item-order-controls";
+        const grip = document.createElement("button");
+        grip.type = "button"; grip.disabled = true; grip.className = "tp-item-drag-handle";
+        grip.textContent = "⠿"; grip.setAttribute("aria-label", "일정 저장 중");
+        const order = document.createElement("span");
+        order.className = "travel-plan-line-order";
+        order.textContent = String(slot.closest("[data-travel-plan-day]").querySelectorAll("[data-travel-plan-item]").length + 1).padStart(2, "0");
+        controls.append(grip, order);
+        const body = document.createElement("div");
+        body.className = "travel-plan-line-body";
+        const view = document.createElement("div");
+        view.className = "tp-detail-row-view";
+        const badge = document.createElement("span");
+        badge.className = "tp-type-badge"; badge.dataset.itemTypeBadge = type;
+        badge.textContent = {FLIGHT: "항공", ACCOMMODATION: "숙소", TRANSPORT: "이동", SCHEDULE: "일정"}[type];
+        const kind = document.createElement("span");
+        kind.className = "tp-detail-kind-label";
+        kind.textContent = {FLIGHT: "탑승시간", ACCOMMODATION: "체크인", TRANSPORT: "출발", SCHEDULE: "시작시간"}[type];
+        const date = document.createElement("span");
+        date.className = "tp-detail-datetime"; date.textContent = "날짜 미정";
+        const title = document.createElement("span");
+        title.className = "tp-card-title";
+        title.textContent = type === "ACCOMMODATION" ? "숙소 이름 입력하기" : type === "SCHEDULE" ? "일정 입력하기" : "구간 / 장소 입력하기";
+        const state = document.createElement("span");
+        state.className = "tp-detail-pending-state"; state.textContent = "저장 중";
+        state.setAttribute("role", "status");
+        const arrow = document.createElement("button");
+        arrow.type = "button"; arrow.disabled = true; arrow.className = "tp-card-edit";
+        arrow.setAttribute("aria-label", "일정 저장 중");
+        view.append(badge, kind, date, title, state, arrow);
+        body.append(view); shell.append(controls, body); row.append(shell);
+        slot.before(row);
+        window.decorateTravelPlanTypes?.(row);
+        return row;
+    }
+
+    /** 상세 일정은 클릭 즉시 한 줄을 표시하고, 입력 없이도 실제 빈 row를 저장한다. */
+    async function createPersistedRow(line, type) {
+        if (submitting || creatingCard || editorOpening || window.travelPlanDayTitle?.isEditing()) return;
+        const dayId = line.dataset.dayId;
+        const slot = planner.querySelector(`[data-travel-plan-slot][data-day-id="${dayId}"]`);
+        if (!slot || !formOf(slot)) return;
+        creatingCard = true;
+        const pending = pendingDetailRow(slot, type);
+        let createdId = null;
+        let creationAccepted = false;
+        let locked = false;
+        try {
+            if (!await finishCurrentLine()) { pending.remove(); return; }
+            closeAlt();
+            const live = realtime();
+            if (live) {
+                const result = await requestEditorLock(live, {mode: "ADD", dayId, itemId: null});
+                if (!result.granted) throw new Error("다른 참여자가 이 날짜에 일정을 추가 중입니다.");
+                locked = true;
+            }
+            const body = new FormData(formOf(slot));
+            body.set("emptyCard", "true"); body.set("itemType", type); body.set("content", "");
+            const response = await fetch(formOf(slot).action, {
+                method: "POST", headers: {"X-Requested-With": "XMLHttpRequest"}, body
+            });
+            if (!response.ok) throw new Error((await response.text()).trim() || "일정을 추가하지 못했습니다.");
+            creationAccepted = true;
+            createdId = (await response.json()).itemId;
+            if (!createdId) throw new Error("일정 저장 결과를 확인할 수 없습니다.");
+            pending.classList.remove("is-editing");
+            if (locked) { live.releaseLock(); locked = false; }
+            if (!live) { window.location.reload(); return; }
+            await live.refreshDay(dayId);
+            let actual = planner.querySelector(`[data-travel-plan-item][data-item-id="${createdId}"]`);
+            if (!actual) {
+                await live.refreshDay(dayId);
+                actual = planner.querySelector(`[data-travel-plan-item][data-item-id="${createdId}"]`);
+            }
+            if (!actual) throw new Error("일정은 저장됐습니다. 새로고침해서 확인해 주세요.");
+            pending.remove();
+            actual.classList.add("tp-item-enter");
+        } catch (error) {
+            if (!creationAccepted) pending.remove();
+            else pending.classList.remove("is-editing");
+            const host = creationAccepted ? pending : planner.querySelector(`[data-travel-plan-slot][data-day-id="${dayId}"]`) || slot;
+            showSaveError(host, creationAccepted ? (createdId ? "일정은 저장됐습니다. 새로고침해서 확인해 주세요." : "일정 저장 요청이 처리됐습니다. 새로고침해서 확인해 주세요.") : error.message);
+            if (creationAccepted) pending.querySelector("[role=status]").textContent = createdId ? "저장 완료" : "저장 결과 확인 필요";
+        } finally {
+            if (locked) realtime()?.releaseLock();
+            creatingCard = false;
+            notifyEditorIdle();
+        }
     }
 
     function bindLines(root) {
         // 빈 슬롯: 줄을 누르면 그 자리가 입력 상태가 된다.
         root.querySelectorAll("[data-travel-plan-slot]").forEach(line => {
-            line.addEventListener("click", () => open(line));
+            line.addEventListener("click", event => {
+                if (event.target === line) createPersistedRow(line, "SCHEDULE");
+            });
+            line.querySelectorAll("[data-add-item-type]").forEach(button => {
+                button.addEventListener("click", async event => {
+                    event.stopPropagation();
+                    await createPersistedRow(line, button.dataset.addItemType);
+                });
+            });
             bind(line);
         });
 
@@ -345,6 +776,13 @@ document.addEventListener("DOMContentLoaded", () => {
         root.querySelectorAll("[data-travel-plan-item]").forEach(line => {
             line.querySelector("[data-travel-plan-item-content]")
                 ?.addEventListener("click", () => open(line));
+            line.querySelector("[data-item-edit-button]")?.addEventListener("click", () => {
+                if (activeLine === line) finishCurrentLine();
+                else open(line);
+            });
+            line.querySelector("[data-item-view]")?.addEventListener("click", event => {
+                if (!event.target.closest("a, button")) open(line);
+            });
             bind(line);
         });
     }
@@ -389,6 +827,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 편집기를 닫는다. 저장된 대안은 원래 값으로 되돌리고, 새 대안은 비운다.
     function closeAlt() {
+        if (submitting) return;
         if (!activeAlt) return;
         const form = altFormOf(activeAlt);
         const view = altViewOf(activeAlt);
@@ -411,7 +850,18 @@ document.addEventListener("DOMContentLoaded", () => {
      * 새 대안 자리는 그 A 일정마다 하나뿐이다(B 인지 C 인지는 저장할 때 서버가 정한다).
      */
     async function openAlt(node) {
+        if (submitting || creatingCard || editorOpening || window.travelPlanDayTitle?.isEditing()) return;
         if (activeAlt === node) return;
+        if (!await finishCurrentLine()) return;
+        if (!node.isConnected) {
+            const itemId = node.closest("[data-travel-plan-item]")?.dataset.itemId;
+            const item = planner.querySelector(`[data-travel-plan-item][data-item-id="${itemId}"]`);
+            const fresh = node.dataset.alternativeId ?
+                item?.querySelector(`[data-alternative-id="${node.dataset.alternativeId}"]`) :
+                item?.querySelector("[data-travel-plan-alt-new]");
+            if (fresh) return openAlt(fresh);
+            return;
+        }
         const form = altFormOf(node);
         if (!form) return;
 
@@ -421,7 +871,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (live.isLockedByOther(spot)) return;
             closeActive();
             closeAlt();
-            const result = await live.requestLock(spot);
+            const result = await requestEditorLock(live, spot);
             // 그 사이 다른 곳을 열었거나 자리를 못 받았으면 그만둔다.
             if (!result.granted || activeAlt || activeLine) return;
         } else {
@@ -462,6 +912,7 @@ document.addEventListener("DOMContentLoaded", () => {
      * A 일정과 같이 화면이 통째로 새로 뜨지 않도록 form submit 대신 직접 보낸다.
      */
     async function saveAlt(node) {
+        if (submitting) return;
         const form = altFormOf(node);
         const textarea = altTextareaOf(node);
         if (!form || !textarea) return;
@@ -496,6 +947,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const body = new FormData(form);
             body.set("conditionLabel", draft.conditionLabel);
             body.set("content", draft.content);
+            setSaving(form, true);
             const response = await fetch(form.action, {
                 method: "POST",
                 headers: { "X-Requested-With": "XMLHttpRequest" },
@@ -504,18 +956,21 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!response.ok) {
                 // 입력을 날리지 않는다. 사유만 알리고 그 자리에서 다시 시도할 수 있게 둔다.
                 submitting = false;
+                setSaving(form, false);
                 showAltError(node, (await response.text()).trim());
                 textarea.focus();
                 return;
             }
         } catch (error) {
             submitting = false;
+            setSaving(form, false);
             showAltError(node, null);
             textarea.focus();
             return;
         }
 
         submitting = false;
+        setSaving(form, false);
         // 저장된 뒤에는 DB 내용이 기준이다. 그 DAY 를 서버에서 다시 읽어 온다.
         closeAlt();
         if (dayId) live.refreshDay(dayId);
@@ -530,6 +985,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function expand(line, shouldOpen) {
+        if (submitting) return;
         const list = listOf(line);
         if (!list) return;
         list.hidden = !shouldOpen;
@@ -564,7 +1020,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!form) return;
             // 저장 버튼도 화면을 새로 띄우지 않고 같은 경로로 보낸다.
             form.addEventListener("submit", event => {
-                event.preventDefault();
+                if (!realtime()) return;
+                  event.preventDefault();
                 saveAlt(node);
             });
 
@@ -596,6 +1053,11 @@ document.addEventListener("DOMContentLoaded", () => {
             form.addEventListener("submit", event => {
                 const line = form.closest("[data-travel-plan-item]");
                 if (!line) return;
+                if (creatingCard || editorOpening || window.travelPlanDayTitle?.isEditing()) {
+                    event.preventDefault();
+                    showSaveError(line, "현재 편집이나 일정 추가를 마친 뒤 다시 시도해 주세요.");
+                    return;
+                }
                 const itemId = line.getAttribute("data-item-id");
                 const editing = line.classList.contains("is-alt-editing")
                     || realtime()?.hasAlternativeEditing(itemId);
@@ -617,8 +1079,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function bindItemMenus(root) {
+        root.querySelectorAll("[data-travel-plan-menu-list]").forEach(list => {
+            list.addEventListener("keydown", event => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                event.stopPropagation();
+                const button = list.parentElement?.querySelector("[data-travel-plan-menu-button]");
+                closeMenus(null);
+                button?.focus();
+            });
+        });
         root.querySelectorAll("[data-travel-plan-menu-button]").forEach(button => {
             button.addEventListener("click", event => {
+                if (submitting || creatingCard || editorOpening || window.travelPlanDayTitle?.isEditing()) return;
                 event.stopPropagation();
                 const list = button.parentElement?.querySelector("[data-travel-plan-menu-list]");
                 if (!list) return;
@@ -647,9 +1120,58 @@ document.addEventListener("DOMContentLoaded", () => {
         bindAlternatives(root);
         bindItemMenus(root);
         blockWhileAlternativeEditing(root);
+        root.querySelectorAll("[data-day-collapse]").forEach(button => {
+            const day = button.closest("[data-travel-plan-day]");
+            const lines = day?.querySelector(".travel-plan-lines");
+            if (lines && collapsedDays.has(day.dataset.dayId)) {
+                lines.hidden = true;
+                button.setAttribute("aria-expanded", "false");
+                button.textContent = "펼치기";
+            }
+            button.addEventListener("click", () => {
+                // 작성 중인 폼을 접어 입력을 잃지 않게 한다.
+                if (day?.querySelector(".is-editing")) return;
+                if (!lines) return;
+                lines.hidden = !lines.hidden;
+                if (lines.hidden) collapsedDays.add(day.dataset.dayId);
+                else collapsedDays.delete(day.dataset.dayId);
+                button.setAttribute("aria-expanded", String(!lines.hidden));
+                button.textContent = lines.hidden ? "펼치기" : "접기";
+            });
+        });
     }
 
     bindScheduleRoot(planner);
+    planner.addEventListener("click", event => {
+        const overviewAdd = event.target.closest("[data-overview-add-type]");
+        if (overviewAdd) {
+            event.preventDefault();
+            const slot = planner.querySelector(`[data-travel-plan-slot][data-day-id="${overviewAdd.dataset.dayId}"]`);
+            if (slot) createDraftCard(slot, overviewAdd.dataset.overviewAddType, true);
+            return;
+        }
+        const overviewEdit = event.target.closest("[data-overview-item-edit]");
+        if (overviewEdit) {
+            event.preventDefault();
+            const id = overviewEdit.dataset.overviewItemEdit;
+            const line = planner.querySelector(`[data-travel-plan-item][data-item-id="${id}"]`);
+            const host = overviewEdit.closest(".tp-overview-item")?.querySelector("[data-overview-editor-host]");
+            if (!line || !host || submitting) return;
+            if (activePortal?.line === line) { save(line); return; }
+            open(line, {host, button: overviewEdit});
+            return;
+        }
+        const link = event.target.closest('a[href^="#day-"]');
+        if (!link) return;
+        const day = document.getElementById(link.getAttribute("href").slice(1));
+        const lines = day?.querySelector(".travel-plan-lines");
+        if (!lines) return;
+        lines.hidden = false;
+        collapsedDays.delete(day.dataset.dayId);
+        const button = day.querySelector("[data-day-collapse]");
+        button?.setAttribute("aria-expanded", "true");
+        if (button) button.textContent = "접기";
+    });
     document.addEventListener("travelplan:schedule-updated", event => {
         const root = event.detail?.root;
         if (root) bindScheduleRoot(root);
@@ -795,7 +1317,17 @@ document.addEventListener("DOMContentLoaded", () => {
         activeLine = reopened;
         reopened.classList.add("is-editing");
         const textarea = textareaOf(reopened);
-        textarea?.focus();
-        textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
+        const form = formOf(reopened);
+        const title = form.querySelector("[data-item-title-input]");
+        const note = form.querySelector("[data-item-note-input]");
+        if (title && textarea) {
+            const [first, ...rest] = textarea.value.split(/\r?\n/);
+            title.value = first || "";
+            if (note) note.value = rest.join("\n");
+        }
+        setEditorType(form, form.querySelector("[name=itemType]")?.value || "SCHEDULE");
+        syncContent(form);
+        initialEditorStates.set(form, editorState(form));
+        focusEditor(form);
     }
 });

@@ -9,6 +9,8 @@ import com.tripbora.dto.TravelPlanPastMemberDto;
 import com.tripbora.model.TravelPlan;
 import com.tripbora.model.TravelPlanDay;
 import com.tripbora.model.TravelPlanItem;
+import com.tripbora.model.TravelPlanItemType;
+import com.tripbora.model.TravelPlanItemDetails;
 import com.tripbora.model.TravelPlanItemAlternative;
 import com.tripbora.model.TravelPlanMember;
 import com.tripbora.model.TravelPlanMemberStatus;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -222,6 +225,18 @@ public class TravelPlanService {
      */
     @Transactional
     public void addItem(Long userId, Long travelPlanId, Long dayId, String content) {
+        addTypedItem(userId, travelPlanId, dayId, content, null, null);
+    }
+
+    @Transactional
+    public void addTypedItem(Long userId, Long travelPlanId, Long dayId, String content,
+                             String itemType, String startTime) {
+        addTypedItem(userId, travelPlanId, dayId, content, itemType, startTime, null);
+    }
+
+    @Transactional
+    public void addTypedItem(Long userId, Long travelPlanId, Long dayId, String content,
+                             String itemType, String startTime, TravelPlanItemDetails details) {
         PlanAccess access = requireActiveAccessForWrite(userId, travelPlanId);
         requireDayOfPlan(travelPlanId, dayId);
 
@@ -230,8 +245,34 @@ public class TravelPlanService {
         TravelPlanItem item = new TravelPlanItem();
         item.setTravelPlanDayId(dayId);
         item.setContent(normalizedContent);
-        // 태그 UI 는 아직 없다.
-        item.setTag(null);
+        item.setTag(validatedType(itemType));
+        item.setDetails(details == null ? null : details.normalizedFor(item.getItemType()));
+        item.setStartTime(detailStartTime(item.getDetails(), startTime));
+        persistTypedItem(travelPlanId, dayId, access, item);
+    }
+
+    /** 타입 버튼은 내용을 만들지 않고 편집할 실제 빈 카드를 먼저 저장한다. */
+    @Transactional
+    public Long addEmptyTypedItem(Long userId, Long travelPlanId, Long dayId, String itemType) {
+        PlanAccess access = requireActiveAccessForWrite(userId, travelPlanId);
+        requireDayOfPlan(travelPlanId, dayId);
+        String tag = validatedType(itemType);
+        TravelPlanItemType type = TravelPlanItemType.fromTag(tag);
+        if (type != TravelPlanItemType.FLIGHT && type != TravelPlanItemType.ACCOMMODATION
+                && type != TravelPlanItemType.TRANSPORT && type != TravelPlanItemType.SCHEDULE) {
+            throw new TravelPlanValidationException("content", "빈 카드를 추가할 일정 타입을 선택해 주세요.");
+        }
+        TravelPlanItem item = new TravelPlanItem();
+        item.setTravelPlanDayId(dayId);
+        item.setContent("");
+        item.setTag(tag);
+        TravelPlanItemDetails details = new TravelPlanItemDetails();
+        item.setDetails(details.normalizedFor(type));
+        persistTypedItem(travelPlanId, dayId, access, item);
+        return item.getId();
+    }
+
+    private void persistTypedItem(Long travelPlanId, Long dayId, PlanAccess access, TravelPlanItem item) {
         item.setCreatedByMemberId(access.member().getId());
         // 같은 트랜잭션 안에서 마지막 순서를 읽어 뒤에 붙인다.
         item.setDisplayOrder(travelPlanItemMapper.findMaxDisplayOrder(dayId) + 1);
@@ -242,6 +283,30 @@ public class TravelPlanService {
         }
         travelPlanMapper.touchLastActivity(travelPlanId);
         publishScheduleChange(travelPlanId, dayId, TravelPlanScheduleChangeType.ITEM_ADDED);
+    }
+
+    /** DAY 제목도 방의 공동 편집 권한과 낙관적 잠금을 따른다. */
+    @Transactional
+    public TravelPlanDay updateDayTitle(Long userId, Long travelPlanId, Long dayId,
+                                        String title, Integer titleVersion) {
+        requireActiveAccessForWrite(userId, travelPlanId);
+        TravelPlanDay day = requireDayOfPlan(travelPlanId, dayId);
+        String normalized = title == null ? null : title.strip();
+        if (normalized != null && normalized.isEmpty()) {
+            normalized = null;
+        }
+        if (normalized != null && normalized.length() > 150) {
+            throw new TravelPlanValidationException("title", "DAY 제목은 150자 이내로 입력해 주세요.");
+        }
+        if (titleVersion == null || titleVersion < 0
+                || travelPlanMapper.updateDayTitle(travelPlanId, dayId, normalized, titleVersion) != 1) {
+            throw new TravelPlanConflictException();
+        }
+        day.setTitle(normalized);
+        day.setTitleVersion(titleVersion + 1);
+        travelPlanMapper.touchLastActivity(travelPlanId);
+        publishScheduleChange(travelPlanId, dayId, TravelPlanScheduleChangeType.DAY_UPDATED);
+        return day;
     }
 
     /**
@@ -266,6 +331,72 @@ public class TravelPlanService {
         }
         travelPlanMapper.touchLastActivity(travelPlanId);
         publishScheduleChange(travelPlanId, dayId, TravelPlanScheduleChangeType.ITEM_UPDATED);
+    }
+
+    /** 타입/시간만 바뀌는 경우에도 동일한 version과 일정 갱신 이벤트를 사용한다. */
+    @Transactional
+    public void updateTypedItem(Long userId, Long travelPlanId, Long dayId, Long itemId,
+                               String content, Integer version, String itemType, String startTime) {
+        requireActiveAccessForWrite(userId, travelPlanId);
+        requireDayOfPlan(travelPlanId, dayId);
+        requireItemOfDay(dayId, itemId);
+        String normalized = requiredContent(content);
+        String tag = validatedType(itemType);
+        LocalTime time = validatedTime(startTime);
+        if (version == null || travelPlanItemMapper.updateDetails(
+                itemId, dayId, normalized, tag, time, version) != 1) {
+            throw new TravelPlanConflictException();
+        }
+        travelPlanMapper.touchLastActivity(travelPlanId);
+        publishScheduleChange(travelPlanId, dayId, TravelPlanScheduleChangeType.ITEM_UPDATED);
+    }
+
+    private String validatedType(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return TravelPlanItemType.parse(value).name(); }
+        catch (IllegalArgumentException exception) {
+            throw new TravelPlanValidationException("content", "일정 타입을 올바르게 선택해 주세요.");
+        }
+    }
+
+    /** 상세 필드가 실제 제출된 요청만 JSON을 변경한다. 과거 폼은 기존 overload를 사용한다. */
+    @Transactional
+    public void updateTypedItem(Long userId, Long travelPlanId, Long dayId, Long itemId,
+                               String content, Integer version, String itemType, String startTime,
+                               TravelPlanItemDetails details) {
+        if (details == null) {
+            updateTypedItem(userId, travelPlanId, dayId, itemId, content, version, itemType, startTime);
+            return;
+        }
+        requireActiveAccessForWrite(userId, travelPlanId);
+        requireDayOfPlan(travelPlanId, dayId);
+        requireItemOfDay(dayId, itemId);
+        String normalized = requiredContent(content);
+        String tag = validatedType(itemType);
+        TravelPlanItemDetails normalizedDetails = details.normalizedFor(TravelPlanItemType.fromTag(tag));
+        LocalTime time = detailStartTime(normalizedDetails, startTime);
+        if (version == null || travelPlanItemMapper.updateStructuredDetails(
+                itemId, dayId, normalized, tag, time, normalizedDetails, version) != 1) {
+            throw new TravelPlanConflictException();
+        }
+        travelPlanMapper.touchLastActivity(travelPlanId);
+        publishScheduleChange(travelPlanId, dayId, TravelPlanScheduleChangeType.ITEM_UPDATED);
+    }
+
+    private LocalTime detailStartTime(TravelPlanItemDetails details, String fallback) {
+        if (details != null) {
+            if (details.getDepartureTime() != null) return validatedTime(details.getDepartureTime());
+            if (details.getCheckInTime() != null) return validatedTime(details.getCheckInTime());
+        }
+        return validatedTime(fallback);
+    }
+
+    private LocalTime validatedTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        if (!value.matches("(?:[01]\\d|2[0-3]):[0-5]\\d")) {
+            throw new TravelPlanValidationException("content", "시간은 00:00~23:59로 입력해 주세요.");
+        }
+        return LocalTime.parse(value);
     }
 
     /**

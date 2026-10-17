@@ -1,0 +1,149 @@
+/* 계획 본문에만 적용하며 채팅과 투표의 스타일은 공유하지 않는다. */
+.is-planning .travel-plan-top-actions { margin-left: auto; gap: 12px; }
+.is-planning .travel-plan-owner-actions { gap: 8px; }
+.is-planning .travel-plan-finalize-toggle,
+.is-planning .travel-plan-invite-toggle,
+.is-planning .travel-plan-plan-delete { min-height: 32px; padding: 6px 10px; font-size: 12px; border-radius: 6px; }
+.is-planning .travel-plan-finalize-toggle { color: #fff; background: #6550a5; border-color: #6550a5; }
+.is-planning .travel-plan-members-toggle { padding: 6px 0; border: 0; background: transparent; color: #667085; font-size: 12px; }
+.is-planning .tp-planner-summary-types { display: flex; flex-wrap: wrap; gap: 5px; }
+.is-planning .tp-planner-summary-action { display: inline-block; margin-top: 7px; }
+.is-planning .tp-day-subtitle { min-width: 0; margin: 0; color: #667085; font-size: 13px; overflow-wrap: anywhere; }
+.is-planning .tp-item-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.is-planning .tp-item-type { display: inline-block; padding: 2px 7px; border-radius: 4px; color: #566176; background: #f0f2f5; font-size: 11px; line-height: 1.6; font-weight: 600; }
+.is-planning .tp-item-type[data-type="FLIGHT"] { color: #32689a; background: #edf5fd; }
+.is-planning .tp-item-type[data-type="ACCOMMODATION"] { color: #937127; background: #fbf5e5; }
+.is-planning .tp-item-type[data-type="TRANSPORT"] { color: #367865; background: #edf7f2; }
+.is-planning .tp-item-type[data-type="MEAL"] { color: #a26443; background: #fdf2eb; }
+.is-planning .tp-item-type[data-type="SIGHTSEEING"] { color: #6c58a2; background: #f3effb; }
+.is-planning .tp-item-type[data-type="NOTE"] { color: #647189; background: #f0f4fa; }
+.is-planning .tp-item-time { color: #667085; font-size: 12px; font-variant-numeric: tabular-nums; }
+.is-planning .tp-item-title { font-weight: 650; }
+.is-planning .tp-item-note { color: #667085; font-size: 13px; white-space: pre-line; }
+.is-planning .travel-plan-line-content::first-line { font-weight: 650; color: #263244; }
+.is-planning .tp-item-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.is-planning .tp-item-fields select,
+.is-planning .tp-item-fields input { min-width: 0; max-width: 100%; padding: 5px 8px; border: 1px solid #e1e5eb; border-radius: 5px; background: #fff; color: #475467; font: inherit; font-size: 12px; }
+.is-planning .tp-item-add-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.is-planning .tp-item-add-type { padding: 5px 8px; border: 1px solid #e6e9ee; border-radius: 5px; background: #fff; color: #667085; font-size: 12px; cursor: pointer; }
+.is-planning .tp-item-add-type:hover { background: #f8f9fb; }
+.is-planning .tp-item-fields label { display: flex; align-items: center; gap: 6px; min-width: 0; color: #667085; font-size: 12px; }
+.is-planning .tp-item-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.is-planning .tp-item-editor-actions span { margin-right: auto; color: #8893a4; font-size: 11px; }
+.is-planning .tp-item-editor-actions button,
+.is-planning .tp-item-edit-button,
+.is-planning .tp-day-collapse { padding: 5px 8px; border: 1px solid #e6e9ee; border-radius: 5px; background: #fff; color: #667085; font: inherit; font-size: 12px; cursor: pointer; }
+.is-planning .tp-item-edit-button { padding: 2px 6px; border: 0; margin-left: auto; font-size: 11px; }
+.is-planning .tp-day-collapse { margin-left: auto; font-size: 11px; font-weight: 500; }
+.is-planning .travel-plan-line.is-slot.is-editing .tp-item-add-types { display: none; }
+.is-planning .travel-plan-lines[hidden] { display: none; }
+.is-planning .tp-day-subtitle { flex: 1 1 140px; }
+.tp-dashboard .tp-expense-total { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.tp-dashboard .tp-expense-amount { max-width: 100%; overflow-wrap: anywhere; }
+.travel-plan-final-paper .tp-item-meta { display: flex; align-items: center; gap: 8px; color: #667085; font-size: 12px; }
+.travel-plan-final-paper .tp-item-type { padding: 2px 6px; background: #f3f4f7; border-radius: 4px; }
+.tp-dashboard { min-width: 0; margin: 26px 0 0; padding: 22px 0 0; border-top: 1px solid #e8ebef; color: #263244; }
+.tp-dashboard [hidden] { display: none !important; }
+.tp-dashboard *, .tp-dashboard *::before, .tp-dashboard *::after { box-sizing: border-box; }
+.tp-dashboard-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.tp-dashboard-card { padding: 22px; border: 1px solid #e7eaf0; border-radius: 12px; background: #fff; }
+.tp-dashboard-heading h2 > span { display: inline-block; margin-right: 5px; color: #8c82a3; font-size: 16px; }
+.tp-dashboard-columns > section { min-width: 0; }
+.tp-dashboard-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tp-dashboard h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.025em; }
+.tp-dashboard-heading > span { color: #7b8493; font-size: 12px; white-space: nowrap; }
+.tp-dashboard-description { margin: 7px 0 16px; color: #7b8493; font-size: 12px; line-height: 1.6; }
+.tp-dashboard-feedback { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 5px 12px; margin-bottom: 20px; }
+.tp-dashboard-feedback p { margin: 0; color: #7b8493; font-size: 12px; overflow-wrap: anywhere; }
+.tp-dashboard-feedback p.is-error { color: #b5473c; }
+.tp-dashboard button { flex-shrink: 0; padding: 7px 11px; border: 1px solid #e0d9ee; border-radius: 6px; background: #f8f6fc; color: #6b52a4; font-family: inherit; font-size: 12px; line-height: 1.4; cursor: pointer; }
+.tp-dashboard button:hover:enabled { background: #f0ecf8; }
+.tp-dashboard button:disabled { opacity: .5; cursor: default; }
+.tp-dashboard .tp-dashboard-text-button { padding: 4px 2px; border: 0; background: transparent; color: #7b8493; font-size: 11px; }
+.tp-dashboard input:not([type="checkbox"]), .tp-dashboard textarea { display: block; width: 100%; min-width: 0; max-width: 100%; padding: 9px 11px; border: 1px solid #e5e8ed; border-radius: 6px; background: #fff; color: #344054; font-family: inherit; font-size: 13px; line-height: 1.6; }
+.tp-dashboard textarea { resize: vertical; min-height: 140px; }
+.tp-dashboard input::placeholder, .tp-dashboard textarea::placeholder { color: #98a1af; }
+.tp-dashboard input:focus-visible, .tp-dashboard textarea:focus-visible, .tp-dashboard button:focus-visible { outline: 2px solid #b2a1d4; outline-offset: 2px; }
+.tp-dashboard input:disabled, .tp-dashboard textarea:disabled { color: #667085; background: #fafbfc; }
+.tp-dashboard-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tp-dashboard-add input { flex: 1 1 140px; }
+.tp-dashboard .tp-dashboard-add-open { margin-top: 14px; padding: 5px 0; border: 0; background: transparent; color: #7f6b9e; }
+.tp-dashboard-form-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.tp-dashboard-form-footer > span { margin-right: auto; color: #8a748f; font-size: 11px; }
+.tp-notice-view { min-height: 96px; margin: 0; color: #5b6577; font-size: 13px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tp-notice-current { margin-top: 8px; color: #7b8493; font-size: 12px; }
+.tp-notice-current summary { cursor: pointer; }
+.tp-notice-current p { padding: 10px; background: #f8f9fb; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tp-checklist, .tp-expenses { margin: 0; padding: 0; list-style: none; }
+.tp-checklist-card { display: flex; flex-direction: column; padding: 20px; }
+.tp-checklist-card .tp-dashboard-heading h2 { font-size: 16px; }
+.tp-checklist-progress { display: block; flex-shrink: 0; width: 100%; height: 4px; margin: 15px 0 10px; border: 0; border-radius: 99px; overflow: hidden; appearance: none; background: #eef0f4; color: #8d7ab8; }
+.tp-checklist-progress::-webkit-progress-bar { background: #eef0f4; border-radius: 99px; }
+.tp-checklist-progress::-webkit-progress-value { background: #8d7ab8; border-radius: 99px; }
+.tp-checklist-progress::-moz-progress-bar { background: #8d7ab8; border-radius: 99px; }
+.tp-checklist-row { display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 6px 8px; padding: 7px 0; border-bottom: 1px solid #f0f1f4; }
+.tp-checklist-row > input { grid-column: 2; grid-row: 1; appearance: none; width: 18px; height: 18px; margin: 0; justify-self: center; border: 1px solid #d2d7e0; border-radius: 50%; background: #fff; cursor: pointer; }
+.tp-checklist-row > input:checked { border-color: #8d7ab8; background: #8d7ab8; }
+.tp-checklist-row > input:checked::after { content: ""; display: block; width: 5px; height: 9px; margin: 2px 0 0 5px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.tp-checklist-row > input:disabled { cursor: default; }
+.tp-checklist-edit { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; grid-column: 1; grid-row: 1; }
+.tp-checklist-edit input { flex: 1 1 100px; }
+.tp-dashboard .tp-checklist-title { grid-column: 1; grid-row: 1; min-width: 0; padding: 3px 0; border: 0; background: transparent; color: #475467; font-size: 13px; text-align: left; overflow-wrap: anywhere; white-space: normal; font-weight: 400; line-height: 1.7; }
+.tp-dashboard .tp-checklist-title:hover:enabled { background: transparent; color: #74608f; }
+.tp-dashboard .tp-checklist-title:disabled { opacity: 1; cursor: default; }
+.tp-dashboard .tp-checklist-delete { grid-column: 3; grid-row: 1; width: 24px; height: 28px; padding: 0; border: 0; background: transparent; color: #a2a9b5; font-size: 20px; line-height: 1; }
+.tp-dashboard .tp-checklist-delete:hover:enabled { color: #b5473c; background: #faf5f5; }
+.tp-dashboard .tp-checklist-add { flex-wrap: nowrap; align-items: center; gap: 8px; margin-top: auto; padding-top: 16px; }
+.tp-dashboard .tp-checklist-add input { flex: 1 1 0; padding: 7px 10px; font-size: 12px; }
+.tp-dashboard .tp-checklist-add button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: #9a87c2; color: #fff; font-size: 22px; line-height: 1; }
+.tp-dashboard .tp-checklist-add button:hover:enabled { background: #8671b2; }
+.tp-checklist-row.is-complete .tp-checklist-title { text-decoration: line-through; color: #98a1af; }
+.tp-dashboard-menu { position: relative; align-self: center; }
+.tp-dashboard-menu > summary { display: block; list-style: none; padding: 2px 6px; border-radius: 4px; color: #8b94a2; font-size: 17px; cursor: pointer; }
+.tp-dashboard-menu > summary::-webkit-details-marker { display: none; }
+.tp-dashboard-menu[open] { z-index: 2; }
+.tp-dashboard .tp-dashboard-menu > button { display: block; min-width: 65px; width: 100%; background: #fff; text-align: left; padding: 6px 8px; }
+.tp-dashboard-menu[open] > summary { background: #f6f7f9; }
+.tp-dashboard-menu[open] > button { position: relative; z-index: 2; border: 1px solid #eef0f3; }
+.tp-dashboard .tp-checklist-edit input { padding: 3px 0; border-color: transparent; border-radius: 0; background: transparent; }
+.tp-dashboard .tp-checklist-edit input:focus { border-bottom-color: #c9bddf; }
+.tp-checklist-row.is-complete .tp-checklist-edit input { text-decoration: line-through; color: #98a1af; }
+.tp-checklist-row-state { grid-column: 1 / -1; color: #8a748f; font-size: 11px; overflow-wrap: anywhere; }
+.tp-checklist-row-state:empty { display: none; }
+.tp-checklist-row > .tp-dashboard-text-button:last-child { grid-column: 1 / -1; justify-self: start; }
+[data-dashboard-readonly] .tp-checklist-row { grid-template-columns: minmax(0, 1fr) 24px; }
+[data-dashboard-readonly] .tp-checklist-row button:not(.tp-checklist-title) { display: none; }
+.tp-dashboard-empty { padding: 15px 0; color: #98a1af; font-size: 13px; }
+.tp-expense-total { display: flex; align-items: baseline; gap: 12px; white-space: nowrap; }
+.tp-expense-total span { color: #7b8493; font-size: 12px; }
+.tp-expense-total strong { color: #665199; font-size: 22px; font-variant-numeric: tabular-nums; }
+.tp-expense-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #eef0f3; }
+.tp-expense-description { min-width: 0; overflow-wrap: anywhere; }
+.tp-expense-description strong { font-size: 13px; font-weight: 600; }
+.tp-expense-description p { margin: 3px 0 0; color: #8893a4; font-size: 12px; white-space: pre-line; }
+.tp-expense-amount { color: #475467; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tp-expense-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .6fr) minmax(0, 1.2fr) auto; align-items: end; gap: 10px; margin-top: 18px; }
+.tp-expense-add label { min-width: 0; color: #667085; font-size: 11px; }
+.tp-expense-add input { margin-top: 5px; }
+.tp-dashboard .tp-expense-add button { min-height: 40px; }
+.tp-expense-add-actions { display: flex; gap: 7px; }
+@media (hover: hover) {
+    .tp-dashboard-menu:not([open]):not(:focus-within) > summary { opacity: 0; }
+    .tp-checklist-row:hover .tp-dashboard-menu > summary,
+    .tp-expense-row:hover .tp-dashboard-menu > summary { opacity: 1; }
+}
+.tp-dashboard-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 720px) {
+    .is-planning .travel-plan-page-top-row { align-items: flex-start; }
+    .is-planning .travel-plan-top-actions { margin-left: auto; justify-content: flex-end; gap: 6px 10px; }
+    .is-planning .travel-plan-owner-actions { gap: 5px; }
+    .is-planning .travel-plan-finalize-toggle, .is-planning .travel-plan-invite-toggle, .is-planning .travel-plan-plan-delete { padding: 5px 7px; font-size: 11px; }
+    .tp-dashboard-columns { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .tp-dashboard-card { padding: 18px; }
+    .tp-dashboard { margin-top: 24px; padding-top: 22px; }
+    .tp-expense-add { grid-template-columns: minmax(0, 1fr) minmax(100px, .65fr); }
+    .tp-expense-add label:nth-child(3) { grid-column: 1 / -1; }
+    .tp-expense-add-actions { grid-column: 1 / -1; justify-content: flex-end; }
+    .tp-expense-total { flex-direction: column; align-items: flex-end; gap: 2px; }
+    .tp-expense-total strong { font-size: 19px; }
+}

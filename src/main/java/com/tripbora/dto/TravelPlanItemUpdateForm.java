@@ -1,6 +1,7 @@
 package com.tripbora.dto;
 
 import lombok.Data;
+import com.tripbora.model.TravelPlanItemDetails;
 
 /**
  * A 일정 수정 폼.
@@ -10,4 +11,7 @@ import lombok.Data;
 public class TravelPlanItemUpdateForm {
     private String content;
     private Integer version;
+    private String itemType;
+    private String startTime;
+    private TravelPlanItemDetails details;
 }

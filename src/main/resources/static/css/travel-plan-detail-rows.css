@@ -1,0 +1,79 @@
+/* 상세 일정에만 적용한다. 타입 색상은 item-types.css 토큰을 공유한다. */
+.is-planning .tp-detail-day-heading { flex-wrap: nowrap; gap: 12px; align-items: center; }
+.tp-detail-day-tile { display: flex; flex: 0 0 54px; flex-direction: column; align-items: stretch; box-sizing: border-box; min-height: 66px; margin: 0; padding: 0; overflow: hidden; border: 1px solid #dfe3e8; border-radius: 9px; background: #fff; color: #344054; line-height: 1.2; text-align: center; }
+.tp-detail-day-tile > span { display: block; padding: 5px 0; border-bottom: 1px solid #e3e6eb; background: #f5f6f8; color: #6b7280; font-size: 10px; font-weight: 500; letter-spacing: .08em; }
+.tp-detail-day-tile > strong { display: flex; flex: 1; align-items: center; justify-content: center; min-height: 38px; padding: 4px 0; font-size: 23px; font-weight: 500; }
+.tp-detail-day-info { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.is-planning .tp-detail-day-info .travel-plan-day-date { order: 2; border: 0; background: transparent; padding: 0; font-size: 11px; color: #7d8795; white-space: nowrap; }
+.tp-detail-day-info .tp-detail-day-title, .tp-detail-day-info .tp-detail-day-title-form { order: 1; }
+.tp-detail-day-info .tp-detail-day-title-status { order: 3; flex-basis: 100%; }
+.tp-detail-day-title { display: block; max-width: 100%; border: 0; padding: 0; background: transparent; color: #344054; text-align: left; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; cursor: text; }
+.tp-detail-day-title.is-placeholder { color: #98a2b3; font-weight: 400; }
+.tp-detail-day-title-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tp-detail-day-title-form[hidden], .tp-detail-day-title[hidden] { display: none; }
+.tp-detail-day-title-form input[type="text"] { flex: 1 1 180px; min-width: 0; max-width: 100%; box-sizing: border-box; border: 1px solid #d9dfe7; border-radius: 5px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.tp-detail-day-title-form button { border: 1px solid #e1e5ea; border-radius: 5px; padding: 5px 8px; background: #fff; color: #667085; font: inherit; font-size: 11px; cursor: pointer; }
+.tp-detail-day-title-status { display: block; color: #8b6470; font-size: 11px; font-weight: 400; }
+.tp-detail-day-title-status:empty { display: none; }
+.tp-detail-day-heading .tp-day-collapse { flex: 0 0 auto; }
+
+.is-planning .travel-plan-line.is-item:has(> .tp-detail-item-shell) { padding: 5px 0; border-bottom: 0; }
+.is-planning .tp-detail-item-shell.tp-item-card { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--tp-type-border); border-radius: 8px; background: var(--tp-type-bg); }
+.tp-detail-item-shell > .tp-item-order-controls { align-items: center; min-height: 38px; }
+/* drag의 순번 갱신 참조는 유지하고 숫자와 그 자리만 화면에서 제거한다. */
+.tp-detail-item-shell .travel-plan-line-order { display: none; }
+.tp-detail-item-shell .tp-item-drag-handle { width: 26px; min-height: 38px; color: #7d8999; }
+.tp-detail-item-shell .tp-item-drag-handle svg { width: 12px; height: 18px; }
+.tp-detail-item-shell > .travel-plan-line-body { flex: 1 1 0; min-width: 0; }
+.tp-detail-item-view, .tp-detail-row-view { min-width: 0; }
+.tp-detail-item-view[hidden], .tp-detail-row-view[hidden] { display: none; }
+.tp-detail-item-bar, .tp-detail-row-view { display: flex; align-items: center; gap: 12px; min-height: 38px; min-width: 0; }
+.tp-detail-item-shell .tp-type-badge { flex: 0 0 auto; font-size: 13px; }
+.tp-detail-item-shell .tp-type-badge svg { width: 15px; height: 15px; }
+.tp-detail-item-aux { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; color: #475467; font-size: 14px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tp-detail-item-time-label, .tp-detail-kind-label { color: #526071; font-size: 12px; font-weight: 400; white-space: nowrap; }
+.tp-detail-item-time, .tp-detail-datetime { flex: 0 0 auto; color: #344054; font-size: 15px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tp-detail-item-title, .tp-detail-row-view .tp-card-title { flex: 1 1 0; min-width: 0; margin: 0; color: #253246; font-size: 16px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.tp-detail-item-shell .tp-card-edit { flex: 0 0 34px; align-self: flex-start; min-height: 38px; margin-left: auto; padding: 0; color: #788597; }
+.tp-detail-item-shell .tp-card-map { margin-top: 0; flex-shrink: 0; }
+.tp-detail-pending-state { color: #8a94a3; font-size: 10px; white-space: nowrap; }
+.tp-detail-item-shell > .travel-plan-item-menu { padding-top: 0; }
+.is-planning .tp-detail-item-shell .travel-plan-item-menu-button { min-width: 24px; min-height: 30px; color: #8792a0; }
+.tp-detail-item-shell .travel-plan-alt-block { margin-top: 0; }
+.tp-detail-item-shell .travel-plan-alt-toggle { margin-top: 5px; }
+.is-planning .tp-detail-item-shell .travel-plan-item-editor { width: 100%; margin: 0; padding: 8px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.travel-plan-item-editor [data-item-editor-delete] { display: none; }
+.is-planning .tp-detail-item-shell .tp-item-editor-actions .tp-editor-delete { display: inline-block; padding: 4px 2px; border: 0; background: transparent; color: #9b625e; font-size: 11px; }
+.is-planning .tp-detail-item-shell .tp-item-editor-actions .tp-editor-delete:hover { color: #b5473c; text-decoration: underline; }
+.tp-detail-item-shell:focus-within { border-color: #b8c6d7; }
+.tp-detail-item-shell .tp-card-edit:focus-visible, .tp-detail-day-title:focus-visible { outline: 2px solid #8ca2ba; outline-offset: 3px; border-radius: 3px; }
+.is-creating > .tp-detail-item-shell { opacity: .7; }
+.is-creating .tp-card-edit:disabled { cursor: default; }
+.tp-item-enter { animation: tp-detail-item-enter 180ms ease-out; }
+@keyframes tp-detail-item-enter { from { opacity: .1; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 768px) {
+  .tp-detail-item-bar, .tp-detail-row-view { flex-wrap: wrap; gap: 4px 8px; }
+  .tp-detail-item-title, .tp-detail-row-view .tp-card-title { flex-basis: calc(100% - 100px); }
+  .tp-detail-item-aux { order: 4; flex-basis: 100%; flex-wrap: wrap; margin-left: 0; white-space: normal; }
+  .tp-detail-item-bar .tp-card-edit { order: 3; }
+  .tp-detail-item-bar .tp-detail-item-title { order: 2; }
+  .tp-detail-row-view .tp-detail-kind-label, .tp-detail-row-view .tp-detail-datetime { order: 4; }
+  .tp-detail-item-time { order: 4; }
+}
+@media (max-width: 430px) {
+  .is-planning .tp-detail-day-heading { gap: 10px; }
+  .tp-detail-day-tile { flex-basis: 46px; min-height: 62px; }
+  .tp-detail-day-title { font-size: 13px; }
+  .is-planning .tp-detail-item-shell.tp-item-card { gap: 6px; padding: 8px; }
+  .tp-detail-item-shell > .tp-item-order-controls, .tp-detail-item-bar, .tp-detail-row-view { min-height: 34px; }
+  .tp-detail-item-shell .tp-item-drag-handle { width: 24px; min-height: 34px; }
+  .tp-detail-item-shell .tp-type-badge { gap: 4px; font-size: 12px; }
+  .tp-detail-item-shell .tp-type-badge svg { width: 14px; height: 14px; }
+  .tp-detail-item-shell .tp-card-edit { flex-basis: 30px; min-height: 34px; }
+  .is-planning .tp-detail-item-shell .travel-plan-item-menu-button { min-width: 20px; }
+  .tp-detail-item-title, .tp-detail-row-view .tp-card-title { font-size: 15px; }
+  .tp-detail-item-time, .tp-detail-datetime { font-size: 14px; }
+  .tp-detail-item-aux { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { .tp-item-enter { animation: none; } }

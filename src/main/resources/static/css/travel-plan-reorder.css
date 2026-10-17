@@ -1,0 +1,12 @@
+.tp-item-order-controls { display: flex; align-items: flex-start; gap: 3px; flex: 0 0 auto; }
+.tp-item-drag-handle { display: inline-flex; align-items: center; justify-content: center; width: 22px; min-height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #98a2b3; cursor: grab; }
+.tp-item-drag-handle:hover, .tp-item-drag-handle:focus-visible { color: #475467; background: #f2f4f7; }
+.tp-item-drag-handle:focus-visible { outline: 2px solid #667085; outline-offset: 2px; }
+.tp-is-reordering .tp-item-drag-handle { cursor: grabbing; }
+.travel-plan-line.tp-is-dragging { opacity: .38; }
+.travel-plan-line.tp-drop-before { border-top: 2px solid #8098ba; }
+.travel-plan-line.tp-drop-after { border-bottom: 2px solid #8098ba; }
+.tp-drag-placeholder { list-style: none; height: 8px; margin: 2px 0; border-radius: 3px; background: #e9eef5; }
+.tp-drag-ghost { position: fixed !important; left: -10000px !important; top: 0; padding: 12px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; list-style: none; pointer-events: none; }
+.travel-plan-item-menu-list .travel-plan-item-delete { color: #b54747; width: 100%; text-align: left; }
+@media (pointer: coarse) { .tp-item-drag-handle { width: 24px; min-height: 32px; } }

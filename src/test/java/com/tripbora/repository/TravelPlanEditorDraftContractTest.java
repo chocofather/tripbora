@@ -128,7 +128,7 @@ class TravelPlanEditorDraftContractTest {
         assertThat(blur).contains("if (!document.hasFocus()) return");
         // 그 확인이 onBlur 보다 먼저다
         assertThat(blur.indexOf("document.hasFocus()"))
-                .isLessThan(blur.indexOf("onBlur()"));
+                .isLessThan(blur.indexOf("onBlur(event)"));
     }
 
     @Test
@@ -202,9 +202,9 @@ class TravelPlanEditorDraftContractTest {
         String scheduler = schedulerJs();
 
         assertThat(scheduler)
-                .contains("await live.requestLock(spot)")
+                .contains("await requestEditorLock(live, spot)")
                 // 받지 못하면 열지 않는다
-                .contains("if (!result.granted || activeLine) return")
+                .contains("if (!result.granted || activeLine || activeAlt) return")
                 // 남이 쓰고 있으면 아예 시도하지 않는다
                 .contains("if (live.isLockedByOther(spot)) return");
 
@@ -387,7 +387,7 @@ class TravelPlanEditorDraftContractTest {
                 .contains("\"X-Requested-With\": \"XMLHttpRequest\"");
 
         // 정상 저장 경로에서 화면을 통째로 새로 띄우지 않는다
-        assertThat(scheduler)
+        assertThat(between(scheduler, "async function save(line)", "function bindEditableField"))
                 .doesNotContain("location.reload")
                 .doesNotContain("window.location =")
                 .doesNotContain("form.submit()");
@@ -411,7 +411,7 @@ class TravelPlanEditorDraftContractTest {
         assertThat(save)
                 .contains("if (!response.ok)")
                 .contains("showSaveError(line")
-                .contains("textarea.focus()")
+                .contains("focusEditor(form)")
                 // 실패했다고 입력을 지우거나 편집기를 닫지 않는다
                 .doesNotContain("textarea.value = \"\"");
     }
@@ -449,12 +449,12 @@ class TravelPlanEditorDraftContractTest {
         String altOpen = between(scheduler, "async function openAlt(node)", "function showAltError");
         assertThat(altOpen)
                 .contains("live.isLockedByOther(spot)")
-                .contains("await live.requestLock(spot)")
+                .contains("await requestEditorLock(live, spot)")
                 .contains("if (!result.granted || activeAlt || activeLine) return")
                 .contains("live?.sendDraft(altDraftOf(node))");
 
         // 자리를 받는 것이 편집기를 여는 것보다 먼저다
-        assertThat(altOpen.indexOf("requestLock("))
+        assertThat(altOpen.indexOf("requestEditorLock("))
                 .isLessThan(altOpen.indexOf("node.classList.add(\"is-editing\")"));
     }
 

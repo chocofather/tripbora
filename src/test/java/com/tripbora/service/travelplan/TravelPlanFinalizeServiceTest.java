@@ -498,6 +498,28 @@ class TravelPlanFinalizeServiceTest {
     }
 
     @Test
+    void typeAndTimeArePreservedInTheFinalSnapshot() {
+        givenRoomToFinalize();
+        when(travelPlanMapper.findDaysByPlanId(PLAN_ID)).thenReturn(List.of(day(100L, 1)));
+        TravelPlanItem flight = item(500L, 100L, "공항\n예약 확인", 1);
+        flight.setTag("FLIGHT");
+        flight.setStartTime(java.time.LocalTime.of(9, 30));
+        var details = new com.tripbora.model.TravelPlanItemDetails();
+        details.setFlightNumber("KE123");
+        details.setDepartureDate("2026-10-18");
+        details.setArrivalTime("04:30");
+        flight.setDetails(details);
+        when(travelPlanItemMapper.findByPlanId(PLAN_ID)).thenReturn(List.of(flight));
+        finalizeService.finalizePlan(principal(), PLAN_ID, false);
+        ArgumentCaptor<TravelPlanFinalItem> captor = ArgumentCaptor.forClass(TravelPlanFinalItem.class);
+        verify(travelPlanFinalMapper).insertItem(captor.capture());
+        assertThat(captor.getValue().getTag()).isEqualTo("FLIGHT");
+        assertThat(captor.getValue().getStartTime()).isEqualTo(java.time.LocalTime.of(9, 30));
+        assertThat(captor.getValue().getContent()).isEqualTo("공항\n예약 확인");
+        assertThat(captor.getValue().getDetails()).isEqualTo(details);
+    }
+
+    @Test
     void theTitleAndDatesAreTakenAtThatMoment() {
         givenRoomToFinalize();
 

@@ -1,10 +1,12 @@
 package com.tripbora.repository.travelplan;
 
 import com.tripbora.model.TravelPlanItem;
+import com.tripbora.model.TravelPlanItemDetails;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.time.LocalTime;
 
 @Mapper
 public interface TravelPlanItemMapper {
@@ -37,6 +39,21 @@ public interface TravelPlanItemMapper {
                       @Param("travelPlanDayId") Long travelPlanDayId,
                       @Param("content") String content,
                       @Param("version") Integer version);
+
+    int updateDetails(@Param("id") Long id,
+                      @Param("travelPlanDayId") Long travelPlanDayId,
+                      @Param("content") String content,
+                      @Param("tag") String tag,
+                      @Param("startTime") LocalTime startTime,
+                      @Param("version") Integer version);
+
+    int updateStructuredDetails(@Param("id") Long id,
+                                @Param("travelPlanDayId") Long travelPlanDayId,
+                                @Param("content") String content,
+                                @Param("tag") String tag,
+                                @Param("startTime") LocalTime startTime,
+                                @Param("details") TravelPlanItemDetails details,
+                                @Param("version") Integer version);
 
     /** 일정 1건 삭제. DAY 소속까지 조건으로 건다. */
     int deleteByIdAndDayId(@Param("id") Long id,

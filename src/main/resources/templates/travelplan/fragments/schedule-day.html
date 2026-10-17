@@ -24,45 +24,89 @@
 <section class="travel-plan-day"
          th:fragment="scheduleDay(plan, days, day, dayItems, alternativesByItemId, dayOpen)"
          th:id="'day-' + ${day.id}"
-         th:attr="data-day-id=${day.id},data-travel-plan-day-id=${day.id}"
+         th:attr="data-day-id=${day.id},data-travel-plan-day-id=${day.id},
+                  data-plan-date=${day.planDate}"
          th:with="itemCount=${dayItems == null ? 0 : dayItems.size()}"
          data-travel-plan-day>
 
-  <h2 class="travel-plan-day-heading">
-    <span class="travel-plan-day-number" th:text="'DAY ' + ${day.dayNumber}">DAY 1</span>
-    <span class="travel-plan-day-date"
-          th:text="${#temporals.format(day.planDate, 'M월 d일')}">9월 13일</span>
-  </h2>
+  <div class="travel-plan-day-heading tp-detail-day-heading">
+    <h2 class="tp-detail-day-tile" th:attr="aria-label=|DAY ${day.dayNumber}|">
+      <span>DAY</span><strong th:text="${day.dayNumber}">1</strong>
+    </h2>
+    <div class="tp-detail-day-info">
+      <span class="travel-plan-day-date"
+            th:text="${#temporals.format(day.planDate, 'MM.dd(E)')}">09.13(일)</span>
+      <button type="button" class="tp-detail-day-title" data-day-title-edit
+              th:classappend="${#strings.isEmpty(day.title)} ? 'is-placeholder'"
+              th:text="${#strings.isEmpty(day.title) ? '이날의 여행 제목을 적어 주세요' : day.title}">이날의 여행 제목을 적어 주세요</button>
+      <form method="post" class="tp-detail-day-title-form" hidden data-day-title-form
+            th:action="@{|/travel-plans/${plan.id}/days/${day.id}/title|}">
+        <input type="text" name="title" maxlength="150" aria-label="DAY 여행 제목"
+               placeholder="이날의 여행 제목을 적어 주세요" th:value="${day.title}">
+        <input type="hidden" name="titleVersion" th:value="${day.titleVersion == null ? 0 : day.titleVersion}">
+        <button type="submit">저장</button>
+        <button type="button" data-day-title-cancel>취소</button>
+      </form>
+      <span class="tp-detail-day-title-status" role="status" data-day-title-status></span>
+    </div>
+    <button type="button" class="tp-day-collapse" aria-expanded="true"
+            th:attr="aria-controls=|day-lines-${day.id}|" data-day-collapse>접기</button>
+  </div>
 
-  <ol class="travel-plan-lines">
+  <ol class="travel-plan-lines" th:id="|day-lines-${day.id}|">
     <!-- 저장된 일정만 번호가 붙은 줄이 된다. 줄 자체가 편집기가 된다 -->
     <li class="travel-plan-line is-item" th:each="item, status : ${dayItems}"
         th:with="alternatives=${alternativesByItemId == null
                                ? null : alternativesByItemId.get(item.id)},
                  altCount=${alternatives == null ? 0 : alternatives.size()}"
         th:attr="data-item-id=${item.id},data-display-order=${item.displayOrder},
-                 data-version=${item.version},data-alt-count=${altCount}"
+                 data-version=${item.version},data-alt-count=${altCount},
+                 data-item-type=${item.itemType},data-item-title=${item.title},
+                 data-start-time=${item.startTime == null ? '' : #temporals.format(item.startTime, 'HH:mm')}"
         data-travel-plan-item>
-      <span class="travel-plan-line-order"
-            th:text="${#numbers.formatInteger(status.count, 2)}">01</span>
+      <div class="tp-detail-item-shell tp-item-card" th:attr="data-type=${item.itemType}">
+      <div class="tp-item-order-controls">
+        <button type="button" class="tp-item-drag-handle" draggable="true"
+                data-item-drag-handle
+                th:attr="aria-label=|${item.title} 순서 이동|" title="드래그하여 순서 이동">
+          <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" focusable="false">
+            <g fill="currentColor"><circle cx="2" cy="3" r="1.3"/><circle cx="8" cy="3" r="1.3"/><circle cx="2" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="8" cy="13" r="1.3"/></g>
+          </svg>
+        </button>
+        <span class="travel-plan-line-order"
+              th:text="${#numbers.formatInteger(status.count, 2)}">01</span>
+      </div>
 
       <!--
         보기와 편집기는 같은 칸을 나눠 쓴다.
         편집기를 형제 column 으로 두면 글자 오른쪽에 입력칸이 따로 생긴다.
       -->
       <div class="travel-plan-line-body">
-        <p class="travel-plan-line-content" th:text="${item.content}"
-           data-travel-plan-item-content>
-          오전 10시 경복궁 도착
-        </p>
+        <th:block th:replace="~{travelplan/fragments/schedule-day :: detailRow(${item})}"></th:block>
+        <!-- 상단 요약은 기존 공용 카드 모양을 유지한다. template은 상세 row에 노출되지 않는다. -->
+        <template data-overview-item-view>
+          <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, true)}"></th:block>
+        </template>
 
         <form class="travel-plan-item-editor" method="post" hidden
               th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/update|}"
               data-travel-plan-item-form>
           <input type="hidden" name="version" th:value="${item.version}">
-          <textarea name="content" rows="1" autocomplete="off"
+          <th:block th:replace="~{travelplan/fragments/item-card :: fields(${item.details}, ${item.title}, ${item.note}, ${item.startTime == null ? '' : #temporals.format(item.startTime, 'HH:mm')}, ${item.itemType})}"></th:block>
+          <textarea name="content" hidden rows="1" autocomplete="off"
                     th:id="'item-content-' + ${item.id}"
                     th:text="${item.content}"></textarea>
+          <div class="tp-item-editor-actions" th:with="d=${item.details}">
+            <a class="tp-card-map" th:if="${d != null and (!#strings.isEmpty(d.address) or !#strings.isEmpty(d.departurePlace))}"
+               th:href="@{https://www.google.com/maps/search/(api=1,query=${#strings.isEmpty(d.address) ? d.departurePlace : d.address})}"
+               target="_blank" rel="noopener noreferrer" aria-label="위치 지도 열기">위치 ↗</a>
+            <span>저장하면 모두에게 반영돼요.</span>
+            <button type="submit">저장</button>
+            <button type="button" data-item-editor-cancel>취소</button>
+            <button type="submit" class="tp-editor-delete" data-item-editor-delete formnovalidate
+                    th:formaction="${altCount > 0} ? @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete-group|} : @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete|}"
+                    th:attr="data-delete-confirm=${altCount > 0 ? '이 일정과 대안을 함께 삭제할까요?' : '이 일정을 삭제할까요?'}">삭제</button>
+          </div>
         </form>
 
         <!--
@@ -147,72 +191,17 @@
         </div>
       </div>
 
-      <!-- hover/focus 전에는 거의 보이지 않는다 -->
-      <div class="travel-plan-item-menu" data-travel-plan-item-menu>
-        <button type="button" class="travel-plan-item-menu-button"
-                aria-haspopup="true" aria-expanded="false"
-                aria-label="일정 메뉴" data-travel-plan-menu-button>⋯</button>
-        <div class="travel-plan-item-menu-list" hidden data-travel-plan-menu-list>
-          <!-- 대안은 여기서만 시작한다. 줄 아래에 항상 떠 있는 버튼은 두지 않는다 -->
-          <button type="button" class="travel-plan-item-action" th:if="${altCount lt 2}"
-                  data-travel-plan-alt-add>대안 추가</button>
-
-          <!-- 첫/마지막 일정에서는 갈 곳이 없는 방향을 막아 둔다 -->
+      <!-- drag 저장 경로만 유지한다. 이동 버튼과 메뉴는 렌더링하지 않는다. -->
+      <div hidden data-travel-plan-reorder-forms>
           <form method="post"
                 th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/move-up|}">
             <input type="hidden" name="version" th:value="${item.version}">
-            <button type="submit" class="travel-plan-item-action"
-                    th:disabled="${status.first}">위로 이동</button>
           </form>
           <form method="post"
                 th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/move-down|}">
             <input type="hidden" name="version" th:value="${item.version}">
-            <button type="submit" class="travel-plan-item-action"
-                    th:disabled="${status.last}">아래로 이동</button>
           </form>
-
-          <!-- DAY 가 하나뿐이면 옮길 곳이 없다 -->
-          <div class="travel-plan-item-menu-group"
-               th:if="${#lists.size(days) > 1}">
-            <span class="travel-plan-item-menu-label">다른 DAY로 이동</span>
-            <form method="post" th:each="target : ${days}"
-                  th:if="${target.id != day.id}"
-                  th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/move|}">
-              <input type="hidden" name="version" th:value="${item.version}">
-              <input type="hidden" name="targetDayId" th:value="${target.id}">
-              <button type="submit" class="travel-plan-item-action"
-                      th:text="'DAY ' + ${target.dayNumber} + ' · '
-                               + ${#temporals.format(target.planDate, 'M월 d일')}">
-                DAY 2 · 9월 14일
-              </button>
-            </form>
-          </div>
-
-          <!-- 대안이 없으면 지울 것이 하나뿐이라 그냥 "삭제" 다 -->
-          <form method="post" th:if="${altCount == 0}"
-                th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete|}">
-            <button type="submit" class="travel-plan-item-delete"
-                    onclick="return confirm('이 일정을 삭제할까요?')">삭제</button>
-          </form>
-
-          <!--
-            대안이 있으면 뜻이 갈린다.
-            "일정만 삭제" 는 이 줄만 지우고 B 를 그 자리로 올린다.
-            "전체 일정 삭제" 는 A 와 대안을 통째로 지운다.
-          -->
-          <th:block th:if="${altCount > 0}">
-            <form method="post"
-                  th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete|}">
-              <button type="submit" class="travel-plan-item-delete"
-                      onclick="return confirm('이 일정을 지우고 대안을 위로 올릴까요?')">일정만 삭제</button>
-            </form>
-            <form method="post"
-                  th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete-group|}">
-              <button type="submit" class="travel-plan-item-delete"
-                      onclick="return confirm('대안까지 모두 삭제할까요?')">전체 일정 삭제</button>
-            </form>
-          </th:block>
-        </div>
+      </div>
       </div>
     </li>
 
@@ -223,31 +212,62 @@
       <span class="travel-plan-line-order" aria-hidden="true"></span>
 
       <!-- + 는 눌리는 자리라는 표시라 글자와 따로 둔다 -->
-      <span class="travel-plan-slot-hint">
-        <span class="travel-plan-slot-plus" aria-hidden="true">+</span>일정 추가
-      </span>
+      <div class="tp-item-add-types">
+        <button type="button" class="travel-plan-slot-hint tp-item-add-type" data-add-item-type="SCHEDULE">+ 일정</button>
+        <button type="button" class="tp-item-add-type" data-add-item-type="FLIGHT">+ 항공</button>
+        <button type="button" class="tp-item-add-type" data-add-item-type="ACCOMMODATION">+ 숙소</button>
+        <button type="button" class="tp-item-add-type" data-add-item-type="TRANSPORT">+ 이동</button>
+      </div>
 
       <form class="travel-plan-slot-form" method="post"
             th:hidden="${!dayOpen}"
             th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items|}"
             th:object="${travelPlanItemCreateForm}"
             data-travel-plan-slot-form>
+        <th:block th:replace="~{travelplan/fragments/item-card :: fields(${dayOpen ? travelPlanItemCreateForm.details : null}, '', '', ${dayOpen ? travelPlanItemCreateForm.startTime : ''}, ${dayOpen ? travelPlanItemCreateForm.itemType : 'SCHEDULE'})}"></th:block>
         <!--
           DAY 마다 폼이 하나씩 있으므로 th:field 대신 name 을 직접 준다.
           (th:field 는 id 를 필드명으로 고정해 중복 id 가 생긴다)
           작성 중이던 값은 저장에 실패한 DAY 에서만 되살린다.
         -->
-        <textarea name="content" rows="1" autocomplete="off"
+        <textarea name="content" hidden rows="1" autocomplete="off"
                   th:id="'content-' + ${day.id}"
-                  placeholder="여기에 일정 입력..."
+                  placeholder="첫 줄에 제목, 다음 줄에 메모를 입력해 주세요"
+                  aria-label="새 일정 제목과 메모"
                   th:text="${dayOpen} ? *{content} : ''"
                   th:classappend="${dayOpen and #fields.hasErrors('content')}
                                   ? 'is-invalid'"></textarea>
         <p class="travel-plan-slot-error"
            th:if="${dayOpen and #fields.hasErrors('content')}" th:errors="*{content}"></p>
+        <div class="tp-item-editor-actions">
+          <span>필요한 정보만 입력해 주세요.</span>
+          <button type="submit">추가</button>
+          <button type="button" data-item-editor-cancel>취소</button>
+        </div>
       </form>
     </li>
   </ol>
 </section>
+
+<!-- 상세 일정 전용 보기. 전체 일정의 공용 카드는 변경하지 않는다. -->
+<div th:fragment="detailRow(item)" class="tp-detail-item-view" data-item-view
+     th:attr="data-type=${item.itemType}"
+     th:with="d=${item.details},type=${item.itemType.name()},special=${type == 'FLIGHT' or type == 'ACCOMMODATION' or type == 'TRANSPORT'}">
+  <div class="tp-detail-item-bar">
+    <span class="tp-type-badge" th:attr="data-item-type-badge=${item.itemType}"
+          th:text="${item.itemType.label}">일정</span>
+    <span class="tp-detail-item-aux" th:if="${special}">
+      <span class="tp-detail-item-time-label" th:text="${type == 'FLIGHT' ? '탑승시간' : (type == 'ACCOMMODATION' ? '체크인' : '출발')}">출발</span>
+      <span th:text="${d == null ? '날짜 미정' : (type == 'ACCOMMODATION' ? (#strings.isEmpty(d.checkInDate) ? '날짜 미정' : d.checkInDate) : (#strings.isEmpty(d.departureDate) ? '날짜 미정' : d.departureDate))}"></span>
+      <time th:text="${d != null and !#strings.isEmpty(type == 'ACCOMMODATION' ? d.checkInTime : d.departureTime) ? (type == 'ACCOMMODATION' ? d.checkInTime : d.departureTime) : (item.startTime == null ? '시간 미정' : #temporals.format(item.startTime, 'HH:mm'))}">시간 미정</time>
+    </span>
+    <time class="tp-detail-item-time" th:if="${!special and item.startTime != null}"
+          th:text="${#temporals.format(item.startTime, 'HH:mm')}">09:00</time>
+    <h3 class="tp-detail-item-title"
+        th:text="${d != null and (type == 'FLIGHT' or type == 'TRANSPORT') and (!#strings.isEmpty(d.departurePlace) or !#strings.isEmpty(d.arrivalPlace)) ? #strings.defaultString(d.departurePlace, '') + ' → ' + #strings.defaultString(d.arrivalPlace, '') : (d != null and type == 'ACCOMMODATION' and !#strings.isEmpty(d.stayName) ? d.stayName : (#strings.isEmpty(item.title) ? (type == 'ACCOMMODATION' ? '숙소 이름 입력하기' : (special ? '구간 / 장소 입력하기' : '일정 입력하기')) : item.title))}">일정 제목</h3>
+    <button type="button" class="tp-card-edit" data-item-edit-button aria-expanded="false" aria-label="일정 편집"><span class="tp-card-edit-label">편집</span></button>
+  </div>
+  <p hidden data-travel-plan-item-content th:text="${item.content}"></p>
+</div>
 </body>
 </html>

@@ -14,6 +14,8 @@ public class TravelPlanDay {
     private Long travelPlanId;
     private Integer dayNumber;
     private LocalDate planDate;
+    private String title;
+    private Integer titleVersion;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 }

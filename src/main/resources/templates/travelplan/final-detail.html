@@ -4,6 +4,10 @@
 
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/travel-plan.css">
+  <link rel="stylesheet" href="/css/travel-plan-dashboard.css">
+  <link rel="stylesheet" href="/css/travel-plan-item-types.css">
+  <script src="/js/travel-plan-item-types.js" defer></script>
+  <script src="/js/travel-plan-dashboard.js" defer></script>
   <!--
     완료된 여행은 읽기만 한다.
     실시간 연결도, 편집 스크립트도 싣지 않는다.
@@ -35,7 +39,8 @@
       줄을 눌러도 아무 일이 없고, 추가 슬롯과 ⋯ 메뉴도 없다.
     -->
     <article class="travel-plan-paper travel-plan-final-paper"
-             aria-labelledby="travel-plan-final-title">
+             aria-labelledby="travel-plan-final-title" data-dashboard-readonly
+             th:attr="data-dashboard-plan-id=${finalPlan.snapshot.travelPlanId}">
 
       <!--
         머리글은 작성 화면과 같은 것을 쓴다.
@@ -70,6 +75,8 @@
         </div>
       </header>
 
+      <th:block th:replace="~{travelplan/fragments/dashboard :: preparation}"></th:block>
+
       <div class="travel-plan-days">
         <section class="travel-plan-day" th:each="day : ${finalPlan.days}"
                  th:with="dayItems=${finalPlan.itemsByDayId.get(day.id)}">
@@ -88,9 +95,7 @@
                     th:text="${#numbers.formatInteger(status.count, 2)}">01</span>
 
               <div class="travel-plan-line-body">
-                <p class="travel-plan-line-content" th:text="${item.content}">
-                  오전 10시 경복궁 도착
-                </p>
+                <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, false)}"></th:block>
 
                 <!-- 그때 함께 적어 둔 대안이 있으면 그대로 보여 준다 -->
                 <div class="travel-plan-final-alts"
@@ -118,6 +123,7 @@
           </p>
         </section>
       </div>
+      <th:block th:replace="~{travelplan/fragments/dashboard :: expenses}"></th:block>
     </article>
   </div>
 </th:block>

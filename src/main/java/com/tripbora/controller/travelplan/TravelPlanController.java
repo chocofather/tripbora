@@ -23,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.PropertyAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -338,11 +339,28 @@ public class TravelPlanController {
                                 .toUriString()));
     }
 
-    /**
-     * DAY 한 구역만 다시 그려 준다. 실시간 알림을 받은 화면이 이 조각만 갈아 끼운다.
-     * 처음 그릴 때와 같은 fragment 를 쓰므로 화면이 갈라지지 않는다.
-     * 접근 권한은 상세 화면과 똑같이 Service 가 확인한다(비참여자는 404).
-     */
+    /** DAY 제목을 공동 편집 버전과 함께 저장한다. */
+    @PostMapping("/{travelPlanId:\\d+}/days/{dayId:\\d+}/title")
+    public ResponseEntity<?> updateDayTitle(@PathVariable Long travelPlanId,
+                                            @PathVariable Long dayId,
+                                            @RequestParam(required = false) String title,
+                                            @RequestParam(required = false) Integer titleVersion,
+                                            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            TravelPlanDay day = travelPlanService.updateDayTitle(
+                    userDetails.getId(), travelPlanId, dayId, title, titleVersion);
+            return ResponseEntity.ok(new DayTitleResponse(day.getTitle(), day.getTitleVersion()));
+        } catch (TravelPlanValidationException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        } catch (TravelPlanConflictException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", exception.getMessage()));
+        }
+    }
+
+    public record DayTitleResponse(String title, Integer titleVersion) {}
+
+    /** DAY 한 구역을 최초 화면과 같은 fragment로 다시 그린다. 비참여자는 Service에서 거부한다. */
     @GetMapping("/{travelPlanId:\\d+}/days/{dayId:\\d+}/fragment")
     public String dayFragment(@PathVariable Long travelPlanId,
                               @PathVariable Long dayId,
@@ -441,8 +459,16 @@ public class TravelPlanController {
                              HttpServletResponse response,
                              RedirectAttributes redirectAttributes) throws IOException {
         try {
-            travelPlanService.updateItem(userDetails.getId(), travelPlanId, dayId, itemId,
-                    form.getContent(), form.getVersion());
+            if (form.getDetails() != null) {
+                travelPlanService.updateTypedItem(userDetails.getId(), travelPlanId, dayId, itemId,
+                        form.getContent(), form.getVersion(), form.getItemType(), form.getStartTime(), form.getDetails());
+            } else if (form.getItemType() == null && form.getStartTime() == null) {
+                travelPlanService.updateItem(userDetails.getId(), travelPlanId, dayId, itemId,
+                        form.getContent(), form.getVersion());
+            } else {
+                travelPlanService.updateTypedItem(userDetails.getId(), travelPlanId, dayId, itemId,
+                        form.getContent(), form.getVersion(), form.getItemType(), form.getStartTime());
+            }
         } catch (TravelPlanValidationException | TravelPlanConflictException exception) {
             if (isAjax(request)) {
                 // 입력을 날리지 않도록 화면이 그대로 이어 가고 사유만 알린다.
@@ -624,7 +650,23 @@ public class TravelPlanController {
                           HttpServletResponse response,
                           Model model) throws IOException {
         try {
-            travelPlanService.addItem(userDetails.getId(), travelPlanId, dayId, form.getContent());
+            if (form.isEmptyCard()) {
+                Long itemId = travelPlanService.addEmptyTypedItem(
+                        userDetails.getId(), travelPlanId, dayId, form.getItemType());
+                if (isAjax(request)) {
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"itemId\":" + itemId + "}");
+                    return null;
+                }
+            } else if (form.getDetails() != null) {
+                travelPlanService.addTypedItem(userDetails.getId(), travelPlanId, dayId,
+                        form.getContent(), form.getItemType(), form.getStartTime(), form.getDetails());
+            } else if (form.getItemType() == null && form.getStartTime() == null) {
+                travelPlanService.addItem(userDetails.getId(), travelPlanId, dayId, form.getContent());
+            } else {
+                travelPlanService.addTypedItem(userDetails.getId(), travelPlanId, dayId,
+                        form.getContent(), form.getItemType(), form.getStartTime());
+            }
         } catch (TravelPlanValidationException exception) {
             if (isAjax(request)) {
                 return writeError(response, exception.getMessage());

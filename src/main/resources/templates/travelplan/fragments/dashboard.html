@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="preparation" class="tp-dashboard tp-dashboard-preparation" aria-label="여행 준비" data-dashboard-preparation>
+  <div class="tp-dashboard-feedback">
+    <p role="status" aria-live="polite" data-dashboard-status>여행 준비 정보를 불러오는 중이에요.</p>
+    <button type="button" class="tp-dashboard-text-button" data-dashboard-refresh>최신 정보 불러오기</button>
+  </div>
+  <div class="tp-dashboard-columns">
+    <section class="tp-dashboard-card tp-checklist-card" aria-labelledby="tp-checklist-title">
+      <div class="tp-dashboard-heading"><h2 id="tp-checklist-title"><span aria-hidden="true">☑</span> 함께 준비하기</h2><span data-checklist-count>0 / 0 완료</span></div>
+      <progress class="tp-checklist-progress" data-checklist-progress max="1" value="0" aria-label="여행 준비 완료율"></progress>
+      <ul class="tp-checklist" data-checklist-list></ul>
+      <p class="tp-dashboard-empty" hidden data-checklist-empty>등록된 준비 항목이 없어요.</p>
+      <form class="tp-dashboard-add tp-checklist-add" data-checklist-add>
+        <label class="tp-dashboard-sr-only" for="tp-checklist-new">새 준비 항목</label>
+        <input id="tp-checklist-new" name="title" maxlength="200" placeholder="준비할 일을 적어 주세요" required autocomplete="off" disabled>
+        <button type="submit" aria-label="준비 항목 추가" disabled>+</button>
+      </form>
+    </section>
+    <section class="tp-dashboard-card" aria-labelledby="tp-notice-title">
+      <div class="tp-dashboard-heading"><h2 id="tp-notice-title"><span aria-hidden="true">▤</span> 공유 메모</h2><button type="button" class="tp-dashboard-text-button" data-notice-edit disabled>수정</button></div>
+      <p class="tp-dashboard-description">만나는 장소, 예약 정보, 꼭 기억할 내용을 남겨요.</p>
+      <p class="tp-notice-view" data-notice-view>아직 공유된 메모가 없어요.</p>
+      <form data-notice-form hidden>
+        <label class="tp-dashboard-sr-only" for="tp-shared-notice">공유 메모 내용</label>
+        <textarea id="tp-shared-notice" name="content" rows="6" maxlength="10000" placeholder="모두에게 공유할 내용을 적어 주세요" disabled></textarea>
+        <details class="tp-notice-current" hidden data-notice-current><summary>현재 저장된 메모 확인</summary><p data-notice-current-content></p><button type="button" data-notice-use-latest>최신 내용 사용</button><p>버튼을 누르면 작성 중인 내용을 최신 내용으로 바꿔요. 필요한 초안은 먼저 복사해 주세요.</p></details>
+        <div class="tp-dashboard-form-footer"><span data-notice-state></span><button type="submit" disabled>완료</button><button type="button" data-notice-cancel disabled>취소</button></div>
+      </form>
+    </section>
+  </div>
+</section>
+<section th:fragment="expenses" class="tp-dashboard tp-dashboard-expenses" aria-labelledby="tp-expenses-title" data-dashboard-expenses>
+  <div class="tp-dashboard-heading"><div><h2 id="tp-expenses-title"><span aria-hidden="true">₩</span> 여행 경비</h2><p class="tp-dashboard-description">함께 쓴 비용을 원화로 기록해요.</p></div><div class="tp-expense-total"><span>총 경비</span><strong data-expense-total>—</strong></div></div>
+  <ul class="tp-expenses" data-expense-list></ul>
+  <p class="tp-dashboard-empty" hidden data-expense-empty>아직 기록된 경비가 없어요. 첫 지출을 기록해 보세요.</p>
+  <button type="button" class="tp-dashboard-add-open" data-expense-add-open disabled>+ 지출 추가</button>
+  <form class="tp-expense-add" data-expense-add hidden>
+    <label>항목<input name="title" maxlength="200" placeholder="예: 공항 택시" required disabled></label>
+    <label>금액 (원)<input name="amount" type="number" min="0" max="9999999999999.99" step="0.01" inputmode="decimal" placeholder="0" required disabled></label>
+    <label>메모<input name="memo" maxlength="1000" placeholder="선택 사항" disabled></label>
+    <div class="tp-expense-add-actions"><button type="submit" disabled>완료</button><button type="button" data-expense-add-cancel disabled>취소</button></div>
+  </form>
+</section>
+</body>
+</html>

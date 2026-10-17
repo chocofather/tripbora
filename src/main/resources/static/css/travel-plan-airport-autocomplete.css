@@ -1,0 +1,43 @@
+.travel-plan-airport-list {
+    position: fixed;
+    z-index: 1400;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid #dfe3e8;
+    border-radius: 8px;
+    background: #fff;
+    padding: 4px;
+    color: #253044;
+    text-align: left;
+}
+
+.travel-plan-airport-list [role="option"] {
+    padding: 9px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
+.travel-plan-airport-list [role="option"]:hover,
+.travel-plan-airport-list [aria-selected="true"] {
+    background: #edf4ff;
+    color: #1e4d87;
+}
+
+.travel-plan-airport-name,
+.travel-plan-airport-detail {
+    display: block;
+}
+
+.travel-plan-airport-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.travel-plan-airport-detail {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #657184;
+}

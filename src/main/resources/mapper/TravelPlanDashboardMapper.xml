@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.travelplan.TravelPlanDashboardMapper">
+    <select id="findActiveMemberForUpdate" resultType="long">
+        SELECT id FROM travel_plan_members
+        WHERE travel_plan_id = #{planId} AND user_id = #{userId} AND status = 'ACTIVE'
+        FOR UPDATE
+    </select>
+    <select id="findChecklist" resultType="com.tripbora.model.TravelPlanDashboard$Checklist">
+        SELECT id, title, completed, version FROM travel_plan_checklist
+        WHERE travel_plan_id = #{planId} ORDER BY id
+    </select>
+    <select id="findChecklistById" resultType="com.tripbora.model.TravelPlanDashboard$Checklist">
+        SELECT id, title, completed, version FROM travel_plan_checklist
+        WHERE travel_plan_id = #{planId} AND id = #{id}
+    </select>
+    <select id="findNotice" resultType="com.tripbora.model.TravelPlanDashboard$Notice">
+        SELECT content, version FROM travel_plan_notices WHERE travel_plan_id = #{planId}
+    </select>
+    <select id="findExpenses" resultType="com.tripbora.model.TravelPlanDashboard$Expense">
+        SELECT id, title, amount, memo, version FROM travel_plan_expenses
+        WHERE travel_plan_id = #{planId} ORDER BY id
+    </select>
+    <select id="findExpenseById" resultType="com.tripbora.model.TravelPlanDashboard$Expense">
+        SELECT id, title, amount, memo, version FROM travel_plan_expenses
+        WHERE travel_plan_id = #{planId} AND id = #{id}
+    </select>
+    <insert id="insertChecklist">
+        INSERT INTO travel_plan_checklist (travel_plan_id, title) VALUES (#{planId}, #{title})
+    </insert>
+    <update id="updateChecklist">
+        UPDATE travel_plan_checklist SET title = #{title}, completed = #{completed}, version = version + 1
+        WHERE travel_plan_id = #{planId} AND id = #{id} AND version = #{version}
+    </update>
+    <delete id="deleteChecklist">
+        DELETE FROM travel_plan_checklist
+        WHERE travel_plan_id = #{planId} AND id = #{id} AND version = #{version}
+    </delete>
+    <insert id="initializeNotice">
+        INSERT INTO travel_plan_notices (travel_plan_id, content) VALUES (#{planId}, '')
+        ON DUPLICATE KEY UPDATE travel_plan_id = travel_plan_notices.travel_plan_id
+    </insert>
+    <update id="updateNotice">
+        UPDATE travel_plan_notices SET content = #{content}, version = version + 1
+        WHERE travel_plan_id = #{planId} AND version = #{version}
+    </update>
+    <insert id="insertExpense">
+        INSERT INTO travel_plan_expenses (travel_plan_id, title, amount, memo)
+        VALUES (#{planId}, #{title}, #{amount}, #{memo})
+    </insert>
+    <delete id="deleteExpense">
+        DELETE FROM travel_plan_expenses
+        WHERE travel_plan_id = #{planId} AND id = #{id} AND version = #{version}
+    </delete>
+</mapper>

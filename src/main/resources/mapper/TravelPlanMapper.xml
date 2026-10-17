@@ -335,7 +335,7 @@
 
     <!-- 방의 DAY 목록 -->
     <select id="findDaysByPlanId" resultType="com.tripbora.model.TravelPlanDay">
-        SELECT id, travel_plan_id, day_number, plan_date, created_at, updated_at
+        SELECT id, travel_plan_id, day_number, plan_date, title, title_version, created_at, updated_at
         FROM travel_plan_days
         WHERE travel_plan_id = #{travelPlanId}
         ORDER BY day_number ASC
@@ -343,11 +343,21 @@
 
     <!-- DAY 1건. 방 소속까지 함께 확인한다 -->
     <select id="findDayByPlanAndId" resultType="com.tripbora.model.TravelPlanDay">
-        SELECT id, travel_plan_id, day_number, plan_date, created_at, updated_at
+        SELECT id, travel_plan_id, day_number, plan_date, title, title_version, created_at, updated_at
         FROM travel_plan_days
         WHERE id = #{dayId}
           AND travel_plan_id = #{travelPlanId}
     </select>
+
+    <update id="updateDayTitle">
+        UPDATE travel_plan_days
+        SET title = #{title},
+            title_version = title_version + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{dayId}
+          AND travel_plan_id = #{travelPlanId}
+          AND title_version = #{titleVersion}
+    </update>
 
     <!-- 일정 생성/수정/삭제처럼 실제 변경이 있을 때만 부른다 -->
     <update id="touchLastActivity">

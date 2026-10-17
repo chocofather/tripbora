@@ -626,6 +626,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     document.dispatchEvent(new CustomEvent("travelplan:plan-deleted"));
                     return;
                 }
+                if (payload.changeType === "DASHBOARD_UPDATED") {
+                    document.dispatchEvent(new CustomEvent("travelplan:dashboard-updated"));
+                    return;
+                }
                 (payload.affectedDayIds || []).forEach(refreshDay);
             } catch (error) {
                 // 알 수 없는 형식이면 화면을 건드리지 않는다.
@@ -697,6 +701,7 @@ document.addEventListener("DOMContentLoaded", () => {
         client.publish({ destination: `/app/travel-plans/${planId}/presence/join` });
 
         if (connectedBefore) {
+            document.dispatchEvent(new CustomEvent("travelplan:dashboard-updated"));
             resyncSchedule();
             // 끊겨 있던 사이의 명단 변경은 다시 받을 수 없다. 지금 명단을 다시 읽는다.
             refreshMembers();

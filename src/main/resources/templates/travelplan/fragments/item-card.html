@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"><body>
+<div th:fragment="view(item, editable)" class="tp-item-card" data-item-view
+     th:attr="data-type=${item.itemType}" th:with="d=${item.details}">
+  <div class="tp-item-card-heading">
+    <span class="tp-type-badge" th:attr="data-item-type-badge=${item.itemType}" th:text="${item.itemType.label}">일정</span>
+    <h3 class="tp-card-title" th:text="${d != null and (item.itemType.name() == 'FLIGHT' or item.itemType.name() == 'TRANSPORT') and (!#strings.isEmpty(d.departurePlace) or !#strings.isEmpty(d.arrivalPlace)) ? #strings.defaultString(d.departurePlace, '') + ' → ' + #strings.defaultString(d.arrivalPlace, '') : (d != null and item.itemType.name() == 'ACCOMMODATION' and !#strings.isEmpty(d.stayName) ? d.stayName : (#strings.isEmpty(item.title) ? (item.itemType.name() == 'ACCOMMODATION' ? '숙소 이름 입력하기' : '구간 입력하기') : item.title))}">일정 제목</h3>
+    <time th:if="${item.startTime != null}" th:text="${#temporals.format(item.startTime, 'HH:mm')}" class="tp-card-time">09:00</time>
+    <a class="tp-card-map" th:if="${d != null and (!#strings.isEmpty(d.address) or !#strings.isEmpty(d.departurePlace))}" th:href="@{https://www.google.com/maps/search/(api=1,query=${#strings.isEmpty(d.address) ? d.departurePlace : d.address})}" target="_blank" rel="noopener noreferrer" aria-label="위치 지도 열기">↗</a>
+    <button th:if="${editable}" type="button" class="tp-card-edit" data-item-edit-button aria-expanded="false" aria-label="일정 편집"><span class="tp-card-edit-label">편집</span></button>
+  </div>
+  <div th:if="${(item.itemType.name() == 'FLIGHT' or item.itemType.name() == 'TRANSPORT') and d != null}" class="tp-card-details">
+    <span th:if="${!#strings.isEmpty(d.flightNumber) and (d.flightNumber != item.title or !#strings.isEmpty(d.departurePlace) or !#strings.isEmpty(d.arrivalPlace))}" class="tp-card-reference" th:text="${d.flightNumber}"></span>
+    <div class="tp-card-route" th:if="${!#strings.isEmpty(d.departureDate) or !#strings.isEmpty(d.arrivalDate) or !#strings.isEmpty(d.departureTime) or !#strings.isEmpty(d.arrivalTime)}">
+      <div><span th:text="${#strings.defaultString(d.departureDate, '') + ' ' + #strings.defaultString(d.departureTime, '')}"></span></div>
+      <span aria-hidden="true">→</span>
+      <div><span th:text="${#strings.defaultString(d.arrivalDate, '') + ' ' + #strings.defaultString(d.arrivalTime, '')}"></span></div>
+    </div>
+  </div>
+  <div th:if="${item.itemType.name() == 'ACCOMMODATION' and d != null}" class="tp-card-details">
+    <div class="tp-card-route">
+      <div th:if="${!#strings.isEmpty(d.checkInDate) or !#strings.isEmpty(d.checkInTime)}"><span>체크인</span><strong th:text="${#strings.defaultString(d.checkInDate, '') + ' ' + #strings.defaultString(d.checkInTime, '')}"></strong></div>
+      <div th:if="${!#strings.isEmpty(d.checkOutDate) or !#strings.isEmpty(d.checkOutTime)}"><span>체크아웃</span><strong th:text="${#strings.defaultString(d.checkOutDate, '') + ' ' + #strings.defaultString(d.checkOutTime, '')}"></strong></div>
+    </div>
+  </div>
+  <p class="tp-card-note" th:if="${!#strings.isEmpty(item.note)}" th:text="${item.note}"></p>
+  <p hidden data-travel-plan-item-content th:text="${item.content}"></p>
+</div>
+<th:block th:fragment="fields(details, title, note, startTime, itemType)">
+  <input type="hidden" name="itemType" th:value="${itemType}">
+  <div class="tp-editor-grid" data-item-type-fields="GENERAL">
+    <div class="tp-editor-datetime"><span>시간</span><input type="hidden" name="startTime" th:value="${startTime}"><button type="button" class="tp-datetime-trigger" data-datetime-picker data-picker-title="시간" data-time-field="startTime" aria-haspopup="dialog">시간 선택</button></div>
+    <label class="tp-editor-title">제목 <input name="title" data-item-title-input maxlength="4000" autocomplete="off" th:value="${title}" placeholder="일정 제목"></label>
+  </div>
+  <div class="tp-editor-grid" data-item-type-fields="ROUTE" hidden>
+    <label>출발지 <input name="details.departurePlace" data-airport-input autocomplete="off" maxlength="200" th:value="${details?.departurePlace}" placeholder="공항 또는 도시"></label>
+    <label>도착지 <input name="details.arrivalPlace" data-airport-input autocomplete="off" maxlength="200" th:value="${details?.arrivalPlace}" placeholder="공항 또는 도시"></label>
+    <fieldset class="tp-editor-datetime"><legend>출발 일시</legend><input type="hidden" name="details.departureDate" th:value="${details?.departureDate}"><input type="hidden" name="details.departureTime" th:value="${#strings.isEmpty(details?.departureTime) ? startTime : details.departureTime}"><button type="button" class="tp-datetime-trigger" data-datetime-picker data-picker-title="출발 일시" data-date-field="details.departureDate" data-time-field="details.departureTime" aria-haspopup="dialog">날짜 · 시간 선택</button></fieldset>
+    <fieldset class="tp-editor-datetime"><legend>도착 일시</legend><input type="hidden" name="details.arrivalDate" th:value="${details?.arrivalDate}"><input type="hidden" name="details.arrivalTime" th:value="${details?.arrivalTime}"><button type="button" class="tp-datetime-trigger" data-datetime-picker data-picker-title="도착 일시" data-date-field="details.arrivalDate" data-time-field="details.arrivalTime" aria-haspopup="dialog">날짜 · 시간 선택</button></fieldset>
+  </div>
+  <div class="tp-editor-grid" data-item-type-fields="FLIGHT" hidden>
+    <label class="tp-editor-wide">항공편 <input name="details.flightNumber" th:value="${details?.flightNumber}" placeholder="항공편명"></label>
+  </div>
+  <div class="tp-editor-grid" data-item-type-fields="ACCOMMODATION" hidden>
+    <label class="tp-editor-wide">숙소명 <input name="details.stayName" th:value="${details?.stayName}" placeholder="예약한 숙소 이름"></label>
+    <fieldset class="tp-editor-datetime"><legend>체크인 일시</legend><input type="hidden" name="details.checkInDate" th:value="${details?.checkInDate}"><input type="hidden" name="details.checkInTime" th:value="${#strings.isEmpty(details?.checkInTime) ? startTime : details.checkInTime}"><button type="button" class="tp-datetime-trigger" data-datetime-picker data-picker-title="체크인 일시" data-date-field="details.checkInDate" data-time-field="details.checkInTime" aria-haspopup="dialog">날짜 · 시간 선택</button></fieldset>
+    <fieldset class="tp-editor-datetime"><legend>체크아웃 일시</legend><input type="hidden" name="details.checkOutDate" th:value="${details?.checkOutDate}"><input type="hidden" name="details.checkOutTime" th:value="${details?.checkOutTime}"><button type="button" class="tp-datetime-trigger" data-datetime-picker data-picker-title="체크아웃 일시" data-date-field="details.checkOutDate" data-time-field="details.checkOutTime" aria-haspopup="dialog">날짜 · 시간 선택</button></fieldset>
+    <input type="hidden" name="details.address" th:value="${details?.address}">
+  </div>
+  <label class="tp-editor-note">메모 <textarea rows="2" data-item-note-input th:text="${note}" placeholder="기억할 내용을 남겨 주세요"></textarea></label>
+  <div data-item-type-fields="SPECIAL" hidden><input type="hidden" name="details.bookingMemo" th:value="${details?.bookingMemo}"></div>
+</th:block>
+</body></html>

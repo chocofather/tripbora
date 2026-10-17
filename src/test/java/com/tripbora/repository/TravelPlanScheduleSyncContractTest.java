@@ -178,7 +178,8 @@ class TravelPlanScheduleSyncContractTest {
         assertThat(fragment)
                 .contains("/items/${item.id}/update|}")
                 .contains("/items/${item.id}/move-up|}")
-                .contains("/items/${item.id}/move|}")
+                .contains("/items/${item.id}/move-down|}")
+                .contains("hidden data-travel-plan-reorder-forms")
                 .contains("method=\"post\"");
     }
 

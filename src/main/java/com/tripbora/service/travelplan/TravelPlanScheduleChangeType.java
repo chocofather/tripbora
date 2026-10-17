@@ -7,6 +7,7 @@ package com.tripbora.service.travelplan;
  * 어떤 DAY 를 다시 읽어야 하는지만 알면 되고, 종류는 확인과 확장을 위해 붙여 둔다.
  */
 public enum TravelPlanScheduleChangeType {
+    DAY_UPDATED,
     ITEM_ADDED,
     ITEM_UPDATED,
     /** 일정만 삭제와 대안까지 통째로 삭제 모두 화면에서는 같은 뜻이다. */
@@ -18,5 +19,7 @@ public enum TravelPlanScheduleChangeType {
     ALTERNATIVE_ADDED,
     ALTERNATIVE_UPDATED,
     /** B 를 지워 C 가 B 자리로 올라온 경우도 화면에서는 같은 뜻이다. */
-    ALTERNATIVE_DELETED
+    ALTERNATIVE_DELETED,
+    /** 공용 준비물/메모/경비 갱신. DAY를 교체하지 않고 대시보드만 다시 읽는다. */
+    DASHBOARD_UPDATED
 }

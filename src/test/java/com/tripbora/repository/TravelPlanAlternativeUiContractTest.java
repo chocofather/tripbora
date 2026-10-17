@@ -17,15 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TravelPlanAlternativeUiContractTest {
 
     @Test
-    void anItemWithoutAlternativesReachesTheAddActionFromTheQuietMenu() throws IOException {
+    void theRemovedItemMenuDoesNotExposeAnAlternativeAddAction() throws IOException {
         String detail = detailHtml();
 
-        // 줄 아래에 항상 떠 있는 버튼이 아니라 ⋯ 메뉴 안에 있다
-        int menu = detail.indexOf("data-travel-plan-menu-list");
-        int add = detail.indexOf("data-travel-plan-alt-add");
-        assertThat(menu).isGreaterThan(0);
-        assertThat(add).isGreaterThan(menu);
-        assertThat(detail).contains(">대안 추가</button>");
+        assertThat(detail).doesNotContain("data-travel-plan-menu-list")
+                .doesNotContain("data-travel-plan-alt-add")
+                .doesNotContain(">대안 추가</button>");
     }
 
     @Test
@@ -75,10 +72,10 @@ class TravelPlanAlternativeUiContractTest {
         // A 의 본문 칸 안에 들어가 A 와 같은 높이의 카드가 되지 않는다
         int body = detail.indexOf("class=\"travel-plan-line-body\"");
         int block = detail.indexOf("class=\"travel-plan-alt-block\"");
-        int menu = detail.indexOf("data-travel-plan-item-menu");
+        int reorder = detail.indexOf("data-travel-plan-reorder-forms");
         assertThat(body).isGreaterThan(0);
         assertThat(block).isGreaterThan(body);
-        assertThat(block).isLessThan(menu);
+        assertThat(block).isLessThan(reorder);
 
         // 들여쓰기와 얇은 세로선으로만 위계를 만든다
         String list = between(css, ".travel-plan-alt-list {", "}");
@@ -237,7 +234,7 @@ class TravelPlanAlternativeUiContractTest {
         String detail = detailHtml();
 
         // 이동은 A 에만 있다. B/C 는 parent 를 따라다닌다
-        String block = between(detail, "class=\"travel-plan-alt-block\"", "data-travel-plan-item-menu");
+        String block = between(detail, "class=\"travel-plan-alt-block\"", "data-travel-plan-reorder-forms");
         assertThat(block)
                 .doesNotContain("move-up")
                 .doesNotContain("move-down")
@@ -247,22 +244,19 @@ class TravelPlanAlternativeUiContractTest {
     }
 
     @Test
-    void theDeleteActionSplitsInTwoOnlyWhenAlternativesExist() throws IOException {
+    void theEditorDeleteIncludesAlternativesWhenTheyExist() throws IOException {
         String detail = detailHtml();
 
-        // 대안이 없으면 지울 것이 하나뿐이다
         assertThat(detail)
-                .contains("th:if=\"${altCount == 0}\"")
+                .contains("data-item-editor-delete formnovalidate")
                 .contains(">삭제</button>")
-                .contains("confirm('이 일정을 삭제할까요?')");
-        // 대안이 있으면 뜻이 갈린다
-        assertThat(detail)
-                .contains("th:if=\"${altCount > 0}\"")
-                .contains(">일정만 삭제</button>")
-                .contains(">전체 일정 삭제</button>")
+                .contains("th:formaction=\"${altCount > 0}")
+                .contains("/items/${item.id}/delete|}")
                 .contains("/items/${item.id}/delete-group|}")
-                .contains("confirm('이 일정을 지우고 대안을 위로 올릴까요?')")
-                .contains("confirm('대안까지 모두 삭제할까요?')");
+                .contains("이 일정과 대안을 함께 삭제할까요?")
+                .contains("이 일정을 삭제할까요?")
+                .doesNotContain(">일정만 삭제</button>")
+                .doesNotContain(">전체 일정 삭제</button>");
     }
 
     @Test

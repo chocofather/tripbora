@@ -1,0 +1,31 @@
+.tp-datetime-trigger { display: block; width: 100%; min-width: 0; min-height: 42px; padding: 9px 11px; border: 1px solid #dce1e6; border-radius: 8px; background: #fff; color: #334155; font: inherit; text-align: left; cursor: pointer; }
+.tp-datetime-trigger:hover { border-color: #94a3b8; background: #f8fafc; }
+.tp-datetime-trigger:focus-visible, .tp-picker button:focus-visible, .tp-picker input:focus-visible { outline: 2px solid #8061ae; outline-offset: 2px; }
+.tp-picker-overlay { position: fixed; inset: 0; z-index: 1600; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 32%); }
+.tp-picker { box-sizing: border-box; width: min(100%, 370px); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 18px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; color: #334155; box-shadow: 0 12px 36px rgb(15 23 42 / 12%); }
+.tp-picker *, .tp-picker *::before, .tp-picker *::after { box-sizing: border-box; }
+.tp-picker [hidden] { display: none !important; }
+.tp-picker header, .tp-picker-month, .tp-picker-calendar-footer, .tp-picker footer { display: flex; align-items: center; gap: 8px; }
+.tp-picker header { justify-content: space-between; margin-bottom: 10px; }
+.tp-picker h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.tp-picker button { min-width: 40px; min-height: 40px; padding: 6px 10px; border: 1px solid transparent; border-radius: 7px; background: #fff; color: inherit; font: inherit; cursor: pointer; }
+.tp-picker button:hover { background: #f1f5f9; }
+.tp-picker-month { justify-content: space-between; margin-bottom: 8px; }
+.tp-picker-weekdays, .tp-picker-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.tp-picker-weekdays { color: #64748b; text-align: center; font-size: 12px; margin-bottom: 5px; }
+.tp-picker-days button { min-width: 0; padding: 4px; font-size: 13px; }
+.tp-picker-days .is-trip-date { background: #f4f0fa; color: #8061ae; }
+.tp-picker-days [aria-current="date"] { border-color: #94a3b8; font-weight: 700; }
+.tp-picker-days [aria-pressed="true"] { background: #8061ae; color: #fff; }
+.tp-picker-calendar-footer { justify-content: space-between; color: #64748b; font-size: 12px; }
+.tp-picker-calendar-footer span { color: #8061ae; }
+.tp-picker-selection { margin: 10px 0 0; padding: 11px 8px; border-radius: 7px; background: #f4f0fa; color: #655082; text-align: center; font-size: 13px; font-weight: 600; }
+.tp-picker-time { display: flex; align-items: flex-end; justify-content: center; gap: 12px; padding: 14px 0 4px; border-top: 1px solid #f1f5f9; }
+.tp-picker-time label { display: grid; gap: 5px; color: #64748b; font-size: 12px; }
+.tp-picker-time input { min-height: 42px; width: 100px; max-width: 100%; border: 1px solid #dce1e6; border-radius: 7px; padding: 7px 10px; background: #fff; color: #334155; font: inherit; font-size: 16px; text-align: center; }
+.tp-picker-time > span { padding-bottom: 10px; }
+.tp-picker-error { min-height: 18px; margin: 8px 0; color: #b91c1c; font-size: 12px; }
+.tp-picker footer { justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+.tp-picker footer button:first-child { margin-right: auto; color: #64748b; }
+.tp-picker footer .tp-picker-confirm { background: #8061ae; color: #fff; }
+@media (max-width: 430px) { .tp-picker-overlay { padding: 12px; } .tp-picker { padding: 12px; max-height: calc(100dvh - 24px); } }

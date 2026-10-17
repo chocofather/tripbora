@@ -243,8 +243,8 @@ class TravelPlanCreateFormUiContractTest {
                 .contains("th:text=\"${travelPlan.plan.title}\"")
                 .contains("${#temporals.format(travelPlan.plan.startDate, 'yyyy.MM.dd')}")
                 .contains("th:each=\"day : ${travelPlan.days}\"")
-                .contains("'DAY ' + ${day.dayNumber}")
-                .contains("${#temporals.format(day.planDate, 'M월 d일')}")
+                .contains("class=\"tp-detail-day-tile\"")
+                .contains("${#temporals.format(day.planDate, 'MM.dd(E)')}")
                 .contains("${travelPlanMessage}")
                 .contains("th:href=\"@{/travel-plans}\"");
     }
@@ -268,14 +268,15 @@ class TravelPlanCreateFormUiContractTest {
         assertThat(detail)
                 .contains("th:hidden=\"${!dayOpen}\"")
                 .contains("${openDayId != null and openDayId == day.id}");
-        // A 줄에는 항상 떠 있는 추가/취소 버튼이 없다
+        // 타입별 추가 버튼이 기존 슬롯을 열며 실제 저장/취소는 닫힌 폼 안에 둔다.
         assertThat(detail)
-                .doesNotContain(">추가</button>")
+                .contains("data-add-item-type=\"SCHEDULE\"")
+                .contains("data-item-editor-cancel")
                 .doesNotContain("data-travel-plan-add-toggle");
         // 취소는 닫혀 있는 대안 편집기(기존 B/C 1 + 새 대안 1)와
         // 닫혀 있는 투표 만들기 창 안에만 있다
         // (확정 확인 창은 방장 전용 조각으로 옮겨 갔다)
-        assertThat(countOf(detail, ">취소</button>")).isEqualTo(3);
+        assertThat(countOf(detail, ">취소</button>")).isEqualTo(6);
         // 방장 전용 조각의 확인 창 둘(확정 / 방 삭제)에 하나씩 있다
         assertThat(countOf(ownerActionsHtml(), ">취소</button>")).isEqualTo(2);
         // 모든 textarea 는 닫힌 폼·패널 안에 있다
@@ -322,10 +323,9 @@ class TravelPlanCreateFormUiContractTest {
         String css = resource("/static/css/travel-plan.css");
 
         assertThat(detail)
-                .contains("class=\"travel-plan-slot-hint\"")
-                // + 는 눌리는 자리라는 표시라 글자와 따로 둔다
-                .contains("class=\"travel-plan-slot-plus\"")
-                .contains("일정 추가");
+                .contains("travel-plan-slot-hint tp-item-add-type")
+                .contains("data-add-item-type=\"ACCOMMODATION\"")
+                .contains("data-add-item-type=\"FLIGHT\"");
         assertThat(css)
                 .contains(".travel-plan-line.is-slot:hover .travel-plan-slot-hint")
                 // 슬롯 번호 자리는 비워 둔다
@@ -442,7 +442,7 @@ class TravelPlanCreateFormUiContractTest {
         assertThat(script)
                 .contains("let activeLine = null")
                 .contains("closeActive()")
-                .contains("if (activeLine === line) return");
+                .contains("if (activeLine === line) {");
         // Enter 저장 / Shift+Enter 줄바꿈 / Esc 취소 / focus-out 저장
         assertThat(script)
                 .contains("event.key === \"Enter\" && !event.shiftKey")
@@ -467,7 +467,7 @@ class TravelPlanCreateFormUiContractTest {
         assertThat(detail)
                 // 줄 자체가 편집기가 된다 (별도 페이지도 모달도 아니다)
                 .contains("data-travel-plan-item")
-                .contains("data-travel-plan-item-content")
+                .contains("travelplan/fragments/item-card :: view")
                 .contains("data-travel-plan-item-form")
                 .contains("data-version=${item.version}")
                 .contains("<input type=\"hidden\" name=\"version\" th:value=\"${item.version}\">")
@@ -481,19 +481,19 @@ class TravelPlanCreateFormUiContractTest {
 
     @Test
     void theEditorReplacesTheTextInPlaceInsteadOfSittingBesideIt() throws IOException {
-        String detail = plannerHtml();
+        String detail = resource("/templates/travelplan/fragments/schedule-day.html");
         String css = resource("/static/css/travel-plan.css");
 
         // 보기와 편집기가 같은 칸(line-body) 안에 함께 들어 있다
         int body = detail.indexOf("class=\"travel-plan-line-body\"");
-        int view = detail.indexOf("data-travel-plan-item-content");
+        int view = detail.indexOf("travelplan/fragments/schedule-day :: detailRow");
         int editor = detail.indexOf("data-travel-plan-item-form");
-        int menu = detail.indexOf("data-travel-plan-item-menu");
+        int reorder = detail.indexOf("data-travel-plan-reorder-forms");
         assertThat(body).isGreaterThan(0);
         assertThat(view).isGreaterThan(body);
         assertThat(editor).isGreaterThan(view);
-        // 편집기는 ⋯ 메뉴보다 앞, 즉 오른쪽 별도 column 이 아니다
-        assertThat(editor).isLessThan(menu);
+        // 편집기는 본문 안에 있고 drag 저장용 비노출 form은 그 뒤에 있다.
+        assertThat(editor).isLessThan(reorder);
 
         // 줄 안에서 자리를 차지하는 것은 래퍼 하나뿐이다
         assertThat(between(css, ".travel-plan-line-body {", "}")).contains("flex: 1");
@@ -510,59 +510,42 @@ class TravelPlanCreateFormUiContractTest {
     }
 
     @Test
-    void eachItemHasAQuietMenu() throws IOException {
+    void deleteIsInsideTheClosedEditorInsteadOfAnItemMenu() throws IOException {
         String detail = plannerHtml();
-        String css = resource("/static/css/travel-plan.css");
 
         assertThat(detail)
-                .contains("data-travel-plan-menu-button")
-                .contains(">⋯</button>")
-                .contains("data-travel-plan-menu-list")
+                .doesNotContain("data-travel-plan-menu-button")
+                .doesNotContain(">⋯</button>")
+                .doesNotContain("data-travel-plan-menu-list")
+                .contains("data-item-editor-delete formnovalidate")
                 .contains("/items/${item.id}/delete|}")
                 .contains(">삭제</button>")
-                .contains("confirm('이 일정을 삭제할까요?')");
-
-        // 평소에는 거의 보이지 않고 hover/focus 에서 드러난다
-        assertThat(between(css, ".travel-plan-item-menu-button {", "}"))
-                .contains("color: transparent");
-        assertThat(css).contains(".travel-plan-line.is-item:hover .travel-plan-item-menu-button");
+                .contains("data-delete-confirm");
 
         // 태그 UI 는 아직 없다
         assertThat(detail).doesNotContain("태그");
     }
 
     @Test
-    void theMenuOffersMoveUpMoveDownAndAnotherDay() throws IOException {
+    void dragKeepsHiddenMovementFormsWithoutAMovementMenu() throws IOException {
         String detail = plannerHtml();
 
         assertThat(detail)
-                .contains(">위로 이동</button>")
-                .contains(">아래로 이동</button>")
+                .contains("hidden data-travel-plan-reorder-forms")
                 .contains("/items/${item.id}/move-up|}")
                 .contains("/items/${item.id}/move-down|}")
-                .contains("/items/${item.id}/move|}")
                 // 이동도 낙관적 잠금을 쓴다
                 .contains("<input type=\"hidden\" name=\"version\" th:value=\"${item.version}\">")
-                .contains("<input type=\"hidden\" name=\"targetDayId\" th:value=\"${target.id}\">");
+                .doesNotContain(">위로 이동</button>")
+                .doesNotContain(">아래로 이동</button>")
+                .doesNotContain("name=\"targetDayId\"")
+                .doesNotContain("data-travel-plan-alt-add");
 
-        // 첫 일정은 위로, 마지막 일정은 아래로가 막힌다
+        // 카드 전체가 아니라 전용 핸들만 드래그 시작점이다. 메뉴 이동도 유지한다.
         assertThat(detail)
-                .contains("th:disabled=\"${status.first}\"")
-                .contains("th:disabled=\"${status.last}\"");
-
-        // DAY 가 하나뿐이면 목록 자체가 없고, 현재 DAY 는 목록에서 빠진다
-        assertThat(detail)
-                // fragment 안에서는 방의 DAY 목록이 days 인자로 넘어온다
-                .contains("${#lists.size(days) > 1}")
-                .contains("th:each=\"target : ${days}\"")
-                .contains("th:if=\"${target.id != day.id}\"")
-                .contains("'DAY ' + ${target.dayNumber}");
-
-        // 드래그 앤 드롭은 만들지 않는다
-        assertThat(detail)
-                .doesNotContain("draggable")
-                .doesNotContain("dragstart")
-                .doesNotContain("drop");
+                .contains("class=\"tp-item-drag-handle\" draggable=\"true\"")
+                .contains("data-item-drag-handle")
+                .contains("aria-label=|${item.title} 순서 이동|");
     }
 
     @Test
@@ -601,7 +584,7 @@ class TravelPlanCreateFormUiContractTest {
         // 추가 슬롯과 기존 일정 수정이 동시에 열리지 않는다
         assertThat(script)
                 .contains("let activeLine = null")
-                .contains("if (activeLine === line) return")
+                .contains("if (activeLine === line) {")
                 .contains("[data-travel-plan-slot-form], [data-travel-plan-item-form]")
                 // Esc 는 원래 내용을 되살린다
                 .contains("content.textContent.trim()")

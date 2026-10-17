@@ -143,10 +143,12 @@ class TravelPlanSchedulerUiContractTest {
         assertThat(between(css, ".travel-plan-line.is-slot:hover .travel-plan-slot-hint,", "}"))
                 .contains("background: var(--tp-plan-accent-soft)")
                 .contains("color: var(--tp-plan-accent-strong)");
-        // 문구와 자리는 그대로다
+        // 기존 슬롯 안에서 타입별 추가 액션을 제공한다.
         assertThat(scheduleDayHtml())
-                .contains("class=\"travel-plan-slot-plus\"")
-                .contains("일정 추가");
+                .contains("data-add-item-type=\"SCHEDULE\"")
+                .contains("data-add-item-type=\"ACCOMMODATION\"")
+                .contains("data-add-item-type=\"TRANSPORT\"")
+                .contains("data-add-item-type=\"FLIGHT\"");
     }
 
     // ── 빈 DAY 간격 ─────────────────────────────────────────

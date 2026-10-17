@@ -5,6 +5,12 @@
 
 <mapper namespace="com.tripbora.repository.travelplan.TravelPlanFinalMapper">
 
+    <resultMap id="finalItemWithDetails" type="com.tripbora.model.TravelPlanFinalItem" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="details" column="detail_json"
+                typeHandler="com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler"/>
+    </resultMap>
+
     <!--
       최종본의 머리.
       (travel_plan_id) UNIQUE 라 한 방에 두 번 만들려 하면 여기서 막힌다.
@@ -33,8 +39,9 @@
     <!-- 최종본의 일정에는 누가 썼는지를 두지 않는다. 무엇을 하기로 했는지만 남는다 -->
     <insert id="insertItem" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO travel_plan_final_items
-            (final_day_id, content, tag, display_order)
-        VALUES (#{finalDayId}, #{content}, #{tag}, #{displayOrder})
+            (final_day_id, content, tag, start_time, detail_json, display_order)
+        VALUES (#{finalDayId}, #{content}, #{tag}, #{startTime},
+                #{details,jdbcType=VARCHAR,typeHandler=com.tripbora.repository.travelplan.TravelPlanItemDetailsTypeHandler}, #{displayOrder})
     </insert>
 
     <insert id="insertAlternative" useGeneratedKeys="true" keyProperty="id">
@@ -189,8 +196,8 @@
 
     <!-- 날짜 수만큼 조회가 나가지 않게 한 문장으로 읽는다. 완료 시점의 순서 그대로다 -->
     <select id="findItemsBySnapshotId"
-            resultType="com.tripbora.model.TravelPlanFinalItem">
-        SELECT i.id, i.final_day_id, i.content, i.tag, i.display_order, i.created_at
+            resultMap="finalItemWithDetails">
+        SELECT i.id, i.final_day_id, i.content, i.tag, i.start_time, i.detail_json, i.display_order, i.created_at
         FROM travel_plan_final_items i
                  JOIN travel_plan_final_days d ON d.id = i.final_day_id
         WHERE d.snapshot_id = #{snapshotId}

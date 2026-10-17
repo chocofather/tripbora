@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
             syncChecklist(draft, item);
         });
         const completedCount = data.checklist.filter(item => item.completed).length;
-        preparation.querySelector("[data-checklist-count]").textContent = `${completedCount} / ${data.checklist.length} 완료`;
+        preparation.querySelector("[data-checklist-count]").textContent = `${completedCount} / ${data.checklist.length}`;
         const progress = preparation.querySelector("[data-checklist-progress]");
         progress.max = Math.max(data.checklist.length, 1);
         progress.value = completedCount;

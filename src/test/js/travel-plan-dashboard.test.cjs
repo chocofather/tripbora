@@ -214,5 +214,5 @@ test("compact checklist shows progress and direct delete sends the current versi
     await f.respond(1, empty);
     assert.equal(f.checklist.children.length, 0);
     assert.equal(progress.value, 0); assert.equal(progress.max, 1);
-    assert.equal(f.preparation.querySelector("[data-checklist-count]").textContent, "0 / 0 완료");
+    assert.equal(f.preparation.querySelector("[data-checklist-count]").textContent, "0 / 0");
 });

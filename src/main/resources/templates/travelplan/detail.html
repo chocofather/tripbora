@@ -14,10 +14,14 @@
   <script src="/js/travel-plan-datetime-picker.js" defer></script>
   <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
   <script src="/js/travel-plan-item-types.js" defer></script>
+  <script src="/js/travel-plan-item-autosave.js" defer></script>
   <script src="/js/travel-plan-scheduler.js" defer></script>
   <script src="/js/travel-plan-day-title.js" defer></script>
+  <script src="/js/travel-plan-pointer-sort.js" defer></script>
   <script src="/js/travel-plan-reorder.js" defer></script>
   <script src="/js/travel-plan-overview.js" defer></script>
+  <script src="/js/travel-plan-overview-insert.js" defer></script>
+  <script src="/js/travel-plan-overview-reorder.js" defer></script>
   <script src="/js/travel-plan-dashboard.js" defer></script>
   <!-- 접속 표시. STOMP 클라이언트는 CDN 이 아니라 WebJar 로 함께 배포한다 -->
   <script src="/webjars/stomp__stompjs/7.0.0/bundles/stomp.umd.min.js" defer></script>
@@ -148,7 +152,6 @@
             <h2 id="tp-overview-title">주요 일정</h2>
             <p>항공, 숙소와 이동을 날짜별로 확인하세요.</p>
           </div>
-          <a class="tp-planner-text-link" href="#tp-schedule-title">상세 일정 ↓</a>
         </div>
         <div class="tp-planner-overview-grid">
           <nav class="tp-planner-calendar" aria-label="여행 캘린더" data-planner-calendar>
@@ -156,35 +159,43 @@
             <a th:each="day : ${travelPlan.days}" th:href="|#day-${day.id}|"
                th:text="${#temporals.format(day.planDate, 'M월 d일')}">9월 13일</a>
           </nav>
-          <div class="tp-planner-summaries">
-            <section class="tp-planner-summary" th:each="day : ${travelPlan.days}"
+          <div class="tp-planner-summaries" data-planner-summaries>
+            <th:block th:each="day, dayStatus : ${travelPlan.days}">
+            <section class="tp-planner-summary"
                th:with="dayItems=${travelPlan.itemsByDayId.get(day.id)}"
                th:attr="data-planner-summary=${day.id}">
               <div class="tp-planner-summary-heading">
                 <span class="tp-planner-day-label" th:text="|Day ${day.dayNumber}|">Day 1</span>
                 <time th:datetime="${day.planDate}"
                       th:text="${#temporals.format(day.planDate, 'MM.dd (E)')}">09.13 (일)</time>
-                <span class="tp-planner-summary-count" data-planner-summary-count
-                      th:text="|${dayItems == null ? 0 : dayItems.size()}개 일정|">0개 일정</span>
               </div>
               <div class="tp-planner-summary-items" data-planner-summary-items>
                 <div class="tp-overview-item" th:each="item : ${dayItems}"
                      th:if="${item.itemType.name() == 'FLIGHT' or item.itemType.name() == 'ACCOMMODATION' or item.itemType.name() == 'TRANSPORT'}"
-                     th:attr="data-type=${item.itemType}">
-                  <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, false)}"></th:block>
-                  <button type="button" class="tp-card-edit" aria-expanded="false"
-                          th:attr="data-overview-item-edit=${item.id}">펼치기</button>
+                     th:attr="data-type=${item.itemType},data-overview-item-id=${item.id}">
+                  <div class="tp-detail-item-shell tp-item-card" th:attr="data-type=${item.itemType}">
+                    <div class="tp-item-order-controls">
+                      <button type="button" class="tp-item-drag-handle" draggable="true" data-overview-card-drag-handle th:attr="aria-label=|${item.title} 순서 이동|" title="드래그하여 순서 이동"><svg width="12" height="18" viewBox="0 0 10 16" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="2" cy="3" r="1.3"/><circle cx="8" cy="3" r="1.3"/><circle cx="2" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="8" cy="13" r="1.3"/></g></svg></button>
+                    </div>
+                    <div class="travel-plan-line-body">
+                      <th:block th:replace="~{travelplan/fragments/schedule-day :: detailRow(${item})}"></th:block>
+                    </div>
+                  </div>
                   <div class="tp-overview-editor-host" th:attr="data-overview-editor-host=${item.id}"></div>
                 </div>
+            <div th:if="${dayStatus.last}" class="tp-overview-insert-bar" data-overview-insert-bar data-before-item-id="" data-insert-placement="end" data-insert-default="true" th:attr="data-day-id=${day.id}" aria-label="주요 일정 삽입 위치">
+              <button type="button" class="tp-overview-insert-grip" draggable="true" data-overview-insert-handle aria-label="삽입 위치 이동, 방향키로도 이동 가능" title="드래그하거나 방향키로 삽입 위치 이동"><svg width="12" height="18" viewBox="0 0 10 16" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="2" cy="3" r="1.3"/><circle cx="8" cy="3" r="1.3"/><circle cx="2" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="8" cy="13" r="1.3"/></g></svg></button>
+              <button type="button" class="tp-item-add-type" data-overview-insert-type="FLIGHT">+ 항공</button>
+              <button type="button" class="tp-item-add-type" data-overview-insert-type="ACCOMMODATION">+ 숙소</button>
+              <button type="button" class="tp-item-add-type" data-overview-insert-type="TRANSPORT">+ 이동</button>
+              <span class="tp-overview-insert-hint">이 자리에 추가됩니다</span>
+              <button type="button" class="tp-overview-insert-location" data-overview-insert-location aria-expanded="false" aria-label="삽입 위치 선택">위치</button>
+              <div class="tp-overview-insert-menu" data-overview-insert-menu hidden role="group" aria-label="일정을 추가할 위치"></div>
+              <span class="tp-overview-insert-status" role="status" aria-live="polite" data-overview-insert-status></span>
+            </div>
               </div>
-              <p class="tp-planner-summary-content" data-planner-summary-content>아래에서 상세 일정을 확인하세요.</p>
-              <div class="tp-item-add-types tp-summary-add-types" aria-label="주요 일정 추가">
-                <button type="button" class="tp-item-add-type" data-overview-add-type="FLIGHT" th:attr="data-day-id=${day.id}">+ 항공</button>
-                <button type="button" class="tp-item-add-type" data-overview-add-type="ACCOMMODATION" th:attr="data-day-id=${day.id}">+ 숙소</button>
-                <button type="button" class="tp-item-add-type" data-overview-add-type="TRANSPORT" th:attr="data-day-id=${day.id}">+ 이동</button>
-              </div>
-              <a class="tp-planner-summary-action" th:href="|#day-${day.id}|">상세 일정 <span aria-hidden="true">↗</span></a>
             </section>
+            </th:block>
           </div>
         </div>
       </section>

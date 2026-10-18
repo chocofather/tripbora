@@ -30,9 +30,9 @@
 .tp-detail-item-bar, .tp-detail-row-view { display: flex; align-items: center; gap: 12px; min-height: 38px; min-width: 0; }
 .tp-detail-item-shell .tp-type-badge { flex: 0 0 auto; font-size: 13px; }
 .tp-detail-item-shell .tp-type-badge svg { width: 15px; height: 15px; }
-.tp-detail-item-aux { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; color: #475467; font-size: 14px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tp-detail-item-time-label, .tp-detail-kind-label { color: #526071; font-size: 12px; font-weight: 400; white-space: nowrap; }
-.tp-detail-item-time, .tp-detail-datetime { flex: 0 0 auto; color: #344054; font-size: 15px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tp-detail-item-aux { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; color: #253246; font-size: 14px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tp-detail-item-time-label, .tp-detail-kind-label { color: #344054; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.tp-detail-item-time, .tp-detail-datetime { flex: 0 0 auto; color: #202b3c; font-size: 15px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tp-detail-item-title, .tp-detail-row-view .tp-card-title { flex: 1 1 0; min-width: 0; margin: 0; color: #253246; font-size: 16px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
 .tp-detail-item-shell .tp-card-edit { flex: 0 0 34px; align-self: flex-start; min-height: 38px; margin-left: auto; padding: 0; color: #788597; }
 .tp-detail-item-shell .tp-card-map { margin-top: 0; flex-shrink: 0; }
@@ -42,9 +42,10 @@
 .tp-detail-item-shell .travel-plan-alt-block { margin-top: 0; }
 .tp-detail-item-shell .travel-plan-alt-toggle { margin-top: 5px; }
 .is-planning .tp-detail-item-shell .travel-plan-item-editor { width: 100%; margin: 0; padding: 8px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.travel-plan-item-editor [data-item-editor-delete] { display: none; }
-.is-planning .tp-detail-item-shell .tp-item-editor-actions .tp-editor-delete { display: inline-block; padding: 4px 2px; border: 0; background: transparent; color: #9b625e; font-size: 11px; }
-.is-planning .tp-detail-item-shell .tp-item-editor-actions .tp-editor-delete:hover { color: #b5473c; text-decoration: underline; }
+.is-planning .travel-plan-item-editor .tp-item-editor-actions .tp-editor-delete { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-left: auto; min-height: 35px; padding: 6px 11px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #414954; font-size: 12px; line-height: 1.4; }
+.is-planning .travel-plan-item-editor .tp-item-editor-actions .tp-editor-delete:hover { background: #fff4f3; border-color: #eccfcb; color: #b5473c; text-decoration: none; }
+.is-planning .travel-plan-item-editor .tp-item-editor-actions .tp-editor-delete:focus-visible { outline: 2px solid #667085; outline-offset: 2px; }
+.tp-editor-delete svg { flex-shrink: 0; }
 .tp-detail-item-shell:focus-within { border-color: #b8c6d7; }
 .tp-detail-item-shell .tp-card-edit:focus-visible, .tp-detail-day-title:focus-visible { outline: 2px solid #8ca2ba; outline-offset: 3px; border-radius: 3px; }
 .is-creating > .tp-detail-item-shell { opacity: .7; }

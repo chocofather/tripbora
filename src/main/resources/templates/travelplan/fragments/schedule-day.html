@@ -66,7 +66,7 @@
         data-travel-plan-item>
       <div class="tp-detail-item-shell tp-item-card" th:attr="data-type=${item.itemType}">
       <div class="tp-item-order-controls">
-        <button type="button" class="tp-item-drag-handle" draggable="true"
+        <button type="button" class="tp-item-drag-handle" draggable="false"
                 data-item-drag-handle
                 th:attr="aria-label=|${item.title} 순서 이동|" title="드래그하여 순서 이동">
           <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" focusable="false">
@@ -100,12 +100,11 @@
             <a class="tp-card-map" th:if="${d != null and (!#strings.isEmpty(d.address) or !#strings.isEmpty(d.departurePlace))}"
                th:href="@{https://www.google.com/maps/search/(api=1,query=${#strings.isEmpty(d.address) ? d.departurePlace : d.address})}"
                target="_blank" rel="noopener noreferrer" aria-label="위치 지도 열기">위치 ↗</a>
-            <span>저장하면 모두에게 반영돼요.</span>
-            <button type="submit">저장</button>
-            <button type="button" data-item-editor-cancel>취소</button>
+            <span data-item-save-status role="status" aria-live="polite">자동 저장</span>
+            <button type="button" data-item-save-retry hidden>다시 시도</button>
             <button type="submit" class="tp-editor-delete" data-item-editor-delete formnovalidate
                     th:formaction="${altCount > 0} ? @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete-group|} : @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete|}"
-                    th:attr="data-delete-confirm=${altCount > 0 ? '이 일정과 대안을 함께 삭제할까요?' : '이 일정을 삭제할까요?'}">삭제</button>
+                    th:attr="data-delete-confirm=${altCount > 0 ? '이 일정과 대안을 함께 삭제할까요?' : '이 일정을 삭제할까요?'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg><span>삭제</span></button>
           </div>
         </form>
 

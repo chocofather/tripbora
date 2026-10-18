@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -31,6 +32,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -254,6 +256,13 @@ public class TravelPlanService {
     /** 타입 버튼은 내용을 만들지 않고 편집할 실제 빈 카드를 먼저 저장한다. */
     @Transactional
     public Long addEmptyTypedItem(Long userId, Long travelPlanId, Long dayId, String itemType) {
+        return addEmptyTypedItem(userId, travelPlanId, dayId, itemType, null);
+    }
+
+    /** 기준 카드가 있으면 같은 방 잠금과 트랜잭션 안에서 그 앞에 삽입한다. */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Long addEmptyTypedItem(Long userId, Long travelPlanId, Long dayId, String itemType,
+                                  Long beforeItemId) {
         PlanAccess access = requireActiveAccessForWrite(userId, travelPlanId);
         requireDayOfPlan(travelPlanId, dayId);
         String tag = validatedType(itemType);
@@ -268,7 +277,29 @@ public class TravelPlanService {
         item.setTag(tag);
         TravelPlanItemDetails details = new TravelPlanItemDetails();
         item.setDetails(details.normalizedFor(type));
-        persistTypedItem(travelPlanId, dayId, access, item);
+        if (beforeItemId == null) {
+            persistTypedItem(travelPlanId, dayId, access, item);
+        } else {
+            List<TravelPlanItem> items = travelPlanItemMapper.findByDayId(dayId);
+            TravelPlanItem anchor = items.stream()
+                    .filter(existing -> beforeItemId.equals(existing.getId()))
+                    .findFirst().orElseThrow(TravelPlanConflictException::new);
+            int insertionOrder = anchor.getDisplayOrder();
+            // 뒤에서부터 한 칸씩 비워 기존 순서와 version 보호를 유지한다.
+            List<TravelPlanItem> trailing = items.stream()
+                    .filter(existing -> existing.getDisplayOrder() >= insertionOrder)
+                    .sorted(Comparator.comparingInt(TravelPlanItem::getDisplayOrder).reversed())
+                    .toList();
+            for (TravelPlanItem existing : trailing) {
+                if (travelPlanItemMapper.updateDisplayOrderById(
+                        existing.getId(), dayId, Math.addExact(existing.getDisplayOrder(), 1)) != 1) {
+                    throw new TravelPlanConflictException();
+                }
+            }
+            item.setCreatedByMemberId(access.member().getId());
+            item.setDisplayOrder(insertionOrder);
+            insertTypedItem(travelPlanId, dayId, item);
+        }
         return item.getId();
     }
 
@@ -277,6 +308,10 @@ public class TravelPlanService {
         // 같은 트랜잭션 안에서 마지막 순서를 읽어 뒤에 붙인다.
         item.setDisplayOrder(travelPlanItemMapper.findMaxDisplayOrder(dayId) + 1);
 
+        insertTypedItem(travelPlanId, dayId, item);
+    }
+
+    private void insertTypedItem(Long travelPlanId, Long dayId, TravelPlanItem item) {
         if (travelPlanItemMapper.insertItem(item) != 1) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR, "일정을 저장하지 못했습니다.");

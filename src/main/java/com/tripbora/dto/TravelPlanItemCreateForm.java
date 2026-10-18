@@ -14,6 +14,7 @@ public class TravelPlanItemCreateForm {
     private String itemType;
     private String startTime;
     private boolean emptyCard;
+    private Long beforeItemId;
     /** null이면 상세 필드가 없는 과거 요청이다. nested binding 때만 생성된다. */
     private TravelPlanItemDetails details;
 }

@@ -110,7 +110,7 @@ function fixture(type = 'FLIGHT') {
 }
 
 function runtime(extra = {}, names = ['setEditorType', 'syncContent', 'editorState', 'setSaving', 'restorePortal']) {
-    const context = vm.createContext({activePortal: null, editorOpening: false, window: {}, ...extra});
+    const context = vm.createContext({activePortal: null, editorOpening: false, itemAutosaves: new WeakMap(), window: {}, ...extra});
     vm.runInContext(names.map(actualFunction).join('\n'), context);
     return context;
 }

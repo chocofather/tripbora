@@ -651,8 +651,14 @@ public class TravelPlanController {
                           Model model) throws IOException {
         try {
             if (form.isEmptyCard()) {
-                Long itemId = travelPlanService.addEmptyTypedItem(
-                        userDetails.getId(), travelPlanId, dayId, form.getItemType());
+                if (bindingResult.hasFieldErrors("beforeItemId")) {
+                    throw new TravelPlanValidationException("beforeItemId", "삽입할 위치를 다시 선택해 주세요.");
+                }
+                Long itemId = form.getBeforeItemId() == null
+                        ? travelPlanService.addEmptyTypedItem(
+                                userDetails.getId(), travelPlanId, dayId, form.getItemType())
+                        : travelPlanService.addEmptyTypedItem(
+                                userDetails.getId(), travelPlanId, dayId, form.getItemType(), form.getBeforeItemId());
                 if (isAjax(request)) {
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"itemId\":" + itemId + "}");
@@ -667,7 +673,7 @@ public class TravelPlanController {
                 travelPlanService.addTypedItem(userDetails.getId(), travelPlanId, dayId,
                         form.getContent(), form.getItemType(), form.getStartTime());
             }
-        } catch (TravelPlanValidationException exception) {
+        } catch (TravelPlanValidationException | TravelPlanConflictException exception) {
             if (isAjax(request)) {
                 return writeError(response, exception.getMessage());
             }

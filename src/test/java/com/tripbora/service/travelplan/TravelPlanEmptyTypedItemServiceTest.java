@@ -7,9 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -23,6 +26,15 @@ class TravelPlanEmptyTypedItemServiceTest {
     @Mock TravelPlanFinalMapper travelPlanFinalMapper;
     @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks TravelPlanService service;
+
+    @Test void anchoredInsertionReadsCommittedRowsAfterWaitingForThePlanLock() throws Exception {
+        var insertion = TravelPlanService.class.getMethod("addEmptyTypedItem",
+                Long.class, Long.class, Long.class, String.class, Long.class);
+        assertThat(insertion.getAnnotation(Transactional.class).isolation()).isEqualTo(Isolation.READ_COMMITTED);
+        var append = TravelPlanService.class.getMethod("addEmptyTypedItem",
+                Long.class, Long.class, Long.class, String.class);
+        assertThat(append.getAnnotation(Transactional.class).isolation()).isEqualTo(Isolation.DEFAULT);
+    }
 
     private void member() {
         TravelPlanMember member = new TravelPlanMember();
@@ -105,6 +117,95 @@ class TravelPlanEmptyTypedItemServiceTest {
                 .isInstanceOf(ResponseStatusException.class);
         verify(travelPlanMapper, never()).touchLastActivity(anyLong());
         verifyNoInteractions(eventPublisher);
+    }
+
+    @Test void insertsBeforeTopOrMiddleAnchorAndShiftsAllTrailingItemsInDescendingOrder() {
+        access();
+        TravelPlanItem first = orderedItem(501L, 1, "NOTE");
+        TravelPlanItem middle = orderedItem(502L, 2, "FLIGHT");
+        TravelPlanItem last = orderedItem(503L, 3, "MEAL");
+        when(travelPlanItemMapper.findByDayId(100L)).thenReturn(List.of(first, middle, last));
+        when(travelPlanItemMapper.updateDisplayOrderById(anyLong(), eq(100L), anyInt())).thenReturn(1);
+        when(travelPlanItemMapper.insertItem(any())).thenAnswer(invocation -> {
+            TravelPlanItem item = invocation.getArgument(0);
+            item.setId(600L);
+            return 1;
+        });
+
+        assertThat(service.addEmptyTypedItem(7L, 42L, 100L, "MOVE", 502L)).isEqualTo(600L);
+        InOrder writes = inOrder(travelPlanItemMapper, eventPublisher);
+        writes.verify(travelPlanItemMapper).updateDisplayOrderById(503L, 100L, 4);
+        writes.verify(travelPlanItemMapper).updateDisplayOrderById(502L, 100L, 3);
+        ArgumentCaptor<TravelPlanItem> inserted = ArgumentCaptor.forClass(TravelPlanItem.class);
+        writes.verify(travelPlanItemMapper).insertItem(inserted.capture());
+        assertThat(inserted.getValue().getDisplayOrder()).isEqualTo(2);
+        writes.verify(eventPublisher).publishEvent(any(TravelPlanScheduleChangedEvent.class));
+
+        clearInvocations(travelPlanItemMapper, eventPublisher);
+        service.addEmptyTypedItem(7L, 42L, 100L, "STAY", 501L);
+        writes = inOrder(travelPlanItemMapper);
+        writes.verify(travelPlanItemMapper).updateDisplayOrderById(503L, 100L, 4);
+        writes.verify(travelPlanItemMapper).updateDisplayOrderById(502L, 100L, 3);
+        writes.verify(travelPlanItemMapper).updateDisplayOrderById(501L, 100L, 2);
+        writes.verify(travelPlanItemMapper).insertItem(inserted.capture());
+        assertThat(inserted.getValue().getDisplayOrder()).isEqualTo(1);
+        verify(travelPlanItemMapper, never()).findMaxDisplayOrder(anyLong());
+    }
+
+    @Test void missingOrForeignAnchorNeverAppendsOrWrites() {
+        access();
+        when(travelPlanItemMapper.findByDayId(100L)).thenReturn(List.of(orderedItem(501L, 1, "NOTE")));
+        for (Long anchor : List.of(999L, 888L)) {
+            assertThatThrownBy(() -> service.addEmptyTypedItem(7L, 42L, 100L, "MOVE", anchor))
+                    .isInstanceOf(TravelPlanConflictException.class);
+        }
+        verify(travelPlanItemMapper, never()).insertItem(any());
+        verify(travelPlanItemMapper, never()).updateDisplayOrderById(anyLong(), anyLong(), anyInt());
+        verify(travelPlanMapper, never()).touchLastActivity(anyLong());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test void failedShiftDoesNotInsertOrPublishEvent() {
+        access();
+        when(travelPlanItemMapper.findByDayId(100L)).thenReturn(List.of(orderedItem(501L, 1, "NOTE")));
+        assertThatThrownBy(() -> service.addEmptyTypedItem(7L, 42L, 100L, "FLIGHT", 501L))
+                .isInstanceOf(TravelPlanConflictException.class);
+        verify(travelPlanItemMapper, never()).insertItem(any());
+        verify(travelPlanMapper, never()).touchLastActivity(anyLong());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test void insertionStillRequiresActiveMembershipBeforeReadingAnchor() {
+        assertThatThrownBy(() -> service.addEmptyTypedItem(7L, 42L, 100L, "FLIGHT", 501L))
+                .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(travelPlanItemMapper, eventPublisher);
+    }
+
+    @Test void failedInsertAfterShiftDoesNotPublishOrTouchPlan() {
+        access();
+        when(travelPlanItemMapper.findByDayId(100L)).thenReturn(List.of(orderedItem(501L, 1, "NOTE")));
+        when(travelPlanItemMapper.updateDisplayOrderById(501L, 100L, 2)).thenReturn(1);
+        assertThatThrownBy(() -> service.addEmptyTypedItem(7L, 42L, 100L, "FLIGHT", 501L))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(travelPlanMapper, never()).touchLastActivity(anyLong());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test void insertionRejectsForeignDayBeforeReadingAnchor() {
+        member();
+        when(travelPlanMapper.findPlanByIdAndStatusForUpdate(42L, "ACTIVE")).thenReturn(new TravelPlan());
+        assertThatThrownBy(() -> service.addEmptyTypedItem(7L, 42L, 999L, "FLIGHT", 501L))
+                .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(travelPlanItemMapper, eventPublisher);
+    }
+
+    private TravelPlanItem orderedItem(Long id, int order, String tag) {
+        TravelPlanItem item = new TravelPlanItem();
+        item.setId(id);
+        item.setTravelPlanDayId(100L);
+        item.setDisplayOrder(order);
+        item.setTag(tag);
+        return item;
     }
 
     @Test void transportEditsKeepVersionConflictProtectionAndRouteDetails() {

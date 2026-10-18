@@ -105,6 +105,38 @@ class TravelPlanControllerTest {
     }
 
     @Test
+    void ajaxEmptyTypedCardPassesTheInsertionAnchor() throws Exception {
+        when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "MOVE", 501L)).thenReturn(500L);
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "MOVE").param("beforeItemId", "501"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"itemId\":500}"));
+        verify(travelPlanService).addEmptyTypedItem(7L, 42L, 100L, "MOVE", 501L);
+        verify(travelPlanService, never()).addEmptyTypedItem(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void staleInsertionAnchorReturnsConflict() throws Exception {
+        when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "MOVE", 501L))
+                .thenThrow(new com.tripbora.service.travelplan.TravelPlanConflictException());
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "MOVE").param("beforeItemId", "501"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void malformedInsertionAnchorCannotSilentlyAppend() throws Exception {
+        mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .param("emptyCard", "true").param("itemType", "MOVE").param("beforeItemId", "invalid"))
+                .andExpect(status().isConflict());
+        verify(travelPlanService, never()).addEmptyTypedItem(anyLong(), anyLong(), anyLong(), any());
+        verify(travelPlanService, never()).addEmptyTypedItem(anyLong(), anyLong(), anyLong(), any(), anyLong());
+    }
+
+    @Test
     void normalEmptyTypedCardRequestRedirectsToTheDay() throws Exception {
         when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "STAY")).thenReturn(500L);
         mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())
@@ -1078,8 +1110,30 @@ class TravelPlanControllerTest {
         assertThat(rendered.select("[data-travel-plan-item-content] script")).isEmpty();
         assertThat(rendered.selectFirst("[data-travel-plan-item-content]").wholeText())
                 .isEqualTo("<script>alert(1)</script>\n터미널 확인");
-        assertThat(doc.selectFirst("[data-planner-summary='100'] .tp-card-title").wholeText())
+        assertThat(doc.selectFirst("[data-planner-summary='100'] .tp-detail-item-title").wholeText())
                 .isEqualTo("<script>alert(1)</script>");
+    }
+
+    @Test
+    void oneOverviewInsertionBarFollowsTheLastDayIncludingEmptyDays() throws Exception {
+        var detail = planDetailWithDays(3);
+        when(travelPlanService.getActivePlanDetail(7L, 42L)).thenReturn(detail);
+        String html = mockMvc.perform(get("/travel-plans/42").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        assertThat(doc.select("[data-overview-insert-bar]")).hasSize(1);
+        var summaries = doc.selectFirst("[data-planner-summaries]");
+        assertThat(summaries.children().last().select("[data-planner-summary-items] > [data-overview-insert-bar]")).hasSize(1);
+        assertThat(summaries.select("[data-planner-summary]")).hasSize(3);
+        assertThat(summaries.select("[data-planner-summary] [data-overview-insert-bar]")).hasSize(1);
+        assertThat(summaries.select("[data-overview-insert-shift]")).isEmpty();
+        assertThat(summaries.select("[data-overview-insert-type]")).hasSize(3);
+        assertThat(summaries.selectFirst("[data-overview-insert-bar]").attr("data-day-id"))
+                .isEqualTo(detail.getDays().get(detail.getDays().size() - 1).getId().toString());
+        assertThat(summaries.selectFirst("[data-overview-insert-bar]").attr("data-insert-placement")).isEqualTo("end");
+        assertThat(summaries.select("[data-planner-summary-content], .tp-planner-summary-action")).isEmpty();
+        assertThat(summaries.select("[data-planner-summary-count]")).isEmpty();
+        assertThat(doc.select(".tp-planner-overview a[href='#tp-schedule-title']")).isEmpty();
     }
 
     @Test
@@ -1120,7 +1174,9 @@ class TravelPlanControllerTest {
             if (i > 0) assertThat(bar.text()).contains("날짜 미정");
         }
         assertThat(doc.select("[data-planner-summary='100'] .tp-overview-item .tp-item-card")).hasSize(3);
-        assertThat(doc.select("[data-planner-summary='100'] .tp-detail-item-shell")).isEmpty();
+        assertThat(doc.select("[data-planner-summary='100'] .tp-detail-item-shell")).hasSize(3);
+        assertThat(doc.select("[data-planner-summary='100'] .tp-detail-item-shell [data-overview-card-drag-handle]")).hasSize(3);
+        assertThat(doc.select("[data-planner-summary='100'] [data-item-drag-handle], [data-planner-summary='100'] .travel-plan-line-order")).isEmpty();
     }
 
     @Test
@@ -1162,6 +1218,11 @@ class TravelPlanControllerTest {
                 .isNotNull();
         assertThat(doc.select("#day-100 [data-travel-plan-item-form][hidden]")).hasSize(2);
         assertThat(doc.select("[data-planner-summary='100'] .tp-overview-item")).hasSize(2);
+        for (String type : List.of("FLIGHT", "ACCOMMODATION")) {
+            var summary = doc.selectFirst("[data-planner-summary='100'] .tp-detail-item-shell[data-type='" + type + "'] .tp-detail-item-view");
+            var timeline = doc.selectFirst("#day-100 .tp-detail-item-shell[data-type='" + type + "'] .tp-detail-item-view");
+            assertThat(summary.html()).isEqualTo(timeline.html());
+        }
     }
 
     @Test

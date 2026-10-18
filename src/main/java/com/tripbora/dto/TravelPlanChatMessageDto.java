@@ -16,7 +16,8 @@ public record TravelPlanChatMessageDto(
         String displayName,
         String content,
         Long createdAt,
-        boolean deleted) {
+        boolean deleted,
+        java.util.List<TravelPlanChatImageDto> images) {
 
     /** 이름을 알 수 없는 경우. 실제로는 멤버 행을 지우지 않아 거의 나오지 않는다. */
     private static final String UNKNOWN_SENDER = "알 수 없음";
@@ -31,6 +32,7 @@ public record TravelPlanChatMessageDto(
                 // 지워진 메시지의 원문은 여기서 끊는다.
                 deleted ? null : message.getContent(),
                 message.getCreatedAt() == null ? null : message.getCreatedAt().getTime(),
-                deleted);
+                deleted,
+                deleted ? java.util.List.of() : message.getImages());
     }
 }

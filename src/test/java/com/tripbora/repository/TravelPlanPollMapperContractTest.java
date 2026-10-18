@@ -49,9 +49,9 @@ class TravelPlanPollMapperContractTest {
             assertThat(polls).as("travel_plan_polls.%s", column).contains("`" + column + "`");
         }
         // 질문은 title 컬럼에 들어간다. 길이 제한도 여기서 온다
-        assertThat(polls).contains("`title` varchar(200) NOT NULL");
+        assertThat(polls).containsPattern("`title` varchar\\(200\\)(?: CHARACTER SET \\w+ COLLATE \\w+)? NOT NULL");
         // 만들어진 투표는 곧바로 진행 중이다
-        assertThat(polls).contains("`status` varchar(20) NOT NULL DEFAULT 'OPEN'");
+        assertThat(polls).containsPattern("`status` varchar\\(20\\)(?: CHARACTER SET \\w+ COLLATE \\w+)? NOT NULL DEFAULT 'OPEN'");
         // 진행 중인 투표 조회가 그대로 타는 인덱스
         assertThat(polls).contains("(`travel_plan_id`,`status`,`created_at`)");
     }

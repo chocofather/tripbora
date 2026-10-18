@@ -20,6 +20,9 @@ public class TravelPlanChatMessage {
     private Long senderMemberId;
     private TravelPlanChatMessageType messageType;
     private String content;
+    private String clientRequestId;
+    /** 영속 컬럼이 아닌 일괄 조회 결과. 기존 텍스트 메시지는 빈 목록이다. */
+    private java.util.List<com.tripbora.dto.TravelPlanChatImageDto> images = java.util.List.of();
     private String systemEventType;
     /** 채워져 있으면 지워진 메시지다. */
     private Timestamp deletedAt;

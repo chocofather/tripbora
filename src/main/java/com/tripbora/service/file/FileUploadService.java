@@ -372,6 +372,26 @@ public class FileUploadService {
         return validateGeneralImage(file).extension;
     }
 
+    /** 비공개 채팅 저장소가 공통 형식 검증과 원본의 표시 크기를 재사용한다. */
+    public ValidatedImage validatedGeneralImageDetails(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new UnsupportedImageFormatException(EMPTY_IMAGE_MESSAGE);
+        }
+        ImageFormat format = validateGeneralImage(file);
+        byte[] content = readContentImageBytes(file);
+        int[] dimensions = format == ImageFormat.WEBP
+                ? webpDimensions(content) : uprightDimensions(content, format.readerFormatName);
+        if (dimensions == null || dimensions[0] <= 0 || dimensions[1] <= 0) {
+            throw unsupportedImage();
+        }
+        return new ValidatedImage(format.extension,
+                "image/" + (format == ImageFormat.JPEG ? "jpeg" : format.extension),
+                dimensions[0], dimensions[1]);
+    }
+
+    public record ValidatedImage(String extension, String contentType, int width, int height) {
+    }
+
     /**
      * 체험 여행일기에서 가져온 사진의 검증만 하고 저장은 하지 않는다.
      *

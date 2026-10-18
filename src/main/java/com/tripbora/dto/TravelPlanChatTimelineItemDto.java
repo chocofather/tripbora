@@ -32,7 +32,8 @@ public record TravelPlanChatTimelineItemDto(
         // type = POLL_CREATED
         Long pollId,
         String creatorDisplayName,
-        String pollTitle) {
+        String pollTitle,
+        List<TravelPlanChatImageDto> images) {
 
     public static final String MESSAGE = "MESSAGE";
     public static final String POLL_CREATED = "POLL_CREATED";
@@ -63,7 +64,8 @@ public record TravelPlanChatTimelineItemDto(
                 deleted ? null : message.getContent(),
                 deleted,
                 deleted || reactions == null ? List.of() : reactions,
-                null, null, null);
+                null, null, null,
+                deleted ? List.of() : message.getImages());
     }
 
     /**
@@ -77,7 +79,7 @@ public record TravelPlanChatTimelineItemDto(
                 null, null, null, null, false, List.of(),
                 poll.getId(),
                 nameOr(poll.getCreatedByDisplayName()),
-                poll.getTitle());
+                poll.getTitle(), List.of());
     }
 
     private static String nameOr(String displayName) {

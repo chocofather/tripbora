@@ -1,0 +1,52 @@
+.tp-chat-attach { position: relative; flex: 0 0 auto; }
+.tp-chat-attach-menu { position: absolute; bottom: 52px; left: 0; z-index: 3; width: 150px; padding: 6px; border: 1px solid #e8e5ed; border-radius: 12px; background: #fff; box-shadow: 0 6px 22px rgb(32 27 44 / 10%); }
+.tp-chat-attach-menu button { width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: #fff; color: #413a4c; text-align: left; font: inherit; cursor: pointer; }
+.tp-chat-attach-menu button:hover { background: #f6f5f8; }
+.tp-chat-image-preview { display: flex; flex: 0 0 auto; gap: 10px; max-height: 104px; padding: 10px 14px; overflow-x: auto; background: #fff; }
+.tp-chat-image-preview[hidden] { display: none; }
+.tp-chat-preview-tile { position: relative; flex: 0 0 68px; height: 68px; }
+.tp-chat-preview-tile img { width: 68px; height: 68px; border: 1px solid #e8e5ed; border-radius: 10px; object-fit: cover; }
+.tp-chat-preview-remove { position: absolute; top: -6px; right: -6px; width: 28px; height: 28px; border: 1px solid #e8e5ed; border-radius: 50%; background: #fff; color: #413a4c; cursor: pointer; font-size: 20px; }
+.tp-chat-upload-status { flex: 0 0 auto; padding: 0 14px 8px; font-size: 12px; line-height: 1.6; color: #706977; }
+.travel-plan-chat-panel .travel-plan-chat-form button:disabled { opacity: .55; cursor: wait; }
+.travel-plan-chat-panel .travel-plan-chat-input[readonly] { color: #706977; }
+.tp-chat-image-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; width: 240px; max-width: 100%; margin-bottom: 8px; }
+.tp-chat-image-grid.is-single { grid-template-columns: minmax(0,1fr); }
+.tp-chat-image-tile { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 12px; background: transparent; color: #706977; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.tp-chat-image-tile img { display: block; width: 100%; height: auto; max-height: 170px; border-radius: 12px; object-fit: contain; }
+.tp-chat-image-tile img[hidden] { display: none; }
+.tp-chat-image-tile.is-loading { min-height: 64px; background: #f1eff5; }
+/* 바깥 래퍼는 사진을 감싸지 않는다. 캡션이 있을 때 그 텍스트만 말풍선으로 표시한다. */
+.travel-plan-chat-panel .travel-plan-chat-message .travel-plan-chat-bubble:has(.tp-chat-image-grid) {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    max-width: 100%; box-sizing: border-box; padding: 0; border: 0; border-radius: 0; background: transparent;
+}
+.travel-plan-chat-panel .travel-plan-chat-message.is-mine .travel-plan-chat-bubble:has(.tp-chat-image-grid) { align-items: flex-end; }
+.travel-plan-chat-bubble:has(.tp-chat-image-grid) .tp-chat-image-grid { margin-bottom: 0; }
+.travel-plan-chat-bubble:has(.tp-chat-image-grid) .travel-plan-chat-content:not([hidden]) {
+    max-width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid #f0eef3; border-radius: 16px; background: #f6f5f8;
+}
+.travel-plan-chat-message.is-mine .travel-plan-chat-bubble:has(.tp-chat-image-grid) .travel-plan-chat-content:not([hidden]) { border-color: #ede7fa; background: #f2ecfc; }
+.travel-plan-chat-message.is-continued .travel-plan-chat-bubble:has(.tp-chat-image-grid) .travel-plan-chat-content:not([hidden]) { border-top-left-radius: 6px; }
+.travel-plan-chat-message.is-mine.is-continued .travel-plan-chat-bubble:has(.tp-chat-image-grid) .travel-plan-chat-content:not([hidden]) { border-top-left-radius: 16px; border-top-right-radius: 6px; }
+.tp-chat-image-viewer { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(1000px,calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 16px; overflow: auto; border: 1px solid #e8e5ed; border-radius: 18px; background: #fff; color: #413a4c; }
+.tp-chat-image-viewer::backdrop { background: rgb(24 20 32 / 65%); }
+.tp-chat-image-viewer header { display: flex; justify-content: space-between; align-items: center; padding: 0 0 10px; font-size: 13px; }
+.tp-chat-image-viewer button { flex: 0 0 auto; width: 44px; height: 44px; border: 1px solid #e8e5ed; border-radius: 50%; background: #fff; color: #413a4c; font-size: 28px; cursor: pointer; }
+.tp-chat-image-viewer button:disabled { opacity: .3; cursor: default; }
+.tp-chat-image-viewer button:focus-visible { outline: 2px solid #a38dcf; outline-offset: 2px; }
+.tp-chat-viewer-stage { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 120px; }
+.tp-chat-viewer-stage img { display: block; min-width: 0; max-width: calc(100% - 112px); max-height: calc(100dvh - 180px); object-fit: contain; }
+.tp-chat-viewer-stage img[hidden] { display: none; }
+.tp-chat-viewer-status { text-align: center; font-size: 13px; line-height: 1.6; padding-top: 12px; }
+@media (max-width: 560px) {
+    .travel-plan-chat-panel .travel-plan-chat-form { gap: 4px; padding-left: 8px; padding-right: 8px; }
+    .travel-plan-chat-panel .travel-plan-chat-send { padding: 0 12px; }
+    .travel-plan-chat-panel .travel-plan-chat-input { padding-left: 10px; padding-right: 10px; }
+    .tp-chat-image-viewer { width: calc(100% - 20px); padding: 12px; }
+    .tp-chat-viewer-stage { position: relative; padding-bottom: 52px; }
+    .tp-chat-viewer-stage img { max-width: 100%; margin: auto; }
+    .tp-chat-viewer-previous, .tp-chat-viewer-next { position: absolute; bottom: 0; }
+    .tp-chat-viewer-previous { left: 0; }
+    .tp-chat-viewer-next { right: 0; }
+}

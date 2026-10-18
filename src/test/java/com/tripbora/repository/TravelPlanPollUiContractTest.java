@@ -150,10 +150,8 @@ class TravelPlanPollUiContractTest {
         assertThat(between(poll, "function closeModal()", "\n    }"))
                 .contains("modal.hidden = true")
                 .contains("resetForm()");
-        // Esc 로도 닫힌다
-        assertThat(between(poll, "document.addEventListener(\"keydown\"", "});"))
-                .contains("event.key !== \"Escape\" || modal.hidden")
-                .contains("closeModal()");
+        // ESC 우선순위는 채팅에서 조정하고 같은 닫기 동작만 호출한다.
+        assertThat(poll).contains("document.addEventListener(\"travelplan:poll-close\", () => closeModal())");
         // 바깥의 어두운 곳을 눌러도 닫힌다
         assertThat(between(poll, "modal.addEventListener(\"click\"", "});"))
                 .contains("if (event.target === modal) closeModal()");
@@ -1000,8 +998,11 @@ class TravelPlanPollUiContractTest {
 
         // 목록 아래의 진입점. 큰 갈색 덩어리 버튼을 두지 않는다
         assertThat(between(detail, "class=\"travel-plan-poll-footer\"", "</footer>"))
-                .contains(">투표 만들기</button>")
+                .contains(">새 투표 만들기</button>")
                 .doesNotContain("+ 새 투표 만들기");
+        assertThat(detail).contains("data-travel-plan-poll-modal-title>여행 투표</h2>");
+        assertThat(pollJs()).contains("title.textContent = \"여행 투표\"")
+                .contains("title.textContent = \"새 투표 만들기\"");
         // 선택지 추가는 작은 글자 액션이다
         assertThat(between(cssFile(), ".travel-plan-poll-add {", "}"))
                 .contains("border: none")

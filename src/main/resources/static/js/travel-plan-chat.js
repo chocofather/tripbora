@@ -29,6 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = panel.querySelector("[data-travel-plan-chat-form]");
     const input = panel.querySelector("[data-travel-plan-chat-input]");
     const notice = panel.querySelector("[data-travel-plan-chat-error]");
+    const attachments = window.TravelPlanChatImages?.mount({panel, input, planId,
+        onMessage: onMessageCreated, onError: showError, onClearError: clearError, onResize: autoResize});
 
     /** 맨 위에서 이만큼 안쪽에 들어오면 이전 대화를 미리 가져온다. */
     const OLDER_TRIGGER_PX = 80;
@@ -210,6 +212,10 @@ document.addEventListener("DOMContentLoaded", () => {
         reactions.setAttribute("data-travel-plan-chat-reactions", "");
 
         bubble.append(content);
+        if (!message.deleted) {
+            window.TravelPlanChatImages?.render(message, bubble, planId);
+            content.hidden = !message.content && !!message.images?.length;
+        }
         row.append(bubble, time);
         item.append(sender, row, reactions);
         if (!message.deleted) {
@@ -499,7 +505,8 @@ document.addEventListener("DOMContentLoaded", () => {
             content: message.content,
             deleted: message.deleted,
             // 갓 도착한 메시지에는 아직 아무 반응도 없다.
-            reactions: []
+            reactions: [],
+            images: message.images || []
         };
     }
 
@@ -581,6 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loading = true;
         try {
             const payload = await fetchTimeline(null, null);
+            window.TravelPlanChatImages?.closeViewer();
             list.replaceChildren(...payload.items.map(itemNode));
             regroup();
             rememberCursor(payload);
@@ -684,11 +692,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function onMessageDeleted(messageId) {
+        window.TravelPlanChatImages?.closeViewerFor(messageId);
         const node = nodeOf(messageId);
         if (!node) return;
         node.classList.add("is-deleted");
+        node.querySelector(".tp-chat-image-grid")?.remove();
         const content = node.querySelector("[data-travel-plan-chat-content]");
-        if (content) content.textContent = "삭제된 메시지입니다.";
+        if (content) { content.textContent = "삭제된 메시지입니다."; content.hidden = false; }
         // 지운 뒤에는 메뉴가 필요 없다.
         node.querySelector("[data-travel-plan-chat-menu]")?.remove();
         /*
@@ -703,6 +713,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function send() {
         const content = input.value.trim();
+        if (attachments?.isBusy()) return;
+        if (attachments?.hasFiles()) { attachments.send(content); return; }
         if (sending || content === "") return;
         if (!realtime()?.isConnected()) {
             showError("연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.");
@@ -731,136 +743,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ── 이모지 고르기 ───────────────────────────────────────
 
-    /*
-      자주 쓰는 것과 여행에서 자주 나오는 것만 줄별로 모아 둔다.
-      그림 파일이 아니라 그냥 글자다. 저장·전송·그리기가 지금과 똑같이 흘러간다.
-      (message_type 을 새로 만들지도, 계약을 바꾸지도 않는다)
-    */
-    const EMOJI_ROWS = [
-        ["😀", "😄", "😂", "🥹", "😊", "😍", "😎"],
-        ["👍", "👎", "👏", "🙌", "👌"],
-        ["❤️", "💕", "🔥", "🎉", "✨"],
-        ["😮", "😢", "😭", "😡", "🤔"],
-        ["🍽️", "☕", "🍺", "🏨", "✈️", "🚗", "🚌", "🚆"],
-        ["🌊", "🌸", "⛰️", "🌙", "📸"]
-    ];
-
     const emojiToggle = panel.querySelector("[data-travel-plan-chat-emoji-toggle]");
     const emojiPanel = panel.querySelector("[data-travel-plan-chat-emoji-panel]");
-    const recentSection = panel.querySelector("[data-travel-plan-chat-emoji-recent]");
-    const recentGrid = panel.querySelector("[data-travel-plan-chat-emoji-recent-grid]");
-    const allGrid = panel.querySelector("[data-travel-plan-chat-emoji-all]");
-
-    /**
-     * 고른 이모지를 커서 자리에 끼워 넣는다. 보내지는 않는다.
-     *
-     * <p>고르고 있던 구간이 있으면 그 자리를 대신한다.
-     * 넣은 뒤에는 입력칸으로 돌아가고 커서는 넣은 글자 뒤에 선다.
-     */
-    function insertEmoji(emoji) {
-        if (!input) return;
-        const start = input.selectionStart ?? input.value.length;
-        const end = input.selectionEnd ?? start;
-        input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
-        const caret = start + emoji.length;
-        input.focus();
-        input.setSelectionRange(caret, caret);
-        autoResize();
-    }
-
-    /*
-      최근 고른 이모지.
-
-      이 브라우저에만 남는 편의값이다. 서버로 보내지 않고 DB 에도 두지 않는다.
-      (사생활 보호 창이나 저장을 막아 둔 브라우저에서는 읽고 쓰기가 막힌다.
-       그래도 고르는 것 자체는 되어야 하므로 실패는 조용히 넘긴다)
-    */
-    const RECENT_EMOJI_KEY = "travelPlan.chat.recentEmoji";
-    const RECENT_EMOJI_LIMIT = 10;
-
-    function readRecentEmoji() {
-        try {
-            const saved = JSON.parse(window.localStorage.getItem(RECENT_EMOJI_KEY) || "[]");
-            if (!Array.isArray(saved)) return [];
-            // 저장된 값도 남이 고쳐 넣을 수 있다. 글자만 남기고 개수도 다시 자른다.
-            return saved
-                .filter(emoji => typeof emoji === "string" && emoji !== "")
-                .slice(0, RECENT_EMOJI_LIMIT);
-        } catch (error) {
-            return [];
-        }
-    }
-
-    function rememberRecentEmoji(emoji) {
-        // 같은 것을 다시 고르면 두 번 쌓지 않고 맨 앞으로 올린다.
-        const next = [emoji, ...readRecentEmoji().filter(saved => saved !== emoji)]
-            .slice(0, RECENT_EMOJI_LIMIT);
-        try {
-            window.localStorage.setItem(RECENT_EMOJI_KEY, JSON.stringify(next));
-        } catch (error) {
-            // 저장하지 못해도 이번에 고른 것은 그대로 들어간다.
-        }
-        renderRecentEmoji();
-    }
-
-    /** 격자에 놓이는 이모지 한 칸. 어느 격자에 있든 하는 일이 같다. */
-    function emojiButton(emoji) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "travel-plan-chat-emoji-item";
-        button.setAttribute("aria-label", emoji);
-        button.textContent = emoji;
-        button.addEventListener("click", () => {
-            insertEmoji(emoji);
-            rememberRecentEmoji(emoji);
-            closeEmoji();
-        });
-        return button;
-    }
-
-    /** 최근 목록만 다시 그린다. 하나도 없으면 그 구역째 사라진다. */
-    function renderRecentEmoji() {
-        if (!recentGrid || !recentSection) return;
-        const recent = readRecentEmoji();
-        recentSection.hidden = recent.length === 0;
-        recentGrid.replaceChildren(...recent.map(emojiButton));
-    }
-
-    /**
-     * 전체 목록은 한 번만 만든다. 여는 때마다 다시 그리지 않는다.
-     *
-     * <p>위에 줄로 묶어 적어 둔 것은 고르기 쉬우라고 한 것이고,
-     * 화면에서는 한 칸씩 이어 붙여 5칸 격자로 흐른다(칸 나누기는 CSS 가 한다).
-     * 줄마다 상자를 만들면 그 상자가 각자 폭을 잡아 격자가 되지 않는다.
-     */
-    function buildEmojiPanel() {
-        if (!allGrid || allGrid.childElementCount > 0) return;
-        allGrid.append(...EMOJI_ROWS.flat().map(emojiButton));
-    }
-
-    function closeEmoji() {
-        if (!emojiPanel) return;
-        emojiPanel.hidden = true;
-        emojiToggle?.setAttribute("aria-expanded", "false");
-    }
-
-    function openEmoji() {
-        if (!emojiPanel) return;
-        buildEmojiPanel();
-        // 다른 탭에서 고른 것이 있을 수 있어 열 때마다 최근 목록은 다시 읽는다.
-        renderRecentEmoji();
-        emojiPanel.hidden = false;
-        emojiToggle?.setAttribute("aria-expanded", "true");
-    }
-
-    emojiToggle?.addEventListener("click", event => {
-        event.stopPropagation();
-        if (emojiPanel?.hidden) openEmoji();
-        else closeEmoji();
+    const emojiPicker = window.TravelPlanEmojiPicker?.mount({
+        input, toggle: emojiToggle, panel: emojiPanel, onInsert: autoResize
     });
 
-    // 고르는 중에 바깥을 눌러 닫히지 않도록 창 안의 클릭은 여기서 멈춘다.
-    emojiPanel?.addEventListener("click", event => event.stopPropagation());
+    // 바깥 클릭과 Escape 처리는 기존 채팅 패널 핸들러에서 함께 관리한다.
+    function closeEmoji() {
+        emojiPicker?.close();
+    }
 
     // ── 패널 열고 닫기 ──────────────────────────────────────
 
@@ -876,6 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function openPanel() {
         panel.hidden = false;
+        updateViewport();
         toggle?.setAttribute("aria-expanded", "true");
         // 열려 있는 동안에도 토글 버튼은 남아 있고, 누르면 닫힌다
         toggle?.setAttribute("aria-label", "채팅 닫기");
@@ -895,10 +788,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function closePanel() {
+        cancelAnimationFrame(viewportFrame);
+        closeEmoji();
+        attachments?.closeMenu();
         panel.hidden = true;
         toggle?.setAttribute("aria-expanded", "false");
         toggle?.setAttribute("aria-label", "채팅 열기");
         closeMenus(null);
+        closeReactionMenus(null);
+        toggle?.focus({preventScroll: true});
     }
 
     toggle?.addEventListener("click", () => {
@@ -940,12 +838,60 @@ document.addEventListener("DOMContentLoaded", () => {
         closeEmoji();
     });
 
-    // Esc 로도 닫힌다. 닫은 뒤에는 쓰던 자리로 돌아간다.
+    // 페이지 수명 동안 한 번만 등록한다. 열 때마다 ESC 리스너를 추가하지 않는다.
+    // capture에서 한 층만 닫아 기존 전역/bubble 핸들러와 동시에 닫히는 것을 막는다.
     document.addEventListener("keydown", event => {
-        if (event.key !== "Escape" || emojiPanel?.hidden !== false) return;
-        closeEmoji();
-        input?.focus();
-    });
+        if (event.key !== "Escape" || event.defaultPrevented || window.travelPlanIme.isComposing(event, composing)) return;
+        const dialog = document.querySelector("dialog[open]");
+        const poll = document.querySelector("[data-travel-plan-poll-modal]");
+        if (dialog) {
+            if (!dialog.classList.contains("tp-chat-image-viewer")) return;
+            window.TravelPlanChatImages?.closeViewer();
+        } else if ([...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
+                .some(other => other !== poll && other.getClientRects().length > 0)) {
+            return;
+        } else if (emojiPanel?.hidden === false) {
+            closeEmoji();input?.focus({preventScroll: true});
+        } else if (panel.querySelector("[data-chat-attach-menu]")?.hidden === false) {
+            attachments?.closeMenu();panel.querySelector("[data-chat-attach-toggle]")?.focus({preventScroll: true});
+        } else if (poll?.hidden === false) {
+            document.dispatchEvent(new CustomEvent("travelplan:poll-close"));
+            panel.querySelector("[data-travel-plan-poll-entry]")?.focus({preventScroll: true});
+        } else if (!isOpen() || event.target.closest?.(".main-nav")
+            || (!panel.contains(event.target) && event.target.closest?.('input, textarea, select, [contenteditable="true"]'))) {
+            return;
+        } else if (list.querySelector('.travel-plan-chat-menu-list:not([hidden]), .travel-plan-chat-react-menu:not([hidden])')) {
+            closeMenus(null);closeReactionMenus(null);input?.focus({preventScroll: true});
+        } else {
+            closePanel();
+        }
+        event.preventDefault();event.stopImmediatePropagation();
+    }, {capture: true});
+
+    // 이모지와 첨부 메뉴는 동시에 겹치지 않게 한다.
+    emojiToggle?.addEventListener("click", () => attachments?.closeMenu());
+    panel.querySelector("[data-chat-attach-toggle]")?.addEventListener("click", closeEmoji);
+
+    let viewportFrame = 0;
+    function updateViewport() {
+        const narrow = window.matchMedia("(max-width: 768px)").matches;
+        const viewport = narrow ? window.visualViewport : null;
+        const height = viewport?.height || window.innerHeight;
+        const offsetTop = viewport?.offsetTop || 0;
+        const keyboardOffset = narrow ? Math.max(0, window.innerHeight - height - offsetTop) : 0;
+        const navBottom = document.querySelector(".main-nav")?.getBoundingClientRect().bottom || 0;
+        const stayAtBottom = isOpen() && isAtBottom();
+        panel.style.setProperty("--tp-chat-top-gap", `max(${Math.max(16, navBottom - offsetTop + 12)}px, env(safe-area-inset-top, 0px))`);
+        panel.style.setProperty("--tp-chat-viewport-height", `${height}px`);
+        panel.style.setProperty("--tp-chat-keyboard-offset", `${keyboardOffset}px`);
+        panel.style.setProperty("--tp-chat-dock-space", keyboardOffset > 80 ? "0px" : "var(--tp-chat-toggle-space)");
+        cancelAnimationFrame(viewportFrame);
+        if (stayAtBottom) viewportFrame = requestAnimationFrame(() => { if (isOpen()) scrollToBottom(); });
+    }
+    window.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+    updateViewport();
 
     // ── 입력 ────────────────────────────────────────────────
 

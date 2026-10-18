@@ -48,6 +48,9 @@ public interface TravelPlanChatMapper {
     /** 메시지 1건 등록. created_at 등 DB DEFAULT 는 그대로 둔다. */
     int insertMessage(TravelPlanChatMessage message);
 
+    TravelPlanChatMessage findByRequestId(@Param("travelPlanId") Long travelPlanId,
+            @Param("senderMemberId") Long senderMemberId, @Param("clientRequestId") String clientRequestId);
+
     /**
      * 지움 표시. 행을 지우지 않고 deleted_at 만 채운다.
      * 보낸 사람 조건을 SQL 에 함께 걸어, 남의 메시지는 조건이 맞지 않아 한 건도 바뀌지 않는다.

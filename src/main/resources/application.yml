@@ -68,10 +68,11 @@ spring:
     multipart:
       enabled: true
       # 관리자 여행지 사진은 한 장에 20MB까지 받는다(이미지 관리 화면은 사진을 한 장씩 보낸다).
-      # 요청 전체는 사진 한 장 + 출처 입력값이 들어가도록 25MB. 다른 업로드(일반 이미지·다이어리·프로필·스티커 등)는
+      # 요청 전체는 채팅 사진 최대 5장과 입력값을 받을 수 있도록 별도로 설정한다. 다른 업로드(일반 이미지·다이어리·프로필·스티커 등)는
       # 서버 검증에서 각자 더 작은 한도(10MB 등)를 따로 확인하므로 이 값이 커져도 그 한도는 그대로다.
       max-file-size: 20MB
-      max-request-size: 25MB
+      # 채팅 사진 5장 x 10MB + multipart 여유. 각 기능의 서버 파일/개수 제한은 별도로 유지한다.
+      max-request-size: 55MB
   web:
     resources:
       static-locations: classpath:/static/
@@ -129,7 +130,7 @@ server:
     max-http-form-post-size: 64MB
     # 실제 등록폼 494 parts(카테고리·편의시설 체크박스 표시 필드 포함) + 사진별 출처 입력 7 parts.
     # 기본 50개 제한은 이미지 없이도 413을 낸다. 600개면 현재 폼에 사진 약 15장 여유가 있다.
-    # 업로드 크기는 spring.servlet.multipart 의 한도(파일 20MB, 요청 25MB)를 따른다.
+      # 업로드 크기는 spring.servlet.multipart 의 한도(파일 20MB, 요청 55MB)를 따른다.
     max-part-count: 600
   error:
     include-stacktrace: never

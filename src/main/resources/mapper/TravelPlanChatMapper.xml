@@ -79,9 +79,16 @@
 
     <insert id="insertMessage" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO travel_plan_chat_messages
-            (travel_plan_id, sender_member_id, message_type, content)
-        VALUES (#{travelPlanId}, #{senderMemberId}, #{messageType}, #{content})
+            (travel_plan_id, sender_member_id, message_type, content, client_request_id)
+        VALUES (#{travelPlanId}, #{senderMemberId}, #{messageType}, #{content}, #{clientRequestId})
     </insert>
+
+    <select id="findByRequestId" resultType="com.tripbora.model.TravelPlanChatMessage">
+        SELECT <include refid="messageColumns"/>
+        FROM travel_plan_chat_messages c LEFT JOIN travel_plan_members m ON m.id = c.sender_member_id
+        WHERE c.travel_plan_id = #{travelPlanId} AND c.sender_member_id = #{senderMemberId}
+          AND c.client_request_id = #{clientRequestId}
+    </select>
 
     <!--
       지움 표시. 행은 그대로 두고 deleted_at 만 채운다.

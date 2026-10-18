@@ -95,7 +95,7 @@ class TravelPlanChatServiceTest {
                 travelPlanMapper, travelPlanItemMapper, travelPlanAlternativeMapper);
         chatService = new TravelPlanChatService(
                 travelPlanChatMapper, travelPlanChatReactionMapper, travelPlanPollMapper,
-                roomAccess, eventPublisher);
+                roomAccess, eventPublisher, org.mockito.Mockito.mock(com.tripbora.repository.travelplan.TravelPlanChatImageMapper.class));
     }
 
     // ── 보내기 ──────────────────────────────────────────────

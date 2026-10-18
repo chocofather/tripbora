@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.travelplan.TravelPlanChatImageMapper">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO travel_plan_chat_images
+            (message_id, storage_key, content_type, byte_size, width, height, sort_order)
+        VALUES (#{messageId}, #{storageKey}, #{contentType}, #{byteSize}, #{width}, #{height}, #{sortOrder})
+    </insert>
+    <select id="findByMessageIds" resultType="com.tripbora.model.TravelPlanChatImage">
+        SELECT i.* FROM travel_plan_chat_images i
+        JOIN travel_plan_chat_messages m ON m.id = i.message_id
+        WHERE m.deleted_at IS NULL AND i.message_id IN
+        <foreach collection="messageIds" item="id" open="(" close=")" separator=",">#{id}</foreach>
+        ORDER BY i.message_id, i.sort_order
+    </select>
+    <select id="findByIdAndMessage" resultType="com.tripbora.model.TravelPlanChatImage">
+        SELECT * FROM travel_plan_chat_images WHERE id = #{id} AND message_id = #{messageId}
+    </select>
+    <select id="isReferenced" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM travel_plan_chat_images i
+            JOIN travel_plan_chat_messages m ON m.id = i.message_id
+            WHERE i.storage_key = #{storageKey} AND m.deleted_at IS NULL)
+    </select>
+</mapper>

@@ -1,0 +1,43 @@
+/* Local Unicode picker; specificity overrides the legacy compact palette. */
+.travel-plan-chat-panel .travel-plan-chat-emoji-panel.tp-emoji-picker {
+    position: fixed;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(352px, calc(100vw - 24px));
+    height: 390px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid #e8e5ed;
+    border-radius: 14px;
+    background: #fff;
+    color: #302b38;
+    box-shadow: 0 6px 22px rgb(32 27 44 / 10%);
+    overflow: hidden;
+}
+.travel-plan-chat-panel .tp-emoji-picker[hidden] { display: none; }
+.tp-emoji-picker .tp-emoji-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; min-height: 24px; font-size: 14px; }
+.tp-emoji-picker .tp-emoji-dismiss { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #766f80; font-size: 22px; cursor: pointer; }
+.tp-emoji-picker .tp-emoji-search { box-sizing: border-box; flex: 0 0 auto; width: 100%; min-width: 0; height: 36px; padding: 7px 10px; border: 1px solid #e7e4ed; border-radius: 8px; background: #faf9fb; color: #302b38; font: inherit; font-size: 12px; }
+.tp-emoji-picker .tp-emoji-search:focus { outline: 2px solid #d9cdef; outline-offset: 0; border-color: #aa95cf; }
+.tp-emoji-picker .tp-emoji-categories { display: grid; flex: 0 0 auto; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
+.tp-emoji-picker .tp-emoji-category { display: flex; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 31px; padding: 4px 2px; border: 0; border-radius: 6px; background: #f8f7fa; color: #766e80; font-family: inherit; font-size: 17px; cursor: pointer; }
+.tp-emoji-picker .tp-emoji-category span { font-size: 10px; }
+.tp-emoji-picker .tp-emoji-category[aria-pressed="true"] { background: #eee7fa; color: #674b9b; }
+.tp-emoji-picker .tp-emoji-caption { flex: 0 0 auto; margin: 1px 0 0; color: #78717f; font-size: 11px; }
+.tp-emoji-picker .tp-emoji-scroll { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #ded9e5 transparent; }
+.tp-emoji-picker .travel-plan-chat-emoji-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.tp-emoji-picker .travel-plan-chat-emoji-item { display: flex; justify-content: center; align-items: center; min-width: 0; width: 100%; height: 40px; padding: 0; border: 0; border-radius: 7px; background: transparent; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-size: 24px; line-height: 1; cursor: pointer; }
+.tp-emoji-picker .travel-plan-chat-emoji-item:hover,
+.tp-emoji-picker .tp-emoji-dismiss:hover { background: #f5f2f9; }
+.tp-emoji-picker .tp-emoji-empty { margin: 20px 0; text-align: center; color: #89818f; font-size: 12px; line-height: 1.6; }
+.tp-emoji-picker .tp-emoji-empty[hidden] { display: none; }
+.tp-emoji-picker .tp-emoji-status { flex: 0 0 auto; margin: 0; color: #a14747; font-size: 11px; line-height: 1.5; }
+.tp-emoji-picker .tp-emoji-status:empty { display: none; }
+.tp-emoji-picker button:focus-visible { outline: 2px solid #a38ccf; outline-offset: -2px; }
+@media (max-width: 360px) {
+    .tp-emoji-picker .travel-plan-chat-emoji-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}

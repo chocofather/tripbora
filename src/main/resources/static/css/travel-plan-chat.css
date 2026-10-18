@@ -5,7 +5,9 @@
     --tp-chat-line: #ecebf0;
     box-sizing: border-box;
     width: min(440px, calc(100vw - var(--tp-chat-edge) * 2));
-    height: 560px;
+    height: 720px;
+    max-height: min(88vh, calc(var(--tp-chat-viewport-height, 100vh) - var(--tp-chat-top-gap, 16px) - var(--tp-chat-edge) - var(--tp-chat-toggle-space)));
+    max-height: min(88dvh, calc(var(--tp-chat-viewport-height, 100dvh) - var(--tp-chat-top-gap, 16px) - var(--tp-chat-edge) - var(--tp-chat-toggle-space)));
     border: 1px solid #e8e7ed;
     border-radius: 20px;
     background: #fff;
@@ -165,7 +167,13 @@
 .travel-plan-chat-panel .travel-plan-chat-error { margin: 0 18px 10px; color: #a14747; }
 
 @media (max-width: 768px) {
-    .is-planning .travel-plan-chat-panel { border-radius: 18px; }
+    .is-planning .travel-plan-chat-panel {
+        border-radius: 18px;
+        bottom: calc(var(--tp-chat-edge) + var(--tp-chat-dock-space, var(--tp-chat-toggle-space)) + var(--tp-chat-keyboard-offset, 0px) + env(safe-area-inset-bottom, 0px));
+        max-height: min(88vh, calc(var(--tp-chat-viewport-height, 100vh) - var(--tp-chat-top-gap, 16px) - var(--tp-chat-edge) - var(--tp-chat-dock-space, var(--tp-chat-toggle-space)) - env(safe-area-inset-bottom, 0px)));
+        max-height: min(88dvh, calc(var(--tp-chat-viewport-height, 100dvh) - var(--tp-chat-top-gap, 16px) - var(--tp-chat-edge) - var(--tp-chat-dock-space, var(--tp-chat-toggle-space)) - env(safe-area-inset-bottom, 0px)));
+    }
+    .travel-plan-chat-panel .tp-chat-image-preview { flex-shrink: 1; min-height: 0; }
 }
 
 @media (max-width: 560px) {

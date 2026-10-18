@@ -57,6 +57,7 @@ public class TravelPlanChatService {
     private final TravelPlanPollMapper travelPlanPollMapper;
     private final TravelPlanRoomAccess travelPlanRoomAccess;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.tripbora.repository.travelplan.TravelPlanChatImageMapper travelPlanChatImageMapper;
 
     /**
      * 채팅창에 그릴 한 페이지.
@@ -93,6 +94,16 @@ public class TravelPlanChatService {
         // 메시지마다 묻지 않는다. 이 쪽에 실린 것들의 반응을 한 번에 읽어 온다.
         Map<Long, List<TravelPlanChatReactionDto>> reactions =
                 reactionsByMessageId(messages, member.getId());
+
+        List<Long> imageMessageIds = messages.stream().filter(message -> message.getDeletedAt() == null)
+                .map(TravelPlanChatMessage::getId).filter(java.util.Objects::nonNull).toList();
+        if (!imageMessageIds.isEmpty()) {
+            var imageRows = travelPlanChatImageMapper.findByMessageIds(imageMessageIds);
+            Map<Long, List<com.tripbora.dto.TravelPlanChatImageDto>> grouped = new LinkedHashMap<>();
+            for (var image : imageRows) grouped.computeIfAbsent(image.getMessageId(), ignored -> new ArrayList<>())
+                    .add(com.tripbora.dto.TravelPlanChatImageDto.of(travelPlanId,image));
+            messages.forEach(message -> message.setImages(grouped.getOrDefault(message.getId(),List.of())));
+        }
 
         List<TravelPlanChatTimelineItemDto> items = new ArrayList<>();
         messages.stream()

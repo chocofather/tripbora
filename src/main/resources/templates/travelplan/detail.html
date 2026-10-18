@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="/css/travel-plan-reorder.css">
   <link rel="stylesheet" href="/css/travel-plan-detail-rows.css">
   <link rel="stylesheet" href="/css/travel-plan-chat.css">
+  <link rel="stylesheet" href="/css/travel-plan-poll.css">
+  <link rel="stylesheet" href="/css/travel-plan-emoji.css">
+  <link rel="stylesheet" href="/css/travel-plan-chat-images.css">
   <script src="/js/travel-plan-datetime-picker.js" defer></script>
   <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
   <script src="/js/travel-plan-item-types.js" defer></script>
@@ -29,6 +32,8 @@
   <script src="/webjars/stomp__stompjs/7.0.0/bundles/stomp.umd.min.js" defer></script>
   <script src="/js/travel-plan-realtime.js" defer></script>
   <!-- 채팅 UI. STOMP 연결은 위 realtime 이 들고 있는 것을 그대로 쓴다 -->
+  <script src="/js/travel-plan-emoji-picker.js" defer></script>
+  <script src="/js/travel-plan-chat-images.js" defer></script>
   <script src="/js/travel-plan-chat.js" defer></script>
   <!-- 채팅 패널 옮기기(넓은 화면). 송수신과 상관없이 자리만 다룬다 -->
   <script src="/js/travel-plan-chat-drag.js" defer></script>
@@ -321,13 +326,21 @@
          data-travel-plan-chat-error></p>
 
       <!--
-        입력줄에는 이모지 / 입력칸 / 전송만 둔다.
+        입력줄에는 사진 첨부 / 이모지 / 입력칸 / 전송을 둔다.
         투표는 채팅 머리글의 [투표] 로 들어가 그 창 안에서 만든다.
-        도구가 하나뿐인 [+] 는 같은 곳으로 가는 길을 하나 더 만들고
-        누르는 단계만 늘려서 두지 않는다.
-        (사진·파일 같은 것이 생기면 그때 다시 둔다)
+        사진은 전송 전 확인하고, 텍스트와 같은 메시지로 저장한다.
       -->
       <form class="travel-plan-chat-form" data-travel-plan-chat-form>
+        <div class="tp-chat-attach">
+          <button type="button" class="travel-plan-chat-tool" aria-label="사진 첨부 메뉴"
+                  aria-haspopup="menu" aria-expanded="false" data-chat-attach-toggle>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="tp-chat-attach-menu" role="menu" hidden data-chat-attach-menu>
+            <button type="button" role="menuitem" data-chat-attach-pick>사진 첨부</button>
+          </div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-chat-image-files>
+        </div>
         <!--
           이모지 고르기. 고른 것은 바로 보내지 않고 입력칸 커서 자리에 끼워 넣는다.
           목록은 스크립트가 글자로만 넣는다(그림 파일도, 새 라이브러리도 쓰지 않는다).
@@ -384,7 +397,7 @@
         <header class="travel-plan-poll-modal-header">
           <h2 id="travel-plan-poll-modal-title"
               class="travel-plan-poll-modal-title"
-              data-travel-plan-poll-modal-title>투표</h2>
+              data-travel-plan-poll-modal-title>여행 투표</h2>
           <button type="button" class="travel-plan-chat-header-button"
                   aria-label="투표 닫기" data-travel-plan-poll-close>×</button>
         </header>
@@ -414,7 +427,7 @@
 
           <footer class="travel-plan-poll-footer">
             <button type="button" class="travel-plan-poll-submit"
-                    data-travel-plan-poll-create-open>투표 만들기</button>
+                    data-travel-plan-poll-create-open>새 투표 만들기</button>
           </footer>
         </div>
 

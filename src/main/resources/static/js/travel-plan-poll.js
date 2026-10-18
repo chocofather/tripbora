@@ -165,14 +165,14 @@ document.addEventListener("DOMContentLoaded", () => {
         listView.hidden = false;
         detailView.hidden = true;
         createView.hidden = true;
-        if (title) title.textContent = "투표";
+        if (title) title.textContent = "여행 투표";
     }
 
     function showDetailView() {
         listView.hidden = true;
         detailView.hidden = false;
         createView.hidden = true;
-        if (title) title.textContent = "투표";
+        if (title) title.textContent = "여행 투표";
     }
 
     function showCreateView() {
@@ -223,10 +223,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.target === modal) closeModal();
     });
 
-    document.addEventListener("keydown", event => {
-        if (event.key !== "Escape" || modal.hidden) return;
-        closeModal();
-    });
+    // ESC 순서는 채팅의 단일 핸들러에서 정한다. 생성/참여 상태 처리는 같은 닫기를 재사용한다.
+    document.addEventListener("travelplan:poll-close", () => closeModal());
 
     // ── 목록 ────────────────────────────────────────────────
 

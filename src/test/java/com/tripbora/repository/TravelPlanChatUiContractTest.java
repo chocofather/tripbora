@@ -610,27 +610,30 @@ class TravelPlanChatUiContractTest {
     @Test
     void thePickerOpensBesideTheComposerAndClosesEveryUsualWay() throws IOException {
         String chat = chatJs();
-        String css = cssFile();
+        String picker = emojiJs();
+        String css = resource("/static/css/travel-plan-emoji.css");
 
         assertThat(chat)
-                .contains("function openEmoji()")
+                .contains("window.TravelPlanEmojiPicker?.mount")
                 .contains("function closeEmoji()")
-                .contains("emojiPanel.hidden = false")
+                .contains("emojiPicker?.close()");
+        assertThat(picker)
+                .contains("async function open()")
+                .contains("panel.hidden = false")
                 .contains("aria-expanded");
         // 바깥 클릭과 Esc 로 닫힌다
         assertThat(chat)
                 .contains("closeEmoji();")
                 .contains("event.key !== \"Escape\"");
-        // 입력줄 위에 붙어 열려 입력칸을 밀지 않고, 왼쪽 끝이라 오른쪽으로 잘리지 않는다
-        assertThat(between(css, ".travel-plan-chat-emoji-panel {", "}"))
-                .contains("position: absolute")
-                .contains("bottom: 38px")
-                .contains("left: 0")
+        // 입력줄 위에서 열리고 부모 패널의 overflow에 잘리지 않는다.
+        assertThat(between(css, ".travel-plan-chat-emoji-panel.tp-emoji-picker {", "}"))
+                .contains("position: fixed")
+                .contains("max-width: calc(100vw - 24px)")
                 .contains("background: #fff");
         // 손가락으로도 누를 수 있는 크기를 남긴다
         assertThat(between(css, ".travel-plan-chat-emoji-item {", "}"))
-                .contains("height: 34px");
-        assertThat(css).contains(".travel-plan-chat-emoji-item:focus-visible");
+                .contains("height: 40px");
+        assertThat(css).contains("button:focus-visible");
     }
 
     @Test
@@ -658,34 +661,37 @@ class TravelPlanChatUiContractTest {
 
     @Test
     void theEmojiButtonsGoStraightIntoTheGrid() throws IOException {
-        String build = between(chatJs(), "function buildEmojiPanel()", "\n    }");
+        String build = between(emojiJs(), "function render()", "function position()");
 
         // 줄마다 상자를 만들면 그 상자가 각자 폭을 잡아 격자가 되지 않는다
         assertThat(build)
-                .contains("EMOJI_ROWS.flat()")
-                .contains("allGrid.append(")
+                .contains("visible.map(item =>")
+                .contains("grid.replaceChildren(...buttons)")
                 .doesNotContain("travel-plan-chat-emoji-row");
         assertThat(cssFile()).doesNotContain(".travel-plan-chat-emoji-row");
-        // 전체 목록은 한 번만 만든다
-        assertThat(build).contains("allGrid.childElementCount > 0");
+        // 카테고리/검색이 바뀌면 같은 격자를 다시 그린다.
+        assertThat(build).contains("search(items, query)");
     }
 
     @Test
     void pickingAnEmojiTypesItWhereTheCursorIs() throws IOException {
-        String insert = between(chatJs(), "function insertEmoji(emoji)", "\n    }");
+        String picker = emojiJs();
+        String insert = between(picker, "function choose(item)", "function render()");
 
         /*
           고른 것을 바로 보내지 않는다. 쓰던 글은 그대로 두고
           커서 자리에만 끼워 넣은 뒤 입력칸으로 돌아간다.
         */
         assertThat(insert)
+                .contains("insertAt(input.value, savedStart, savedEnd, item.emoji, maxLength)")
+                .contains("input.focus({preventScroll: true})")
+                .contains("input.setSelectionRange(next.caret, next.caret)")
+                // 넣은 만큼 입력칸 높이도 다시 맞춘다
+                .contains("onInsert?.()");
+        assertThat(picker)
                 .contains("input.selectionStart")
                 .contains("input.selectionEnd")
-                .contains("input.value.slice(0, start) + emoji + input.value.slice(end)")
-                .contains("input.focus()")
-                .contains("input.setSelectionRange(caret, caret)")
-                // 넣은 만큼 입력칸 높이도 다시 맞춘다
-                .contains("autoResize()");
+                .contains("value.slice(0, start) + emoji + value.slice(end)");
         // 고르는 것만으로 전송되지 않는다
         assertThat(insert).doesNotContain("send()");
     }
@@ -693,10 +699,12 @@ class TravelPlanChatUiContractTest {
     @Test
     void anEmojiIsJustTextOnItsWayToTheDatabase() throws IOException {
         String chat = chatJs();
+        String picker = emojiJs();
 
         // 그림 파일도, 새 메시지 종류도, 새 라이브러리도 쓰지 않는다
-        assertThat(chat)
-                .contains("button.textContent = emoji")
+        assertThat(picker)
+                .contains("'travel-plan-chat-emoji-item', item.emoji")
+                .contains("node.textContent = text")
                 .doesNotContain("<img")
                 .doesNotContain("emoji-mart")
                 .doesNotContain("EMOJI\"");
@@ -708,72 +716,67 @@ class TravelPlanChatUiContractTest {
     }
 
     @Test
-    void theEmojiListIsSmallAndFitsATravelApp() throws IOException {
-        String rows = between(chatJs(), "const EMOJI_ROWS = [", "];");
+    void theEmojiCatalogIncludesCommonTravelChoicesAndSearchableUnicodeData() throws IOException {
+        String rows = resource("/static/data/travel-plan-emoji.json");
 
         for (String emoji : new String[]{"😊", "👍", "❤️", "🎉", "✈️", "🏨", "📸"}) {
             assertThat(rows).as("자주 쓰는 %s", emoji).contains(emoji);
         }
         // 이번 단계는 고르기까지다. 스티커나 GIF 는 만들지 않는다
-        assertThat(chatJs())
+        assertThat(emojiJs())
+                .contains("const CATEGORIES = [")
+                .contains("function search(items, query)")
                 .doesNotContain("sticker")
                 .doesNotContain("giphy");
     }
 
     @Test
     void whatWasPickedLatelyComesBackToTheTop() throws IOException {
-        String chat = chatJs();
+        String chat = emojiJs();
 
         assertThat(chat)
-                .contains("const RECENT_EMOJI_LIMIT = 10")
-                .contains("function rememberRecentEmoji(emoji)");
+                .contains("const RECENT_LIMIT = 24")
+                .contains("function remember(emoji)");
         // 같은 것을 다시 골라도 두 번 쌓이지 않고 맨 앞으로 올라간다
-        assertThat(between(chat, "function rememberRecentEmoji(emoji)", "\n    }"))
-                .contains("[emoji, ...readRecentEmoji().filter(saved => saved !== emoji)]")
-                .contains(".slice(0, RECENT_EMOJI_LIMIT)");
+        assertThat(between(chat, "function remember(emoji)", "function saveSelection()"))
+                .contains("[emoji, ...readRecent().filter(saved => saved !== emoji)]")
+                .contains(".slice(0, RECENT_LIMIT)");
         // 고르면 넣는 것과 기억하는 것이 함께 일어난다
-        assertThat(between(chat, "function emojiButton(emoji)", "return button;"))
-                .contains("insertEmoji(emoji)")
-                .contains("rememberRecentEmoji(emoji)");
+        assertThat(between(chat, "function choose(item)", "function render()"))
+                .contains("input.value = next.value")
+                .contains("remember(item.emoji)");
     }
 
     @Test
     void theRecentListLivesInThisBrowserAlone() throws IOException {
-        String chat = chatJs();
+        String chat = emojiJs();
 
         // 서버로 보내지 않고 DB 에도 두지 않는다
-        assertThat(chat).contains("window.localStorage.getItem(RECENT_EMOJI_KEY)");
-        assertThat(between(chat, "function rememberRecentEmoji(emoji)", "\n    }"))
+        assertThat(chat).contains("view.localStorage.getItem(RECENT_KEY)");
+        assertThat(between(chat, "function remember(emoji)", "function saveSelection()"))
                 .doesNotContain("fetch(")
                 .doesNotContain("realtime()");
         /*
           저장을 막아 둔 브라우저에서도 고르는 것 자체는 되어야 한다.
           읽고 쓰는 곳이 모두 막힌 경우를 견딘다.
         */
-        assertThat(between(chat, "function readRecentEmoji()", "\n    }"))
-                .contains("catch (error)")
+        assertThat(chat)
+                .contains("catch (_)")
                 .contains("Array.isArray(saved)")
                 // 저장된 값도 남이 고쳐 넣을 수 있다
-                .contains("typeof emoji === \"string\"");
+                .contains("typeof emoji === 'string'")
+                .contains("allowed.has(emoji)");
     }
 
     @Test
-    void anEmptyRecentListTakesNoRoomAtAll() throws IOException {
-        String chat = chatJs();
-        String detail = detailHtml();
-
-        // 한 번도 고른 적이 없으면 그 구역째 나오지 않는다
-        assertThat(between(chat, "function renderRecentEmoji()", "\n    }"))
-                .contains("recentSection.hidden = recent.length === 0")
-                .contains("recentGrid.replaceChildren(");
-        assertThat(detail)
-                .contains("data-travel-plan-chat-emoji-recent")
-                .contains(">최근 사용</p>");
-        assertThat(between(detail, "data-travel-plan-chat-emoji-recent>", "</section>"))
-                .contains("travel-plan-chat-emoji-grid");
-        assertThat(cssFile()).contains(".travel-plan-chat-emoji-section[hidden]");
-        // 카테고리 탭은 만들지 않는다
-        assertThat(chat).doesNotContain("category");
+    void anEmptyRecentCategoryExplainsWhereFutureSelectionsWillAppear() throws IOException {
+        String picker = emojiJs();
+        assertThat(picker)
+                .contains("{id: 'recent', label: '최근 사용'")
+                .contains("active === 'recent'")
+                .contains("선택한 이모지가 여기에 표시돼요.")
+                .contains("grid.replaceChildren(...buttons)");
+        assertThat(detailHtml()).contains("/js/travel-plan-emoji-picker.js");
     }
 
     // ── 메시지 반응 ─────────────────────────────────────────
@@ -1201,6 +1204,10 @@ class TravelPlanChatUiContractTest {
 
     private String chatJs() throws IOException {
         return resource("/static/js/travel-plan-chat.js");
+    }
+
+    private String emojiJs() throws IOException {
+        return resource("/static/js/travel-plan-emoji-picker.js");
     }
 
     private String realtimeJs() throws IOException {

@@ -279,26 +279,23 @@ class TravelPlanChatUiContractTest {
         assertThat(between(css, ".travel-plan-chat-start {", "}"))
                 .contains("flex: 0 0 auto")
                 .doesNotContain("margin: auto");
-        // 아이콘이나 일러스트를 새로 두지 않는다
+        // 단순 말풍선 아이콘과 두 단계의 안내 문구로 빈 상태를 구분한다.
         assertThat(between(detailHtml(), "data-travel-plan-chat-empty", "</p>"))
-                .doesNotContain("<svg")
+                .contains("<svg", "aria-hidden=\"true\"", "<strong>", "<span>")
                 .doesNotContain("<img");
     }
 
     @Test
-    void thePanelIsNotTheSameBeigeBlockAsTheScheduler() throws IOException {
-        String css = cssFile();
-        String root = between(css, ":root {", "}");
+    void thePanelUsesItsOwnWhiteSurfaceWithoutChangingSharedModalStyles() throws IOException {
+        String css = resource("/static/css/travel-plan-chat.css");
 
-        // 스케줄러(미세한 warm-white)와 달리 채팅은 아주 옅은 cool gray 다
-        assertThat(between(root, "--tp-chat-surface:", ";")).contains("#f8fafb");
+        assertThat(detailHtml()).contains("/css/travel-plan-chat.css");
         assertThat(between(css, ".travel-plan-chat-panel {", "}"))
-                .contains("background: var(--tp-chat-surface)");
-        // 머리글은 몸통과 한 톤 차이를 둔다
-        assertThat(between(css, ".travel-plan-chat-header {", "}"))
-                .contains("background: var(--tp-chat-composer)")
-                .contains("border-bottom: 1px solid var(--tp-chat-line)");
-        assertThat(between(root, "--tp-chat-composer:", ";")).contains("#eef2f5");
+                .contains("background: #fff", "border-radius: 20px");
+        assertThat(between(css, ".travel-plan-chat-panel .travel-plan-chat-header {", "}"))
+                .contains("background: #fff");
+        assertThat(between(css, ".travel-plan-chat-panel .travel-plan-chat-form {", "}"))
+                .contains("background: #fff");
     }
 
     @Test

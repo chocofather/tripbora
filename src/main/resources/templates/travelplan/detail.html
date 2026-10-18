@@ -5,12 +5,14 @@
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/travel-plan.css">
   <link rel="stylesheet" href="/css/travel-plan-planner.css">
+  <link rel="stylesheet" href="/css/travel-plan-invite.css">
   <link rel="stylesheet" href="/css/travel-plan-dashboard.css">
   <link rel="stylesheet" href="/css/travel-plan-item-types.css">
   <link rel="stylesheet" href="/css/travel-plan-datetime-picker.css">
   <link rel="stylesheet" href="/css/travel-plan-airport-autocomplete.css">
   <link rel="stylesheet" href="/css/travel-plan-reorder.css">
   <link rel="stylesheet" href="/css/travel-plan-detail-rows.css">
+  <link rel="stylesheet" href="/css/travel-plan-chat.css">
   <script src="/js/travel-plan-datetime-picker.js" defer></script>
   <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
   <script src="/js/travel-plan-item-types.js" defer></script>
@@ -46,8 +48,6 @@
   <div class="travel-plan-page is-planning">
     <div class="travel-plan-page-top">
       <div class="travel-plan-page-top-row">
-        <a class="travel-plan-back-link" th:href="@{/travel-plans}">← 함께 계획하기</a>
-
         <div class="travel-plan-top-actions">
         <!--
           방장에게만 있는 관리 액션(확정 / 초대 / 확정 확인 창).
@@ -98,7 +98,7 @@
       </div>
 
       <p class="travel-plan-notice" th:if="${travelPlanMessage}"
-         th:text="${travelPlanMessage}" role="status">공동 여행계획이 만들어졌어요.</p>
+         th:text="${travelPlanMessage}" role="status">여행계획 안내</p>
       <p class="travel-plan-alert" th:if="${travelPlanError}"
          th:text="${travelPlanError}" role="alert">
         다른 변경이 먼저 반영되었습니다. 새로고침 후 다시 시도해 주세요.
@@ -124,16 +124,8 @@
             이 화면은 아직 채워 가는 중인 방에만 열린다.
             끝난 방은 읽기 전용 최종본(/final)으로 보내므로 여기 오지 않는다.
           -->
-          <p class="travel-plan-detail-status">
-            <span class="travel-plan-status-dot" aria-hidden="true"></span>계획 중
-          </p>
           <h1 id="travel-plan-detail-title">
             <span th:text="${travelPlan.plan.title}">제주도 여행</span>
-            <!-- 하루짜리 여행에 "0박 1일" 이라고 적지 않는다 -->
-            <span class="travel-plan-detail-length" th:if="${dayCount > 0}"
-                  th:text="${dayCount > 1} ? |${dayCount - 1}박 ${dayCount}일| : '당일'">
-              2박 3일
-            </span>
           </h1>
           <div class="tp-planner-period">
             <p class="travel-plan-detail-period"
@@ -141,24 +133,28 @@
                         + ${#temporals.format(travelPlan.plan.endDate, 'yyyy.MM.dd')}">
               2026.09.13 ~ 2026.09.15
             </p>
+            <span class="travel-plan-detail-length" th:if="${dayCount > 0}"
+                  th:text="${dayCount > 1} ? |${dayCount - 1}박 ${dayCount}일| : '당일'">2박 3일</span>
             <span class="tp-planner-dday" hidden data-planner-dday></span>
           </div>
         </div>
       </header>
 
       <section class="tp-planner-overview" aria-labelledby="tp-overview-title">
-        <div class="tp-planner-section-heading">
-          <div>
-            <h2 id="tp-overview-title">주요 일정</h2>
-            <p>항공, 숙소와 이동을 날짜별로 확인하세요.</p>
-          </div>
-        </div>
         <div class="tp-planner-overview-grid">
-          <nav class="tp-planner-calendar" aria-label="여행 캘린더" data-planner-calendar>
-            <!-- JS를 사용할 수 없어도 날짜별 상세 일정으로 이동할 수 있다. -->
-            <a th:each="day : ${travelPlan.days}" th:href="|#day-${day.id}|"
-               th:text="${#temporals.format(day.planDate, 'M월 d일')}">9월 13일</a>
-          </nav>
+          <div class="tp-planner-overview-sidebar">
+            <div class="tp-planner-section-heading">
+              <div>
+                <h2 id="tp-overview-title">주요 일정</h2>
+                <p>항공, 숙소와 이동을 날짜별로 확인하세요.</p>
+              </div>
+            </div>
+            <nav class="tp-planner-calendar" aria-label="여행 캘린더" data-planner-calendar>
+              <!-- JS를 사용할 수 없어도 날짜별 상세 일정으로 이동할 수 있다. -->
+              <a th:each="day : ${travelPlan.days}" th:href="|#day-${day.id}|"
+                 th:text="${#temporals.format(day.planDate, 'M월 d일')}">9월 13일</a>
+            </nav>
+          </div>
           <div class="tp-planner-summaries" data-planner-summaries>
             <th:block th:each="day, dayStatus : ${travelPlan.days}">
             <section class="tp-planner-summary"
@@ -292,7 +288,9 @@
           </button>
           <!-- 주로 오른쪽 아래 토글 버튼으로 여닫는다. 이 × 도 같은 닫기다(머리글에서 바로 닫고 싶을 때) -->
           <button type="button" class="travel-plan-chat-header-button"
-                  aria-label="채팅 닫기" data-travel-plan-chat-close>×</button>
+                  aria-label="채팅 닫기" data-travel-plan-chat-close>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
         </div>
       </header>
 
@@ -306,8 +304,9 @@
         </p>
 
         <p class="travel-plan-chat-empty" hidden data-travel-plan-chat-empty>
-          아직 대화가 없어요.<br>
-          여행 계획에 대해 이야기를 시작해보세요.
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M39 23a15 15 0 0 1-15 15h-5l-10 4 3-10a15 15 0 1 1 27-9Z"/><path d="M17 23h14M17 17h9"/></svg>
+          <strong>아직 대화가 없어요.</strong>
+          <span>여행 계획에 대해 이야기를 시작해보세요.</span>
         </p>
 
         <!-- 메시지는 전부 스크립트가 글자로만 넣는다 -->
@@ -337,7 +336,9 @@
           <button type="button" class="travel-plan-chat-tool"
                   aria-haspopup="true" aria-expanded="false"
                   title="이모지 선택" aria-label="이모지 선택"
-                  data-travel-plan-chat-emoji-toggle>😊</button>
+                  data-travel-plan-chat-emoji-toggle>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14a4 4 0 0 0 8 0M8 9h.01M16 9h.01"/></svg>
+          </button>
           <div class="travel-plan-chat-emoji-panel" hidden
                role="group" aria-label="이모지 목록"
                data-travel-plan-chat-emoji-panel>

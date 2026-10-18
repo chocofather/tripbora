@@ -44,6 +44,7 @@ test('shipped airport catalogue parses, contains unique IATA records and ranks r
         assert.equal(searchAirports(catalogue.airports, query)[0].iata, 'ICN', query);
     }
     assert.equal(searchAirports(catalogue.airports, 'KIX')[0].iata, 'KIX');
+    for (const [query, iata] of [['김','GMP'],['간','KIX'],['GMP','GMP']]) assert.equal(searchAirports(catalogue.airports, query)[0].iata, iata);
 });
 
 class FakeEvent {
@@ -95,10 +96,10 @@ function fixture(fetchOverride) {
     return {doc, ...initial, createForm, fire, inputText: input, flush, list: () => doc.body.children.find(node => node.attrs.role === 'listbox'), fetchCount: () => fetchCount};
 }
 
-test('delegated dynamic forms debounce, cache and preserve MOVE manual text', async () => {
+test('delegated dynamic forms share one request and search synchronously once loaded', async () => {
     const f = fixture(); f.inputText('i'); f.inputText('ic'); f.inputText('icn');
-    assert.equal(f.fetchCount(), 0); await f.flush(); assert.equal(f.fetchCount(), 1); assert.equal(f.list().children.length, 1);
-    const dynamic = f.createForm(); f.inputText('도쿄', dynamic.input); await f.flush(); assert.equal(f.fetchCount(), 1);
+    assert.equal(f.fetchCount(), 1); await f.flush(); assert.equal(f.fetchCount(), 1); assert.equal(f.list().children.length, 1);
+    const dynamic = f.createForm(); f.inputText('도쿄', dynamic.input); assert.equal(f.fetchCount(), 1);
     assert.match(f.list().children[0].children[0].textContent, /NRT/);
     f.fire(dynamic.input, 'focusout');
     const move = f.createForm('MOVE'); f.inputText('icn', move.input); await f.flush();
@@ -127,8 +128,12 @@ test('capture keyboard selection prevents scheduler Enter/save, Escape closes on
 });
 
 test('IME, stale response, reset, schedule updates and failures preserve manual input', async () => {
-    const f = fixture(); f.fire(f.input, 'compositionstart'); f.inputText('인'); await f.flush(); assert.equal(f.fetchCount(), 0);
-    f.fire(f.input, 'compositionend'); await f.flush(); assert.ok(f.list());
+    const f = fixture(); f.fire(f.input, 'compositionstart'); f.inputText('인'); await f.flush(); assert.equal(f.fetchCount(), 1); assert.ok(f.list());
+    f.fire(f.input, 'keydown', {key:'Enter',isComposing:true}); assert.equal(f.input.value,'인');
+    let escaped=0;f.input.addEventListener('keydown',()=>escaped++);
+    const imeEscape=f.fire(f.input,'keydown',{key:'Escape',isComposing:true});
+    assert.equal(imeEscape.stopped,true);assert.equal(imeEscape.defaultPrevented,undefined);assert.equal(escaped,0);
+    f.fire(f.input, 'compositionend'); assert.ok(f.list());
     const composing = f.fire(f.input, 'keydown', {key: 'Enter', isComposing: true}); assert.equal(composing.defaultPrevented, undefined);
     for (const type of ['reset', 'travelplan:editor-opened', 'travelplan:schedule-updated']) {
         f.inputText('i'); await f.flush(); assert.ok(f.list()); f.fire(f.doc, type); assert.equal(f.list(), undefined);
@@ -140,6 +145,25 @@ test('IME, stale response, reset, schedule updates and failures preserve manual 
     const disconnected = fixture(); disconnected.inputText('i'); disconnected.input.remove(); await disconnected.flush(); assert.equal(disconnected.list(), undefined);
     const failure = fixture(() => Promise.reject(new Error('offline'))); failure.inputText('직접 입력'); await failure.flush();
     assert.equal(failure.input.value, '직접 입력'); assert.equal(failure.list(), undefined);
+});
+
+test('focus warms the catalogue before typing, and warm input has no timer delay',async()=>{
+    const f=fixture(); f.doc.activeElement=f.input; f.fire(f.input,'focusin');
+    assert.equal(f.fetchCount(),1); await f.flush(); assert.equal(f.list(),undefined);
+    f.inputText('인'); assert.match(f.list().children[0].children[0].textContent,/ICN/);
+    f.inputText('김'); assert.match(f.list().children[0].children[0].textContent,/GMP/); assert.equal(f.fetchCount(),1);
+});
+
+test('normalized search fields are indexed once, with exact names ahead of prefix matches',()=>{
+    let reads=0;const exact={...airports[0],name:{get ko(){reads++;return '인천';},en:'Incheon'}};
+    const rows=[airports[0],exact];assert.equal(searchAirports(rows,'인천')[0],exact);
+    searchAirports(rows,'ICN');searchAirports(rows,'인');assert.equal(reads,1);
+});
+
+test('a failed catalogue request can be retried without losing manual text',async()=>{
+    let attempts=0;const f=fixture(async()=>{if(++attempts===1)throw new Error('offline');return {ok:true,json:async()=>({airports})};});
+    f.inputText('인');await f.flush();assert.equal(f.list(),undefined);assert.equal(f.input.value,'인');
+    f.inputText('인천');await f.flush();assert.match(f.list().children[0].children[0].textContent,/ICN/);assert.equal(f.fetchCount(),2);
 });
 
 test('pointer selection prevents blur and dispatches normal string input/change', async () => {

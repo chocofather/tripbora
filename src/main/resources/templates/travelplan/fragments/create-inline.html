@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<section th:fragment="createInline" class="tp-create" id="travel-plan-create" aria-labelledby="tp-create-title">
+  <h2 id="tp-create-title">다음 여행을 함께 시작해요</h2>
+  <form th:action="@{/travel-plans}" method="post" th:object="${travelPlanCreateForm}" data-plan-create>
+    <div class="travel-plan-form-error" th:if="${#fields.hasGlobalErrors()}" role="alert">
+      <p th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+    </div>
+    <div class="tp-create-fields">
+      <div class="tp-create-field">
+        <label for="tp-create-name">여행 이름</label>
+        <input id="tp-create-name" type="text" th:field="*{title}" maxlength="150" required placeholder="우리의 다음 여행은?">
+        <p class="travel-plan-field-error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}" role="alert"></p>
+      </div>
+      <div class="tp-create-field">
+        <span id="tp-create-dates-label">여행 날짜</span>
+        <input type="hidden" th:field="*{startDate}" data-range-start>
+        <input type="hidden" th:field="*{endDate}" data-range-end>
+        <button type="button" class="tp-range-trigger" aria-labelledby="tp-create-dates-label" aria-haspopup="dialog" data-range-open>날짜를 선택하세요 <span aria-hidden="true">▦</span></button>
+        <p class="travel-plan-field-error" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}" role="alert"></p>
+        <p class="travel-plan-field-error" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}" role="alert"></p>
+      </div>
+      <div class="tp-create-field">
+        <label for="tp-create-display-name">함께할 때 쓸 내 이름</label>
+        <input id="tp-create-display-name" type="text" th:field="*{displayName}" maxlength="50" required placeholder="친구들에게 보여줄 이름">
+        <p class="travel-plan-field-error" th:if="${#fields.hasErrors('displayName')}" th:errors="*{displayName}" role="alert"></p>
+      </div>
+      <button class="tp-create-submit" type="submit">+ 여행 만들기</button>
+    </div>
+    <p class="tp-create-hint">초대 링크가 자동으로 준비돼요. 링크를 받은 친구와 일정·준비물·경비를 함께 채워 보세요.</p>
+    <noscript><p>날짜 선택에는 JavaScript가 필요합니다.</p></noscript>
+  </form>
+</section>
+</body></html>

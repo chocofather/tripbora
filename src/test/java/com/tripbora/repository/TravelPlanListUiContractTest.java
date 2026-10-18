@@ -81,15 +81,15 @@ class TravelPlanListUiContractTest {
     // ── 상단 / 카드 ─────────────────────────────────────────
 
     @Test
-    void makingANewPlanIsASmallActionNextToTheTitle() throws IOException {
+    void makingANewPlanUsesTheExistingInlineForm() throws IOException {
         String header = between(listHtml(), "class=\"travel-plan-list-header\"", "</header>");
 
         assertThat(header)
                 .contains("함께 계획하기")
-                .contains("친구들과 여행 일정을 함께 만들어 보세요.")
-                .contains("+ 새 여행계획")
-                .contains("th:href=\"@{/travel-plans/new}\"");
-        assertThat(listHtml()).doesNotContain("새 공동 여행계획");
+                .contains("함께 떠날 순간을, 함께 계획해요.");
+        assertThat(listHtml())
+                .contains("~{travelplan/fragments/create-inline :: createInline}")
+                .doesNotContain("th:href=\"@{/travel-plans/new}\"");
     }
 
     @Test
@@ -135,9 +135,9 @@ class TravelPlanListUiContractTest {
         assertThat(card)
                 .contains("${plan.title}")
                 .contains("${plan.dayCount}")
-                .contains("'참여 ' + ${plan.memberCount} + '/8'")
+                .contains("'참여 ' + ${plan.memberCount} + '/8명'")
                 // 내 자리는 둘 다 적되 약하게 둔다
-                .contains("? 'OWNER' : 'MEMBER'")
+                .contains("? '방장' : '참여자'")
                 // 최근 활동은 있을 때만 자리를 차지한다
                 .contains("th:if=\"${plan.lastActivityAt != null}\"")
                 .contains("최근 활동 ");

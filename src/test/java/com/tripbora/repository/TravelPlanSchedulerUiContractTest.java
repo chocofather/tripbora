@@ -51,19 +51,13 @@ class TravelPlanSchedulerUiContractTest {
     }
 
     @Test
-    void theTitleSaysThisTripIsStillBeingPlanned() throws IOException {
+    void theDetailTitleDoesNotRepeatThePlanStatus() throws IOException {
         String detail = detailHtml();
 
         assertThat(detail)
-                .contains("travel-plan-detail-status")
-                .contains("계획 중");
-        // 제목 왼쪽의 얇은 선 하나로 지금 작업 중인 여행이라는 것이 드러난다
-        assertThat(between(cssFile(), ".travel-plan-detail-heading {", "}"))
-                .contains("border-left: 3px solid var(--tp-plan-accent-line)");
-        // 큰 색 덩어리를 깔지 않는다
-        assertThat(between(cssFile(), ".travel-plan-detail-status {", "}"))
-                .contains("border-radius: 999px")
-                .contains("font-size: 12px");
+                .doesNotContain("travel-plan-detail-status")
+                .contains("id=\"travel-plan-detail-title\"")
+                .contains("class=\"tp-planner-period\"");
     }
 
     @Test

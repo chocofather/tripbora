@@ -17,7 +17,7 @@
     </header>
 
     <p class="travel-plan-notice" th:if="${travelPlanMessage}"
-       th:text="${travelPlanMessage}" role="status">공동 여행계획이 만들어졌어요.</p>
+       th:text="${travelPlanMessage}" role="status">여행계획 안내</p>
 
     <form class="travel-plan-form" th:action="@{/travel-plans}" method="post"
           th:object="${travelPlanCreateForm}">

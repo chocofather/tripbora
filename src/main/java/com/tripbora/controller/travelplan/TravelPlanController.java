@@ -54,7 +54,6 @@ public class TravelPlanController {
 
     private static final String FORM_ATTRIBUTE = "travelPlanCreateForm";
     private static final String LIST_VIEW = "travelplan/list";
-    private static final String CREATE_VIEW = "travelplan/create";
     private static final String DETAIL_VIEW = "travelplan/detail";
     private static final String DAY_DETAIL_VIEW = "travelplan/day-detail";
     /** 완료된 여행. 읽기 전용이라 편집 화면과 다른 템플릿을 쓴다. */
@@ -119,6 +118,9 @@ public class TravelPlanController {
                        @AuthenticationPrincipal CustomUserDetails userDetails,
                        Model model) {
         Long userId = userDetails.getId();
+        if (!model.containsAttribute(FORM_ATTRIBUTE)) {
+            model.addAttribute(FORM_ATTRIBUTE, new TravelPlanCreateForm());
+        }
 
         List<TravelPlanListItemDto> activePlans = travelPlanService.getActivePlans(userId);
 
@@ -246,10 +248,7 @@ public class TravelPlanController {
     // 방 생성 폼
     @GetMapping("/new")
     public String newForm(Model model) {
-        if (!model.containsAttribute(FORM_ATTRIBUTE)) {
-            model.addAttribute(FORM_ATTRIBUTE, new TravelPlanCreateForm());
-        }
-        return CREATE_VIEW;
+        return "redirect:/travel-plans#travel-plan-create";
     }
 
     // 방 생성 처리
@@ -257,10 +256,10 @@ public class TravelPlanController {
     public String create(@ModelAttribute(FORM_ATTRIBUTE) TravelPlanCreateForm form,
                          BindingResult bindingResult,
                          @AuthenticationPrincipal CustomUserDetails userDetails,
-                         RedirectAttributes redirectAttributes) {
+                         Model model) {
         // 날짜 형식 오류처럼 바인딩 단계에서 걸린 값은 서비스로 넘기지 않는다.
         if (bindingResult.hasErrors()) {
-            return CREATE_VIEW;
+            return list(null, userDetails, model);
         }
 
         Long travelPlanId;
@@ -273,10 +272,9 @@ public class TravelPlanController {
                     form.getDisplayName());
         } catch (TravelPlanValidationException exception) {
             rejectValidation(bindingResult, exception);
-            return CREATE_VIEW;
+            return list(null, userDetails, model);
         }
 
-        redirectAttributes.addFlashAttribute("travelPlanMessage", "공동 여행계획이 만들어졌어요.");
         return "redirect:/travel-plans/" + travelPlanId;
     }
 

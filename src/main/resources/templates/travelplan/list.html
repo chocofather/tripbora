@@ -4,6 +4,8 @@
 
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/travel-plan.css">
+  <link rel="stylesheet" href="/css/travel-plan-list.css">
+  <script src="/js/travel-plan-date-range.js" defer></script>
 </th:block>
 
 <th:block th:fragment="body">
@@ -12,11 +14,10 @@
       <div class="travel-plan-list-heading">
         <p class="travel-plan-eyebrow">TRAVEL PLAN</p>
         <h1 id="travel-plan-list-title">함께 계획하기</h1>
-        <p class="travel-plan-subtitle">친구들과 여행 일정을 함께 만들어 보세요.</p>
+        <p class="travel-plan-subtitle">함께 떠날 순간을, 함께 계획해요.<br>일정부터 준비물까지 한곳에서 가볍게.</p>
       </div>
-      <!-- 늘 있는 길이라 작게 둔다. 화면에서 가장 강한 요소가 되지 않게 -->
-      <a class="travel-plan-new-link" th:href="@{/travel-plans/new}">+ 새 여행계획</a>
     </header>
+    <th:block th:replace="~{travelplan/fragments/create-inline :: createInline}"></th:block>
 
     <!--
       열지 못한 방에서 넘어왔을 때의 안내.
@@ -34,8 +35,8 @@
     <section class="travel-plan-section" aria-labelledby="travel-plan-active-title">
       <h2 class="travel-plan-section-title" id="travel-plan-active-title">
         진행 중인 여행
-        <span class="travel-plan-section-count"
-              th:text="${travelPlanPage.activeCount}">1</span>
+        <span class="travel-plan-section-count"><span
+              th:text="${travelPlanPage.activeCount}">1</span>개의 여행</span>
       </h2>
 
       <ul class="travel-plan-card-list" th:if="${!#lists.isEmpty(travelPlans)}">
@@ -48,27 +49,32 @@
                     th:classappend="${plan.role != null and plan.role.name() == 'OWNER'}
                                     ? ' is-owner' : ''"
                     th:text="${plan.role != null and plan.role.name() == 'OWNER'}
-                             ? 'OWNER' : 'MEMBER'">OWNER</span>
+                             ? '방장' : '참여자'">방장</span>
             </span>
             <span class="travel-plan-card-meta">
-              <span class="travel-plan-card-period"
-                    th:text="${#temporals.format(plan.startDate, 'yyyy.MM.dd')} + ' ~ '
+              <span class="travel-plan-card-meta-item travel-plan-card-period">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+                <span th:text="${#temporals.format(plan.startDate, 'yyyy.MM.dd')} + ' ~ '
                              + ${#temporals.format(plan.endDate, 'yyyy.MM.dd')}">
-                2026.09.01 ~ 2026.09.03
-              </span>
-              <span aria-hidden="true">·</span>
-              <span th:text="${plan.dayCount} + '일'">3일</span>
-              <span aria-hidden="true">·</span>
-              <span th:text="'참여 ' + ${plan.memberCount} + '/8'">참여 1/8</span>
-              <!-- 최근 활동은 있을 때만. 아직 아무 일도 없었던 방에는 빈 자리를 두지 않는다 -->
-              <th:block th:if="${plan.lastActivityAt != null}">
-                <span aria-hidden="true">·</span>
-                <span th:text="'최근 활동 '
-                               + ${#dates.format(plan.lastActivityAt, 'yyyy.MM.dd')}">
-                  최근 활동 2026.09.01
+                  2026.09.01 ~ 2026.09.03
                 </span>
-              </th:block>
+              </span>
+              <span class="travel-plan-card-meta-item">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <span th:text="${plan.dayCount > 1} ? (${plan.dayCount - 1} + '박 ' + ${plan.dayCount} + '일') : '당일 여행'">2박 3일</span>
+              </span>
+              <span class="travel-plan-card-meta-item">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></svg>
+                <span th:text="'참여 ' + ${plan.memberCount} + '/8명'">참여 1/8명</span>
+              </span>
+              <!-- 최근 활동은 있을 때만. 아직 아무 일도 없었던 방에는 빈 자리를 두지 않는다 -->
+              <span class="travel-plan-card-meta-item travel-plan-card-activity"
+                    th:if="${plan.lastActivityAt != null}" th:text="'최근 활동 '
+                             + ${#dates.format(plan.lastActivityAt, 'yyyy.MM.dd')}">
+                최근 활동 2026.09.01
+              </span>
             </span>
+            <svg class="travel-plan-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
           </a>
         </li>
       </ul>
@@ -87,28 +93,41 @@
              aria-labelledby="travel-plan-completed-title">
       <h2 class="travel-plan-section-title" id="travel-plan-completed-title">
         완료된 여행
-        <span class="travel-plan-section-count"
-              th:text="${travelPlanPage.completedCount}">12</span>
+        <span class="travel-plan-section-count"><span
+              th:text="${travelPlanPage.completedCount}">12</span>개의 여행</span>
       </h2>
 
       <ul class="travel-plan-card-list" th:if="${!#lists.isEmpty(completedTravelPlans)}">
         <li class="travel-plan-card" th:each="plan : ${completedTravelPlans}">
           <a class="travel-plan-card-link is-completed"
-             th:href="@{|/travel-plans/${plan.travelPlanId}/final|}">
+             th:href="@{|/travel-plans/${plan.travelPlanId}/final|}"
+             th:with="dayCount=${plan.startDate != null and plan.endDate != null ? plan.endDate.toEpochDay() - plan.startDate.toEpochDay() + 1 : 0}">
             <span class="travel-plan-card-title-row">
               <span class="travel-plan-card-title" th:text="${plan.title}">제주도 여행</span>
               <!-- 끝난 여행이라는 것을 한눈에 알 수 있게 -->
               <span class="travel-plan-card-completed">완료</span>
             </span>
             <span class="travel-plan-card-meta">
-              <span class="travel-plan-card-period"
-                    th:text="${#temporals.format(plan.startDate, 'yyyy.MM.dd')} + ' ~ '
+              <span class="travel-plan-card-meta-item travel-plan-card-period">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+                <span th:text="${#temporals.format(plan.startDate, 'yyyy.MM.dd')} + ' ~ '
                              + ${#temporals.format(plan.endDate, 'yyyy.MM.dd')}">
-                2026.09.01 ~ 2026.09.03
+                  2026.09.01 ~ 2026.09.03
+                </span>
               </span>
-              <span aria-hidden="true">·</span>
-              <span th:text="${plan.memberCount} + '명과 함께'">3명과 함께</span>
+              <span class="travel-plan-card-meta-item" th:if="${dayCount > 0}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <span th:text="${dayCount > 1} ? (${dayCount - 1} + '박 ' + ${dayCount} + '일') : '당일 여행'">2박 3일</span>
+              </span>
+              <span class="travel-plan-card-meta-item">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></svg>
+                <span th:text="'참여 ' + ${plan.memberCount} + '/8명'">참여 3/8명</span>
+              </span>
+              <span class="travel-plan-card-meta-item travel-plan-card-activity"
+                    th:if="${plan.finalizedAt != null}"
+                    th:text="'여행 확정 ' + ${#dates.format(plan.finalizedAt, 'yyyy.MM.dd')}">여행 확정 2026.09.01</span>
             </span>
+            <svg class="travel-plan-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
           </a>
         </li>
       </ul>

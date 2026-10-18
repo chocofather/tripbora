@@ -166,14 +166,10 @@ class TravelPlanControllerTest {
     }
 
     @Test
-    void loggedInUserGetsAnEmptyCreateForm() throws Exception {
+    void legacyCreateUrlRedirectsToTheInlineListForm() throws Exception {
         mockMvc.perform(get("/travel-plans/new").with(user(member())))
-                .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
-                .andExpect(model().attributeExists("travelPlanCreateForm"))
-                .andExpect(model().attribute("travelPlanCreateForm",
-                        org.hamcrest.Matchers.hasProperty("title",
-                                org.hamcrest.Matchers.nullValue())));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/travel-plans#travel-plan-create"));
     }
 
     @Test
@@ -185,7 +181,7 @@ class TravelPlanControllerTest {
     }
 
     @Test
-    void aValidSubmissionReachesTheServiceAndRedirectsWithAMessage() throws Exception {
+    void aValidSubmissionCreatesOnePlanWithoutACreationSuccessBanner() throws Exception {
         when(travelPlanService.createPlan(anyLong(), anyString(), any(), any(), anyString()))
                 .thenReturn(42L);
 
@@ -198,7 +194,8 @@ class TravelPlanControllerTest {
                 .andExpect(status().is3xxRedirection())
                 // 상세 화면이 생겼으므로 생성된 방으로 바로 보낸다
                 .andExpect(redirectedUrl("/travel-plans/42"))
-                .andExpect(flash().attribute("travelPlanMessage", "공동 여행계획이 만들어졌어요."));
+                .andExpect(result -> assertThat(result.getFlashMap()
+                        .containsKey("travelPlanMessage")).isFalse());
 
         // 로그인 사용자 id 와 폼 값이 그대로 전달된다
         verify(travelPlanService).createPlan(
@@ -219,7 +216,7 @@ class TravelPlanControllerTest {
                         .param("endDate", END)
                         .param("displayName", "민준"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
+                .andExpect(view().name("travelplan/list"))
                 .andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "title"))
                 // 사용자가 입력한 나머지 값은 그대로 남는다
                 .andExpect(model().attribute("travelPlanCreateForm",
@@ -239,7 +236,7 @@ class TravelPlanControllerTest {
                         .param("endDate", "12026-09-03")
                         .param("displayName", "민준"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
+                .andExpect(view().name("travelplan/list"))
                 .andExpect(model().attributeHasFieldErrors(
                         "travelPlanCreateForm", "startDate", "endDate"));
 
@@ -295,7 +292,7 @@ class TravelPlanControllerTest {
                         .param("endDate", END)
                         .param("displayName", "민준"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
+                .andExpect(view().name("travelplan/list"))
                 .andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "startDate"))
                 .andExpect(content().string(
                         org.hamcrest.Matchers.containsString("연도는 4자리")));
@@ -330,7 +327,7 @@ class TravelPlanControllerTest {
                         .param("endDate", "2027-09-01")
                         .param("displayName", "민준"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
+                .andExpect(view().name("travelplan/list"))
                 .andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "endDate"));
     }
 
@@ -343,7 +340,7 @@ class TravelPlanControllerTest {
                         .param("endDate", END)
                         .param("displayName", "민준"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/create"))
+                .andExpect(view().name("travelplan/list"))
                 .andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "startDate"));
 
         verify(travelPlanService, never()).createPlan(anyLong(), any(), any(), any(), any());

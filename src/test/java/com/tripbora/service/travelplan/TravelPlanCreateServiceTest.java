@@ -42,6 +42,8 @@ class TravelPlanCreateServiceTest {
     @Mock
     private TravelPlanMapper travelPlanMapper;
     @Mock
+    private TravelPlanInvitationService travelPlanInvitationService;
+    @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
     @InjectMocks
     private TravelPlanService travelPlanService;
@@ -72,6 +74,17 @@ class TravelPlanCreateServiceTest {
                         tuple(2, START.plusDays(1)),
                         tuple(3, START.plusDays(2)));
         verify(travelPlanMapper).insertDays(eqPlanId(42L), anyList());
+        verify(travelPlanInvitationService).createInvitation(7L, 42L);
+    }
+
+    @Test
+    void invitationFailurePropagatesSoTheCreationTransactionCanRollBack() {
+        givenSavedPlan(42L);
+        org.mockito.Mockito.doThrow(new IllegalStateException("invite unavailable"))
+                .when(travelPlanInvitationService).createInvitation(7L, 42L);
+        assertThatThrownBy(() -> travelPlanService.createPlan(
+                7L, "제주 여행", START, START, "민준"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

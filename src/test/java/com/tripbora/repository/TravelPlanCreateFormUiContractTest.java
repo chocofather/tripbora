@@ -219,10 +219,11 @@ class TravelPlanCreateFormUiContractTest {
                 .contains("${#temporals.format(plan.startDate, 'yyyy.MM.dd')}")
                 .contains("${#temporals.format(plan.endDate, 'yyyy.MM.dd')}")
                 .contains("${plan.dayCount}")
-                .contains("'참여 ' + ${plan.memberCount} + '/8'")
+                .contains("'참여 ' + ${plan.memberCount} + '/8명'")
                 .contains("plan.role.name() == 'OWNER'")
                 .contains("th:href=\"@{|/travel-plans/${plan.travelPlanId}|}\"")
-                .contains("th:href=\"@{/travel-plans/new}\"");
+                .contains("~{travelplan/fragments/create-inline :: createInline}")
+                .doesNotContain("th:href=\"@{/travel-plans/new}\"");
 
         // 대표 이미지 데이터가 없다. 빈 자리를 만들어 두지 않는다
         assertThat(list).doesNotContain("representativeImageUrl");
@@ -246,7 +247,7 @@ class TravelPlanCreateFormUiContractTest {
                 .contains("class=\"tp-detail-day-tile\"")
                 .contains("${#temporals.format(day.planDate, 'MM.dd(E)')}")
                 .contains("${travelPlanMessage}")
-                .contains("th:href=\"@{/travel-plans}\"");
+                .doesNotContain("class=\"travel-plan-back-link\"");
     }
 
     @Test
@@ -276,7 +277,7 @@ class TravelPlanCreateFormUiContractTest {
         // 취소는 닫혀 있는 대안 편집기(기존 B/C 1 + 새 대안 1)와
         // 닫혀 있는 투표 만들기 창 안에만 있다
         // (확정 확인 창은 방장 전용 조각으로 옮겨 갔다)
-        assertThat(countOf(detail, ">취소</button>")).isEqualTo(6);
+        assertThat(countOf(detail, ">취소</button>")).isEqualTo(5);
         // 방장 전용 조각의 확인 창 둘(확정 / 방 삭제)에 하나씩 있다
         assertThat(countOf(ownerActionsHtml(), ">취소</button>")).isEqualTo(2);
         // 모든 textarea 는 닫힌 폼·패널 안에 있다
@@ -519,7 +520,7 @@ class TravelPlanCreateFormUiContractTest {
                 .doesNotContain("data-travel-plan-menu-list")
                 .contains("data-item-editor-delete formnovalidate")
                 .contains("/items/${item.id}/delete|}")
-                .contains(">삭제</button>")
+                .contains("<span>삭제</span>")
                 .contains("data-delete-confirm");
 
         // 태그 UI 는 아직 없다

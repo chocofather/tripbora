@@ -13,6 +13,7 @@ const chromePath = [process.env.TRIPBORA_CHROME_PATH,
     'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
     '/usr/bin/google-chrome', '/usr/bin/chromium'].find(file => file && fs.existsSync(file));
 const read = file => fs.readFileSync(path.join(root, 'src/main/resources/static', file), 'utf8');
+const readTemplate = file => fs.readFileSync(path.join(root, 'src/main/resources/templates/travelplan', file), 'utf8');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function fixture() {
@@ -209,7 +210,7 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
                     form.action='http://tripbora.test/travel-plans/1/days/'+id+'/items/'+item+'/update';
                     form.innerHTML='<input type="hidden" name="version"><input type="hidden" name="_csrf" value="test"><input type="hidden" name="itemType">'+
                         '<div data-item-type-fields="GENERAL"><input name="title" data-item-title-input><input type="hidden" name="startTime"></div>'+
-                        '<div data-item-type-fields="ROUTE"><input name="details.departurePlace"><input name="details.arrivalPlace"><input type="hidden" name="details.departureDate"><input type="hidden" name="details.departureTime"></div>'+
+                        '<div data-item-type-fields="ROUTE"><input name="details.departurePlace" data-airport-input><input name="details.arrivalPlace" data-airport-input><input type="hidden" name="details.departureDate"><input type="hidden" name="details.departureTime"></div>'+
                         '<div data-item-type-fields="FLIGHT"><input name="details.flightNumber"></div><div data-item-type-fields="ACCOMMODATION"><input name="details.stayName"></div>'+
                         '<textarea data-item-note-input></textarea><textarea name="content" hidden></textarea>'+
                         '<div class="tp-item-editor-actions"><span role="status" data-item-save-status>자동 저장</span><button type="button" data-item-save-retry hidden>다시 시도</button><button type="submit" class="tp-editor-delete" data-item-editor-delete formnovalidate>삭제</button></div>';
@@ -238,16 +239,38 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
             };
             window.confirm=()=>true;
         })()`);
+        await evaluate(`window.airportCatalogue=${read('data/airports.json')};window.airportLoads=0;window.editorFetch=fetch;window.fetch=(url,options)=>{if(url==='/data/airports.json'){airportLoads++;return Promise.resolve({ok:true,json:async()=>airportCatalogue});}return editorFetch(url,options);};var airportStyle=document.createElement('style');airportStyle.textContent=${JSON.stringify(read('css/travel-plan-airport-autocomplete.css'))};document.head.append(airportStyle);`);
         await evaluate(read('js/travel-plan-item-autosave.js'));
-        await evaluate(`window.schedulerInit=null;window.originalAddListener=document.addEventListener;document.addEventListener=function(type,fn,...args){if(type==='DOMContentLoaded')window.schedulerInit=fn;else originalAddListener.call(this,type,fn,...args);};`);
+        await evaluate(`window.editorInits=[];window.originalAddListener=document.addEventListener;document.addEventListener=function(type,fn,...args){if(type==='DOMContentLoaded')editorInits.push(fn);else originalAddListener.call(this,type,fn,...args);};`);
+        await evaluate(read('js/travel-plan-airport-autocomplete.js'));
         await evaluate(read('js/travel-plan-scheduler.js'));
-        await evaluate(`document.addEventListener=originalAddListener;window.schedulerInit();`);
+        await evaluate(`document.addEventListener=originalAddListener;editorInits.forEach(fn=>fn());`);
     };
     const click = async selector => {
         await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);
         const p=await point(selector);await mouse('mousePressed',p,{button:'left',buttons:1,clickCount:1});await mouse('mouseReleased',p,{button:'left',buttons:0,clickCount:1});await wait(60);
     };
     const editField = async (name,value) => evaluate(`(()=>{const form=document.querySelector('[data-travel-plan-item-form]:not([hidden])'),field=form.querySelector('[name="'+${JSON.stringify(name)}+'"]');field.value=${JSON.stringify(value)};field.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    const airportScenario = async width => {
+        await click('[data-overview-item-edit="f"]');
+        const timings=[];
+        for(const [query,code] of [['인','ICN'],['인천','ICN'],['김','GMP'],['간','KIX'],['ICN','ICN'],['GMP','GMP'],['KIX','KIX'],['Incheon','ICN']]){
+            const result=await evaluate(`(()=>{const input=document.querySelector('[data-travel-plan-item-form]:not([hidden]) [name="details.departurePlace"]');input.focus();input.value=${JSON.stringify(query)};const start=performance.now();input.dispatchEvent(new Event('input',{bubbles:true}));const list=document.querySelector('.travel-plan-airport-list');return{ms:performance.now()-start,text:list?.firstElementChild.textContent,left:list?.getBoundingClientRect().left,right:list?.getBoundingClientRect().right}})()`);
+            assert.ok(result.text.includes(code),query);assert.ok(result.left>=0&&result.right<=width);timings.push(result.ms);
+        }
+        await evaluate(`(()=>{const input=document.querySelector('[data-travel-plan-item-form]:not([hidden]) [name="details.departurePlace"]');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='인';input.dispatchEvent(new InputEvent('input',{bubbles:true,isComposing:true}));})()`);
+        assert.ok((await evaluate(`document.querySelector('.travel-plan-airport-list').textContent`)).includes('ICN'));
+        await evaluate(`document.activeElement.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));`);
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',code:'ArrowDown',windowsVirtualKeyCode:40});
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+        await wait(120);assert.equal(await evaluate(`editorData.f['details.departurePlace']`),'인천국제공항 (ICN)');
+        await click('[data-overview-item-edit="f"]');await click(lower('f')+' [data-item-edit-button]');
+        await evaluate(`(()=>{const input=document.querySelector('[data-travel-plan-item-form]:not([hidden]) [name="details.arrivalPlace"]');input.focus();input.value='간';input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+        await click('.travel-plan-airport-list [role="option"]');await wait(120);
+        assert.equal(await evaluate(`editorData.f['details.arrivalPlace']`),'간사이국제공항 (KIX)');assert.equal(await evaluate('airportLoads'),1);
+        await click(lower('f')+' [data-item-edit-button]');
+        t.diagnostic(`${width}px: airports IME/one-character/code/English/keyboard/pointer/autosave passed; warm input render ${Math.min(...timings).toFixed(1)}–${Math.max(...timings).toFixed(1)}ms, catalogue requests=1`);
+    };
     const editorScenario = async width => {
         await setupEditors();
         await wait(30);
@@ -259,6 +282,7 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
             assert.ok(['inline-flex','flex'].includes(style.display));assert.equal(style.border,'1px');assert.equal(style.radius,'8px');assert.ok(style.height>=34);
             await click('[data-overview-item-edit="'+id+'"]');
         }
+        await airportScenario(width);
         await dragCard(upper('m'),host(2));
         assert.deepEqual(await evaluate('records[2]'),['m']);
         await click(lower('n')+' [data-item-edit-button]');await editField('title','점심 식사');await wait(750);
@@ -285,8 +309,36 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
         assert.deepEqual(await evaluate('errors'),[]);
         t.diagnostic(width+'px: shared upper/lower autosave, serialized latest input, failure/retry, confirmed datetime and deletion sync passed');
     };
+    const headerScenario = async width => {
+        await send('Page.navigate',{url:'about:blank'});
+        const detail=readTemplate('detail.html'),owner=readTemplate('fragments/owner-actions.html');
+        const header=detail.match(/<header class="travel-plan-detail-header">[\s\S]*?<\/header>/)[0];
+        const entry=owner.match(/<div class="travel-plan-plan-delete-entry">[\s\S]*?<\/div>/)[0];
+        const modal=owner.slice(owner.indexOf('<div class="travel-plan-plan-delete-modal"'),owner.lastIndexOf('</th:block>')).replace(/<\/?th:block[^>]*>/g,'');
+        const css=['travel-plan.css','travel-plan-planner.css','travel-plan-item-types.css','travel-plan-detail-rows.css'].map(name=>read('css/'+name)).join('\n');
+        const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}${css}</style></head><body><div class="travel-plan-page is-planning"><div class="travel-plan-page-top"><div class="travel-plan-page-top-row"><a class="travel-plan-back-link">함께 계획하기</a><div class="travel-plan-top-actions"><div class="travel-plan-owner-actions"><button>계획 확정</button><button>초대</button>${entry}</div><button>참여자 3/8</button></div></div></div><article class="travel-plan-paper" data-plan-id="1">${header}<section class="tp-planner-overview"><div class="tp-planner-overview-grid"><div class="tp-planner-overview-sidebar"><div class="tp-planner-section-heading"><div><h2 id="tp-overview-title">?? ??</h2><p>??, ??? ??? ???? ?????.</p></div></div><nav class="tp-planner-calendar" data-planner-calendar></nav></div><div class="tp-planner-summaries" data-planner-summaries>${[1,2,3].map(id=>'<section class="tp-planner-summary" data-planner-summary="'+id+'"><div class="tp-planner-summary-heading"><span class="tp-planner-day-label">Day '+id+'</span><time>10.18 (?)</time></div><div data-planner-summary-items></div></section>').join('')}</div></div></section>${[1,2,3].map(id=>'<section data-travel-plan-day data-day-id="'+id+'"></section>').join('')}</article>${modal}</div></body></html>`;
+        await send('Page.setDocumentContent',{frameId:(await send('Page.getFrameTree')).frameTree.frame.id,html});
+        await evaluate(`(()=>{const now=new Date(),key=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'),start=key(now),end=key(new Date(now.getFullYear(),now.getMonth(),now.getDate()+2)),plan=document.querySelector('[data-plan-id]');plan.dataset.tripStart=start;plan.dataset.tripEnd=end;document.querySelectorAll('[data-travel-plan-day]').forEach((day,index)=>{day.id='day-'+day.dataset.dayId;day.dataset.planDate=key(new Date(now.getFullYear(),now.getMonth(),now.getDate()+index));});})()`);
+        await evaluate(read('js/travel-plan-overview.js'));await evaluate(read('js/travel-plan-delete.js'));await evaluate(`document.dispatchEvent(new Event('DOMContentLoaded'))`);await wait(30);
+        await evaluate(`document.activeElement?.blur();`);
+        const result=await evaluate(`(()=>{const paper=document.querySelector('article').getBoundingClientRect(),title=document.querySelector('h1 span').getBoundingClientRect(),grid=getComputedStyle(document.querySelector('.tp-planner-overview-grid')),today=document.querySelector('.is-today'),style=getComputedStyle(today);return{center:Math.abs((paper.left+paper.width/2)-(title.left+title.width/2)),status:!!document.querySelector('.travel-plan-detail-status'),overflow:document.documentElement.scrollWidth>innerWidth,gap:grid.columnGap,columns:grid.gridTemplateColumns,today:!!today,todayColor:style.color,todayBackground:style.backgroundImage,outline:style.outlineWidth,border:style.borderTopWidth,trip:today.classList.contains('is-trip-date')}})()`);
+        assert.equal(result.status,false);assert.ok(result.center<1);assert.equal(result.overflow,false);assert.equal(result.today,true);assert.equal(result.trip,true);assert.equal(result.todayColor,'rgb(7, 89, 133)');assert.equal(result.outline,'0px');assert.equal(result.border,'0px');assert.ok(result.todayBackground.includes('rgb(186, 230, 253)'));
+        const colors=await evaluate(`(()=>{const today=document.querySelector('.is-today');today.classList.remove('is-trip-date');const button=document.querySelector('[data-travel-plan-plan-delete-open]'),style=getComputedStyle(button);return{today:getComputedStyle(today).backgroundColor,trip:getComputedStyle(document.querySelector('.is-trip-date')).backgroundColor,deleteRadius:style.borderRadius,deleteBorder:style.borderTopColor,deleteHeight:button.getBoundingClientRect().height}})()`);
+        assert.equal(colors.today,'rgb(186, 230, 253)');assert.equal(colors.trip,'rgb(240, 236, 252)');assert.equal(colors.deleteRadius,'8px');assert.equal(colors.deleteBorder,'rgb(223, 227, 232)');assert.ok(colors.deleteHeight>=34);
+        if(width>900){assert.equal(result.gap,'48px');assert.ok(result.columns.startsWith('252px'));}
+        assert.ok(!detail.includes('class="travel-plan-back-link"'));
+        const layout=await evaluate(`(()=>{const heading=document.querySelector('#tp-overview-title').getBoundingClientRect(),day=document.querySelector('.tp-planner-summary-heading').getBoundingClientRect(),row=document.querySelector('.travel-plan-page-top-row').getBoundingClientRect(),actions=document.querySelector('.travel-plan-top-actions').getBoundingClientRect();return{top:Math.abs(heading.top-day.top),right:Math.abs(row.right-actions.right)}})()`);
+        if(width>720){assert.ok(layout.top<2, 'Day 1 starts at overview heading');}
+        assert.ok(layout.right<2, 'management actions stay right aligned');
+        await click('[data-travel-plan-plan-delete-open]');assert.equal(await evaluate(`document.querySelector('[data-travel-plan-plan-delete-modal]').hidden`),false);
+        await click('[data-travel-plan-plan-delete-cancel]');assert.equal(await evaluate(`document.querySelector('[data-travel-plan-plan-delete-modal]').hidden`),true);
+        await evaluate(`document.querySelector('h1 span').textContent='매우 긴 여행계획 제목을 읽기 좋게 배치합니다 '.repeat(8);`);
+        assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
+        t.diagnostic(`${width}px: actual header template center/delete modal, enlarged calendar/gap/today overlap and long-title overflow passed`);
+    };
     for (const width of [1440, 1280, 390]) {
-        if (process.env.TRIPBORA_EDITOR_BROWSER_ONLY === '1') { await size(width); await editorScenario(width); continue; }
+        await size(width);await headerScenario(width);
+        if (process.env.TRIPBORA_EDITOR_BROWSER_ONLY === '1') { await editorScenario(width); continue; }
         await size(width); await setup();
         let result = await state();
         assert.equal(result.day, '3'); assert.equal(result.count, 1); assert.equal(result.radius, '999px'); assert.equal(result.height, 46); assert.equal(result.overflow, false);
@@ -328,4 +380,5 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
         t.diagnostic(`${width}px: upper FLIGHT/STAY/MOVE, lower all types, full-order/cross-DAY/readback/sync/cancel/opaque-color/X lock passed`);
         await editorScenario(width);
     }
+    for(const width of [360,430,768]){await size(width);await headerScenario(width);}
 });

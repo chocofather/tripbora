@@ -28,7 +28,8 @@ class TravelPlanDeleteUiContractTest {
         assertThat(ownerActions).contains("th:if=\"${viewerIsOwner}\"");
         assertThat(between(ownerActions, "travel-plan-plan-delete-entry", "</div>"))
                 .contains("data-travel-plan-plan-delete-open")
-                .contains("여행 계획 삭제");
+                .contains("계획 삭제")
+                .contains("<svg");
     }
 
     @Test

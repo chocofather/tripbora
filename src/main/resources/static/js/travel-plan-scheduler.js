@@ -1442,9 +1442,18 @@ document.addEventListener("DOMContentLoaded", () => {
             // 복사가 막혀 있어도 사용자가 직접 고를 수 있게 먼저 선택해 둔다.
             url.select();
             url.setSelectionRange(0, url.value.length);
-            navigator.clipboard?.writeText(url.value)
-                .then(() => { copy.textContent = "복사됨"; })
-                .catch(() => { copy.textContent = "직접 복사해 주세요"; });
+            const feedback = invite.root.querySelector("[data-invite-copy-feedback]");
+            const failed = () => {
+                copy.textContent = "다시 복사";
+                if (feedback) feedback.textContent = "링크를 선택했어요. 직접 복사해 주세요.";
+            };
+            if (!navigator.clipboard?.writeText) { failed(); return; }
+            navigator.clipboard.writeText(url.value)
+                .then(() => {
+                    copy.textContent = "복사됨 ✓";
+                    if (feedback) feedback.textContent = "초대 링크를 복사했어요. 친구에게 보내 주세요.";
+                })
+                .catch(failed);
         });
 
         // 방금 발급했을 때만 저절로 펼친다.

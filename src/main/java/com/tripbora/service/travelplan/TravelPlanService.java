@@ -65,6 +65,7 @@ public class TravelPlanService {
     private final TravelPlanAlternativeMapper travelPlanAlternativeMapper;
     /** 완료된 방으로 들어왔을 때 무엇을 안내할지 가르는 데만 쓴다. */
     private final TravelPlanFinalMapper travelPlanFinalMapper;
+    private final TravelPlanInvitationService travelPlanInvitationService;
     /** 실시간 알림은 커밋 뒤에 나가야 해서 여기서는 이벤트만 남긴다. */
     private final ApplicationEventPublisher eventPublisher;
 
@@ -858,6 +859,8 @@ public class TravelPlanService {
         if (travelPlanMapper.insertDays(travelPlanId, days) != days.size()) {
             throw saveFailed();
         }
+        // 초대 발급도 같은 트랜잭션에 참여한다. 발급 실패 시 빈 방을 남기지 않는다.
+        travelPlanInvitationService.createInvitation(userId, travelPlanId);
         return travelPlanId;
     }
 

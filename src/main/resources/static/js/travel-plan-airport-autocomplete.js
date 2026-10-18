@@ -5,17 +5,23 @@
         return String(value || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[\s\p{P}]/gu, '');
     }
 
+    const indexes = new WeakMap();
+    function indexAirports(airports) {
+        if (!indexes.has(airports)) indexes.set(airports, airports.map((airport, order) => ({airport, order,
+            primary: [airport.iata, airport.name?.ko, airport.name?.en, airport.city?.ko, airport.city?.en].map(normalize),
+            secondary: [airport.country?.ko, airport.country?.en, ...(airport.aliases || [])].map(normalize)})));
+        return indexes.get(airports);
+    }
+
     function searchAirports(airports, query, limit = 8) {
         const needle = normalize(query);
         if (!needle) return [];
-        return airports.map((airport, order) => {
-            const primary = [airport.iata, airport.name?.ko, airport.name?.en, airport.city?.ko, airport.city?.en].map(normalize);
-            const secondary = [airport.country?.ko, airport.country?.en, ...(airport.aliases || [])].map(normalize);
-            const score = primary[0] === needle ? 0 : primary.some(value => value.startsWith(needle)) ? 1
-                : primary.some(value => value.includes(needle)) ? 2 : secondary.some(value => value.startsWith(needle)) ? 3
-                : secondary.some(value => value.includes(needle)) ? 4 : 5;
+        return indexAirports(airports).map(({airport, order, primary, secondary}) => {
+            const score = primary[0] === needle ? 0 : primary.some(value => value === needle) ? 1
+                : primary.some(value => value.startsWith(needle)) ? 2 : primary.some(value => value.includes(needle)) ? 3
+                : secondary.some(value => value.startsWith(needle)) ? 4 : secondary.some(value => value.includes(needle)) ? 5 : 6;
             return {airport, order, score};
-        }).filter(match => match.score < 5).sort((a, b) => a.score - b.score || a.order - b.order)
+        }).filter(match => match.score < 6).sort((a, b) => a.score - b.score || a.order - b.order)
             .slice(0, limit).map(match => match.airport);
     }
 
@@ -26,7 +32,7 @@
     function mount(doc, options = {}) {
         const win = doc.defaultView;
         const fetchData = options.fetch || win.fetch.bind(win);
-        let dataPromise, active = null, timer, revision = 0, nextId = 0, committing = false;
+        let dataPromise, catalogue, active = null, revision = 0, nextId = 0, committing = false;
         const composing = new WeakSet();
         const selector = '[data-airport-input]';
 
@@ -44,7 +50,6 @@
 
         function close() {
             revision++;
-            win.clearTimeout(timer);
             if (!active) return;
             active.input.setAttribute('aria-expanded', 'false');
             active.input.removeAttribute('aria-activedescendant');
@@ -85,21 +90,26 @@
             } finally { committing = false; }
         }
 
-        async function query(input) {
+        function loadData() {
+            dataPromise ||= fetchData('/data/airports.json').then(response => {
+                if (!response.ok) throw new Error('Airport data unavailable');
+                return response.json();
+            }).then(data => {
+                if (!Array.isArray(data.airports)) throw new Error('Invalid airport catalogue');
+                catalogue = data.airports; indexAirports(catalogue); return catalogue;
+            }).catch(error => { dataPromise = null; throw error; });
+            return dataPromise;
+        }
+
+        function query(input) {
             close();
-            if (!eligible(input) || !normalize(input.value) || composing.has(input)) return;
+            if (!eligible(input) || !normalize(input.value)) return;
             prepare(input);
             const request = revision;
             const value = input.value;
-            timer = win.setTimeout(async () => {
-                try {
-                    dataPromise ||= fetchData('/data/airports.json').then(response => {
-                        if (!response.ok) throw new Error('Airport data unavailable');
-                        return response.json();
-                    }).then(data => data.airports);
-                    const airports = await dataPromise;
+            const render = airports => {
                     if (request !== revision || !input.isConnected || !eligible(input)
-                        || doc.activeElement !== input || input.value !== value || composing.has(input)) return;
+                        || doc.activeElement !== input || input.value !== value) return;
                     const results = searchAirports(airports, value);
                     if (!results.length) return;
                     const list = doc.createElement('div');
@@ -131,14 +141,20 @@
                     input.setAttribute('aria-controls', list.id);
                     input.setAttribute('aria-expanded', 'true');
                     position();
-                } catch (_) {
-                    // Manual entry remains available when the static catalogue cannot load.
-                }
-            }, 150);
+            };
+            if (catalogue) render(catalogue);
+            else void loadData().then(render).catch(() => {
+                // Manual entry remains available; the next interaction may retry.
+            });
         }
 
         doc.addEventListener('focusin', event => {
-            if (eligible(event.target)) { prepare(event.target); query(event.target); }
+            if (eligible(event.target)) {
+                prepare(event.target);
+                // Warm the one shared request/index before the first character.
+                void loadData().catch(() => {});
+                query(event.target);
+            }
         });
         doc.addEventListener('input', event => {
             if (!committing && eligible(event.target)) query(event.target);
@@ -154,6 +170,13 @@
         });
         // Capture precedes the scheduler's per-input Enter/save and Escape/cancel handlers.
         doc.addEventListener('keydown', event => {
+            if (eligible(event.target) && event.key === 'Escape' &&
+                (event.isComposing || event.keyCode === 229 || composing.has(event.target))) {
+                // Let the IME cancel its candidate without closing/saving the card.
+                event.stopImmediatePropagation();
+                close();
+                return;
+            }
             if (!active || event.target !== active.input || !eligible(event.target)
                 || event.isComposing || event.keyCode === 229 || composing.has(event.target)) return;
             if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(event.key)) return;

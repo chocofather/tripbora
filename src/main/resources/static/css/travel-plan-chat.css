@@ -1,0 +1,182 @@
+/* 상세의 채팅 패널에만 적용한다. 여닫기·드래그·송수신 상태는 기존 JS가 관리한다. */
+.travel-plan-chat-panel {
+    --tp-chat-surface: #fff;
+    --tp-chat-composer: #f7f7f9;
+    --tp-chat-line: #ecebf0;
+    box-sizing: border-box;
+    width: min(440px, calc(100vw - var(--tp-chat-edge) * 2));
+    height: 560px;
+    border: 1px solid #e8e7ed;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 8px 32px rgb(32 27 44 / 10%), 0 2px 6px rgb(32 27 44 / 3%);
+    color: #29272f;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-header {
+    min-height: 68px;
+    box-sizing: border-box;
+    padding: 12px 18px;
+    background: #fff;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-panel-title {
+    color: #29272f;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -.025em;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-header-actions {
+    align-items: center;
+    gap: 8px;
+}
+
+.travel-plan-chat-panel .travel-plan-poll-entry {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid #e7e5ec;
+    border-radius: 999px;
+    background: #fff;
+    color: #5d5868;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-header-button,
+.travel-plan-chat-panel .travel-plan-chat-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #716b7c;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-header-button svg,
+.travel-plan-chat-panel .travel-plan-chat-tool svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-body {
+    padding: 20px 18px;
+    background: #fff;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #d9d6df transparent;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-body::-webkit-scrollbar { width: 5px; }
+.travel-plan-chat-panel .travel-plan-chat-body::-webkit-scrollbar-thumb { background: #d9d6df; border-radius: 999px; }
+
+.travel-plan-chat-panel .travel-plan-chat-empty {
+    padding: 16px 0;
+    color: #77717f;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.travel-plan-chat-empty svg {
+    display: block;
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 18px;
+    padding: 14px;
+    border: 1px solid #eceaf1;
+    border-radius: 50%;
+    color: #81768f;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.travel-plan-chat-empty strong { display: block; margin-bottom: 6px; color: #413b4c; font-size: 15px; font-weight: 600; }
+.travel-plan-chat-empty span { display: block; }
+.travel-plan-chat-panel .travel-plan-chat-start { color: #89838f; }
+.travel-plan-chat-panel .travel-plan-chat-message { margin-top: 20px; }
+.travel-plan-chat-panel .travel-plan-chat-message:first-child { margin-top: 0; }
+.travel-plan-chat-panel .travel-plan-chat-message.is-continued { margin-top: 6px; }
+.travel-plan-chat-panel .travel-plan-chat-row { max-width: 92%; }
+.travel-plan-chat-panel .travel-plan-chat-sender { margin-bottom: 6px; color: #706977; line-height: 1.5; overflow-wrap: anywhere; }
+
+.travel-plan-chat-panel .travel-plan-chat-bubble {
+    padding: 10px 14px;
+    border-color: #f0eef3;
+    border-radius: 16px;
+    background: #f6f5f8;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-message.is-mine .travel-plan-chat-bubble {
+    border-color: #ede7fa;
+    background: #f2ecfc;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-message.is-continued .travel-plan-chat-bubble { border-top-left-radius: 6px; }
+.travel-plan-chat-panel .travel-plan-chat-message.is-mine.is-continued .travel-plan-chat-bubble { border-top-left-radius: 16px; border-top-right-radius: 6px; }
+.travel-plan-chat-panel .travel-plan-chat-content { color: #302b38; line-height: 1.65; overflow-wrap: anywhere; }
+.travel-plan-chat-panel .travel-plan-chat-time { color: #827b89; font-size: 10px; }
+.travel-plan-chat-panel .travel-plan-chat-date span { background: transparent; color: #8a8392; }
+.travel-plan-chat-panel .travel-plan-chat-message.is-deleted .travel-plan-chat-bubble { background: #faf9fb; border-color: #efedf2; }
+.travel-plan-chat-panel .travel-plan-chat-message.is-deleted .travel-plan-chat-content { color: #87808f; }
+.travel-plan-chat-panel .travel-plan-chat-reaction { border-color: #e8e5ed; background: #fff; }
+.travel-plan-chat-panel .travel-plan-chat-reaction.is-mine { border-color: #ded3f3; background: #f4effc; }
+
+.travel-plan-chat-panel .travel-plan-chat-form {
+    gap: 8px;
+    padding: 14px 12px;
+    background: #fff;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-input {
+    min-height: 44px;
+    padding: 9px 14px;
+    border-color: #e7e4ed;
+    border-radius: 22px;
+    background: #faf9fb;
+    color: #302b38;
+    line-height: 1.5;
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.travel-plan-chat-panel .travel-plan-chat-input::placeholder { color: #89818f; }
+.travel-plan-chat-panel .travel-plan-chat-input:focus { border-color: #b5a4d7; background: #fff; outline: 2px solid rgb(118 87 200 / 8%); outline-offset: 1px; }
+.travel-plan-chat-panel .travel-plan-chat-send { height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: #7657c8; color: #fff; }
+.travel-plan-chat-panel .travel-plan-chat-send:hover { background: #6547b4; }
+.travel-plan-chat-panel .travel-plan-chat-send:active { background: #593d9f; }
+.travel-plan-chat-panel .travel-plan-chat-header-button:hover,
+.travel-plan-chat-panel .travel-plan-chat-tool:hover:enabled,
+.travel-plan-chat-panel .travel-plan-poll-entry:hover { background: #f6f5f8; color: #413a4c; }
+.travel-plan-chat-panel button:focus-visible { outline: 2px solid #a38dcf; outline-offset: 2px; }
+.travel-plan-chat-panel .travel-plan-chat-emoji-panel { border-color: #e8e5ed; border-radius: 16px; box-shadow: 0 6px 22px rgb(32 27 44 / 10%); }
+.travel-plan-chat-panel .travel-plan-chat-jump { margin: 0 18px 10px; padding: 9px 12px; border-color: #e5ddef; border-radius: 999px; background: #faf7ff; color: #6b5197; }
+.travel-plan-chat-panel .travel-plan-chat-error { margin: 0 18px 10px; color: #a14747; }
+
+@media (max-width: 768px) {
+    .is-planning .travel-plan-chat-panel { border-radius: 18px; }
+}
+
+@media (max-width: 560px) {
+    .travel-plan-chat-panel { left: 12px; right: 12px; width: auto; border-radius: 18px; }
+    .travel-plan-chat-panel .travel-plan-chat-header { padding: 10px 14px; }
+    .travel-plan-chat-panel .travel-plan-chat-body { padding: 18px 14px; }
+    .travel-plan-chat-panel .travel-plan-chat-form { gap: 6px; padding: 12px 10px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .travel-plan-chat-panel .travel-plan-poll-entry { min-height: 44px; }
+    .travel-plan-chat-panel .travel-plan-chat-send { padding: 0 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .travel-plan-chat-panel .travel-plan-chat-input { transition: none; }
+}

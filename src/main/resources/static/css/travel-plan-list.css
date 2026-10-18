@@ -1,0 +1,82 @@
+/* 목록과 생성 흐름 전용. 일정 상세 화면의 스타일에는 적용하지 않는다. */
+.travel-plan-list-page { max-width: 1080px; padding: 48px 28px 80px; margin: 0 auto; color: #25232c; }
+.travel-plan-list-page .travel-plan-list-header { margin-bottom: 32px; }
+.travel-plan-list-page .travel-plan-list-header h1 { font-size: clamp(28px, 3vw, 38px); letter-spacing: -.04em; margin-bottom: 12px; }
+.travel-plan-list-page .travel-plan-subtitle { color: #65616f; line-height: 1.8; }
+.tp-create { padding-bottom: 36px; margin-bottom: 36px; border-bottom: 1px solid #e9e7ee; }
+.tp-create h2 { font-size: 18px; margin: 0 0 16px; }
+.tp-create-fields { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: start; gap: 0; padding: 12px; border: 1px solid #dedbe5; border-radius: 20px; background: #fff; }
+.tp-create-field { min-width: 0; padding: 2px 18px; border-right: 1px solid #eeecf1; }
+.tp-create-field label, .tp-create-field > span { display: block; font-size: 12px; color: #655d72; font-weight: 600; margin-bottom: 6px; }
+.tp-create-field input:not([type="hidden"]), .tp-range-trigger { box-sizing: border-box; width: 100%; min-width: 0; height: 32px; padding: 0; border: 0; background: transparent; color: #292530; font: inherit; font-size: 14px; text-align: left; }
+.tp-range-trigger { height: auto; min-height: 32px; overflow-wrap: anywhere; cursor: pointer; }
+.tp-create-submit, .tp-range-confirm { border: 0; border-radius: 999px; padding: 16px 22px; background: #7657c8; color: #fff; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; margin-left: 16px; }
+.tp-create-submit:disabled { opacity: .65; cursor: wait; }
+.tp-create-hint { font-size: 13px; color: #696373; line-height: 1.7; margin: 14px 6px 0; }
+.travel-plan-list-page .travel-plan-section { margin-top: 32px; }
+.travel-plan-list-page .travel-plan-section + .travel-plan-section { margin-top: 44px; padding-top: 32px; border-top: 1px solid #eceaf0; }
+.travel-plan-list-page .travel-plan-section-title { gap: 12px; margin-bottom: 16px; font-size: 20px; }
+.travel-plan-list-page .travel-plan-section-count { color: #76717e; font-size: 13px; font-weight: 400; }
+.travel-plan-list-page .travel-plan-card-list { display: flex; flex-direction: column; gap: 12px; }
+.travel-plan-list-page .travel-plan-card { min-width: 0; border-radius: 14px; background: #fff; }
+.travel-plan-list-page .travel-plan-card-link { display: grid; grid-template-columns: minmax(0, 1fr) 20px; align-items: center; gap: 10px 20px; min-height: 102px; box-sizing: border-box; padding: 20px 24px; border: 1px solid #e8e6ec; border-radius: 14px; background: #fff; transition: background-color 150ms ease, border-color 150ms ease; }
+.travel-plan-list-page .travel-plan-card-link:hover { background: #fbfaff; border-color: #cfc6e1; }
+.travel-plan-list-page .travel-plan-card-link:focus-visible { outline: 2px solid #9579cd; outline-offset: 3px; }
+.travel-plan-list-page .travel-plan-card-title-row { grid-column: 1; gap: 8px; }
+.travel-plan-list-page .travel-plan-card-title { font-size: 18px; font-weight: 600; line-height: 1.5; }
+.travel-plan-list-page .travel-plan-card-meta { grid-column: 1; flex-wrap: wrap; align-items: center; gap: 6px 18px; color: #66616e; font-size: 13px; line-height: 1.7; }
+.travel-plan-card-meta-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.travel-plan-card-meta-item svg { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.travel-plan-card-activity { color: #79737f; font-size: 12px; }
+.travel-plan-card-chevron { grid-column: 2; grid-row: 1 / 3; width: 20px; height: 20px; fill: none; stroke: #928b9b; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.travel-plan-list-page .travel-plan-card-role, .travel-plan-list-page .travel-plan-card-completed { flex-shrink: 0; border: 0; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 600; letter-spacing: 0; background: #f1f0f4; color: #655e6e; }
+.travel-plan-list-page .travel-plan-card-role.is-owner { background: #f0eafa; color: #6547a3; }
+.travel-plan-list-page .travel-plan-card-link.is-completed { background: #fcfcfd; border-color: #e8e6ec; }
+.travel-plan-list-page .travel-plan-card-link.is-completed:hover { background: #f6f5f8; border-color: #d6d2dd; }
+.travel-plan-list-page .travel-plan-empty { border: 1px dashed #dfdbe6; border-radius: 16px; padding: 36px 24px; background: #fcfbfd; color: #676070; line-height: 1.8; }
+/* 공통 * reset이 dialog의 UA margin:auto를 덮으므로 명시적으로 복원한다.
+   showModal()의 top layer와 fixed inset으로 페이지 스크롤/부모 레이아웃에서 분리한다. */
+.tp-range-dialog { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(800px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 28px; border: 0; border-radius: 18px; color: #28232f; background: #fff; overflow-y: auto; overscroll-behavior: contain; }
+.tp-range-dialog::backdrop { background: rgb(20 16 29 / 38%); }
+.tp-range-dialog header, .tp-range-dialog footer, .tp-range-navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tp-range-dialog h2 { margin: 0; font-size: 20px; }
+.tp-range-dialog button { font-family: inherit; cursor: pointer; }
+.tp-range-dialog header button, .tp-range-navigation button { border: 0; background: transparent; font-size: 24px; color: #544e5e; width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; }
+.tp-range-navigation { margin: 16px 0; }
+.tp-range-navigation p { font-size: 13px; text-align: center; color: #655e6d; line-height: 1.6; }
+.tp-range-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.tp-range-months section { min-width: 0; }
+.tp-range-months h3 { text-align: center; font-size: 16px; margin: 10px 0 22px; }
+.tp-range-week, .tp-range-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.tp-range-week { color: #77717d; font-size: 12px; margin-bottom: 10px; }
+.tp-range-days { row-gap: 5px; }
+.tp-range-days button { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #36303f; font-size: 14px; }
+.tp-range-days button:hover { background: #f5f2fa; }
+.tp-range-navigation button:disabled { color: #bbb6c3; cursor: default; }
+.tp-range-days button[aria-current="date"] { background: #d7effb; color: #075985; }
+.tp-range-days button.is-in-range { border-radius: 0; background: #f1ebfc; }
+.tp-range-days button[aria-pressed="true"] { background: #7657c8; color: #fff; }
+.tp-range-days button[aria-current="date"][aria-pressed="true"] { box-shadow: inset 0 0 0 3px #bae6fd; }
+.tp-range-days button[aria-current="date"].is-in-range { box-shadow: inset 0 0 0 2px #75c8ed; }
+.tp-range-error { min-height: 22px; font-size: 13px; color: #ad3c36; margin: 12px 0; }
+.tp-range-dialog footer { position: sticky; bottom: 0; border-top: 1px solid #ece9f0; padding-top: 16px; background: #fff; }
+.tp-range-dialog footer > button:first-child { min-height: 44px; padding: 10px 0; background: transparent; border: 0; color: #655e6d; text-decoration: underline; }
+.tp-range-confirm { min-height: 44px; border-radius: 10px; padding: 10px 22px; }
+.tp-range-dialog button:focus-visible, .tp-create button:focus-visible, .tp-create input:focus-visible { outline: 2px solid #9579cd; outline-offset: 3px; }
+@media (max-width: 950px) {
+    .tp-create-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 20px; }
+    .tp-create-field { padding: 0; border: 0; }
+    .tp-create-submit { margin: 0; align-self: end; }
+}
+@media (max-width: 600px) {
+    .travel-plan-list-page { padding: 28px 16px 56px; }
+    .tp-create-fields { grid-template-columns: minmax(0, 1fr); }
+    .tp-create-field { padding-bottom: 12px; border-bottom: 1px solid #eeeaf3; }
+    .travel-plan-list-page .travel-plan-card-link { gap: 10px 12px; padding: 18px 20px; }
+    .travel-plan-list-page .travel-plan-card-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; font-size: 17px; }
+    .travel-plan-list-page .travel-plan-card-meta { gap: 6px 12px; font-size: 12px; }
+    .travel-plan-card-activity { flex-basis: 100%; }
+    .tp-range-dialog { padding: 20px 16px; }
+    .tp-range-months { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    .tp-range-days button { height: 44px; }
+}

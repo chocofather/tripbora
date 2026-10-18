@@ -264,7 +264,7 @@ class TravelPlanInvitationContractTest {
     }
 
     @Test
-    void anActiveLinkOffersRegenerateAndDisableWhileAnEmptyOneOnlyOffersCreate()
+    void inviteManagementOffersRecoveryAndPauseWithoutFirstCreationAction()
             throws IOException {
         String detail = ownerActionsHtml();
 
@@ -273,9 +273,10 @@ class TravelPlanInvitationContractTest {
                 .contains("th:unless=\"${travelPlanInviteActive}\"")
                 .contains("/invitations/regenerate|}")
                 .contains("/invitations/disable|}")
-                .contains("새 링크 만들기")
-                .contains(">초대 링크 비활성화</button>")
-                .contains(">초대 링크 만들기</button>")
+                .contains("링크 새로 받기")
+                .contains(">초대 잠시 멈추기</button>")
+                .contains(">새 링크로 초대 다시 시작</button>")
+                .doesNotContain(">초대 링크 만들기</button>")
                 .contains("새 링크를 발급하면 기존 초대 링크는 더 이상 사용할 수 없습니다.");
 
         // 예전 방식으로 만들어져 주소를 풀 수 없는 링크만 재발급 안내를 받는다
@@ -359,7 +360,8 @@ class TravelPlanInvitationContractTest {
         String css = resource("/static/css/travel-plan.css");
 
         // 무엇을 하는 곳인지 먼저 한 줄로 말한다
-        assertThat(panel).contains("친구에게 링크를 보내 여행계획에 초대하세요.");
+        assertThat(panel).contains("함께 떠날 친구 초대하기")
+                .contains("로그인한 친구가 링크로 참여할 수 있어요.");
         // 흰 바탕에 중립 선. 주소가 답답하지 않을 만큼 넓다
         String panelCss = between(css, ".travel-plan-invite-panel {", "}");
         assertThat(panelCss)

@@ -20,6 +20,7 @@ import com.tripbora.service.travelplan.TravelPlanService;
 import com.tripbora.service.travelplan.TravelPlanValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.PropertyAccessException;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.UUID;
 
 @Controller
 @RequestMapping("/travel-plans")
@@ -85,7 +88,9 @@ public class TravelPlanController {
 
     /** 폼에 실제로 있는 필드만 필드 오류로 남길 수 있다. */
     private static final Set<String> FORM_FIELDS =
-            Set.of("title", "startDate", "endDate", "displayName");
+            Set.of("title", "startDate", "endDate", "displayName", "sourceCourseId");
+    private static final String COURSE_SUBMISSIONS = TravelPlanController.class.getName() + ".courseSubmissions";
+    private record CourseSubmission(Long userId, Long courseId, Long planId) { }
 
     /** 날짜로 읽을 수 없는 값이 왔을 때 그 칸에 내보낼 말. */
     private static final Map<String, String> DATE_BIND_MESSAGES = Map.of(
@@ -112,12 +117,65 @@ public class TravelPlanController {
      * 쪽 번호 하나뿐이고, 그 값은 여기서 안전한 값으로 다듬는다.
      */
     @GetMapping
-    public String list(@RequestParam(name = "completedPage", required = false) String completedPage,
-                       @AuthenticationPrincipal CustomUserDetails userDetails,
-                       Model model) {
+    public String listWithCourse(@RequestParam(name = "completedPage", required = false) String completedPage,
+                                 @RequestParam(name = "sourceCourseId", required = false) String sourceCourseId,
+                                 @AuthenticationPrincipal CustomUserDetails userDetails,
+                                 Model model, HttpSession session) {
+        if (sourceCourseId != null) {
+            try {
+                Long courseId = Long.valueOf(sourceCourseId);
+                var course = travelPlanService.getCourseTemplate(courseId);
+                var form = new TravelPlanCreateForm();
+                form.setTitle(course.getTitle());
+                form.setSourceCourseId(courseId);
+                form.setCreationToken(issueCourseToken(session, userDetails.getId(), courseId));
+                model.addAttribute(FORM_ATTRIBUTE, form);
+                model.addAttribute("sourceCourse", course);
+            } catch (NumberFormatException | TravelPlanValidationException exception) {
+                model.addAttribute("courseImportNotice", "가져올 여행코스를 찾을 수 없습니다. 코스를 다시 선택하거나 일반 여행계획을 만들어 주세요.");
+            }
+        }
+        return list(completedPage, userDetails, model);
+    }
+
+    /** 상세의 모달에서 원본을 확인한다. 공개 조회와 달리 생성 준비는 인증이 필요하다. */
+    @GetMapping("/course-template")
+    public ResponseEntity<?> courseTemplate(@RequestParam Long sourceCourseId,
+                                            @AuthenticationPrincipal CustomUserDetails userDetails,
+                                            HttpSession session) {
+        try {
+            var course = travelPlanService.getCourseTemplate(sourceCourseId);
+            return ResponseEntity.ok(Map.of(
+                    "title", course.getTitle(), "regionLabel", course.getCountryLabel(),
+                    "dayCount", course.getDayCount(), "durationLabel", course.getDurationLabel(),
+                    "creationToken", issueCourseToken(session, userDetails.getId(), sourceCourseId)));
+        } catch (TravelPlanValidationException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", exception.getMessage()));
+        }
+    }
+
+    private String issueCourseToken(HttpSession session, Long userId, Long courseId) {
+        synchronized (session) {
+            Map<String, CourseSubmission> submissions = courseSubmissions(session);
+            if (submissions.size() >= 20) submissions.remove(submissions.keySet().iterator().next());
+            String token = UUID.randomUUID().toString();
+            submissions.put(token, new CourseSubmission(userId, courseId, null));
+            return token;
+        }
+    }
+
+    private String list(String completedPage, CustomUserDetails userDetails, Model model) {
         Long userId = userDetails.getId();
         if (!model.containsAttribute(FORM_ATTRIBUTE)) {
             model.addAttribute(FORM_ATTRIBUTE, new TravelPlanCreateForm());
+        }
+        var form = (TravelPlanCreateForm) model.getAttribute(FORM_ATTRIBUTE);
+        if (form.getSourceCourseId() != null && !model.containsAttribute("sourceCourse")) {
+            try {
+                model.addAttribute("sourceCourse", travelPlanService.getCourseTemplate(form.getSourceCourseId()));
+            } catch (TravelPlanValidationException exception) {
+                model.addAttribute("courseImportNotice", exception.getMessage());
+            }
         }
 
         List<TravelPlanListItemDto> activePlans = travelPlanService.getActivePlans(userId);
@@ -251,11 +309,34 @@ public class TravelPlanController {
     }
 
     // 방 생성 처리
+    @PostMapping(params = "sourceCourseId", headers = "X-Requested-With=XMLHttpRequest")
+    public ResponseEntity<?> createFromCourseModal(@ModelAttribute(FORM_ATTRIBUTE) TravelPlanCreateForm form,
+                                                   BindingResult bindingResult,
+                                                   @AuthenticationPrincipal CustomUserDetails userDetails,
+                                                   HttpSession session) {
+        if (!bindingResult.hasErrors()) {
+            try {
+                if (form.getSourceCourseId() == null) {
+                    throw new TravelPlanValidationException("sourceCourseId", "가져올 코스를 다시 선택해 주세요.");
+                }
+                Long planId = createFromCourse(session, userDetails.getId(), form);
+                return ResponseEntity.ok(Map.of("redirectUrl", "/travel-plans/" + planId));
+            } catch (TravelPlanValidationException exception) {
+                rejectValidation(bindingResult, exception);
+            }
+        }
+        List<Map<String, String>> errors = bindingResult.getAllErrors().stream()
+                .map(error -> Map.of("field", error instanceof FieldError field ? field.getField() : "",
+                        "message", error.getDefaultMessage() == null ? "입력 내용을 확인해 주세요." : error.getDefaultMessage()))
+                .toList();
+        return ResponseEntity.badRequest().body(Map.of("errors", errors));
+    }
+
     @PostMapping
     public String create(@ModelAttribute(FORM_ATTRIBUTE) TravelPlanCreateForm form,
                          BindingResult bindingResult,
                          @AuthenticationPrincipal CustomUserDetails userDetails,
-                         Model model) {
+                         Model model, HttpSession session) {
         // 날짜 형식 오류처럼 바인딩 단계에서 걸린 값은 서비스로 넘기지 않는다.
         if (bindingResult.hasErrors()) {
             return list(null, userDetails, model);
@@ -263,7 +344,9 @@ public class TravelPlanController {
 
         Long travelPlanId;
         try {
-            travelPlanId = travelPlanService.createPlan(
+            travelPlanId = form.getSourceCourseId() != null
+                    ? createFromCourse(session, userDetails.getId(), form)
+                    : travelPlanService.createPlan(
                     userDetails.getId(),
                     form.getTitle(),
                     form.getStartDate(),
@@ -275,6 +358,33 @@ public class TravelPlanController {
         }
 
         return "redirect:/travel-plans/" + travelPlanId;
+    }
+
+    /** 같은 폼의 재전송은 이미 생성한 방으로 보낸다. 실패한 요청은 재시도할 수 있다. */
+    private Long createFromCourse(HttpSession session, Long userId, TravelPlanCreateForm form) {
+        synchronized (session) {
+            Map<String, CourseSubmission> submissions = courseSubmissions(session);
+            CourseSubmission submission = submissions.get(form.getCreationToken());
+            if (submission == null || !userId.equals(submission.userId())
+                    || !form.getSourceCourseId().equals(submission.courseId())) {
+                throw new TravelPlanValidationException("sourceCourseId", "코스 가져오기 화면이 만료되었습니다. 코스에서 다시 시작해 주세요.");
+            }
+            if (submission.planId() != null) return submission.planId();
+            Long planId = travelPlanService.createPlan(userId, form.getTitle(), form.getStartDate(),
+                    form.getEndDate(), form.getDisplayName(), form.getSourceCourseId());
+            submissions.put(form.getCreationToken(), new CourseSubmission(userId, submission.courseId(), planId));
+            return planId;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, CourseSubmission> courseSubmissions(HttpSession session) {
+        var submissions = (Map<String, CourseSubmission>) session.getAttribute(COURSE_SUBMISSIONS);
+        if (submissions == null) {
+            submissions = new LinkedHashMap<>();
+            session.setAttribute(COURSE_SUBMISSIONS, submissions);
+        }
+        return submissions;
     }
 
     // 방 기본 상세. 접근 권한은 Service 가 사용자 기준으로 확인한다.

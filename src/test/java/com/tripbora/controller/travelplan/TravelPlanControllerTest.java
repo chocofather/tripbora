@@ -92,6 +92,123 @@ class TravelPlanControllerTest {
     private UserMapper userMapper;
 
     @Test
+    void modalTemplateRequiresLoginAndRejectsUnavailableCourses() throws Exception {
+        mockMvc.perform(get("/travel-plans/course-template?sourceCourseId=9").accept("application/json"))
+                .andExpect(status().isUnauthorized());
+        when(travelPlanService.getCourseTemplate(9L)).thenThrow(new TravelPlanValidationException("sourceCourseId", "없는 코스"));
+        mockMvc.perform(get("/travel-plans/course-template?sourceCourseId=9").with(user(member())).accept("application/json"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void modalSubmissionRejectsForgedTokensAndStillRequiresCsrf() throws Exception {
+        mockMvc.perform(post("/travel-plans").with(user(member()))
+                        .header("X-Requested-With", "XMLHttpRequest").accept("application/json").param("sourceCourseId", "9"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/travel-plans").with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest").accept("application/json")
+                        .param("sourceCourseId", "9").param("creationToken", "forged"))
+                .andExpect(status().isBadRequest());
+        verify(travelPlanService, never()).createPlan(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void modalTemplateAndAjaxCreationReuseTheExistingCourseFlow() throws Exception {
+        var course = new com.tripbora.dto.CourseDetailDto(); course.setTitle("가을 코스");
+        var day = new com.tripbora.dto.CourseDayDto(); day.setDayNumber(2);
+        course.setDays(List.of(day)); course.setStops(List.of()); course.setCountryNames(List.of("일본"));
+        when(travelPlanService.getCourseTemplate(9L)).thenReturn(course);
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var template = mockMvc.perform(get("/travel-plans/course-template?sourceCourseId=9")
+                        .session(session).with(user(member())).accept("application/json"))
+                .andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.title").value("가을 코스"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.dayCount").value(2))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.durationLabel").value("1박 2일"))
+                .andReturn();
+        var token = new com.fasterxml.jackson.databind.ObjectMapper().readTree(template.getResponse().getContentAsString()).get("creationToken").asText();
+        when(travelPlanService.createPlan(7L, "새 이름", LocalDate.parse(START), LocalDate.parse(END), "나", 9L)).thenReturn(42L);
+        for (int i = 0; i < 2; i++) mockMvc.perform(post("/travel-plans").session(session).with(user(member())).with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest").accept("application/json")
+                        .param("sourceCourseId", "9").param("creationToken", token).param("title", "새 이름")
+                        .param("startDate", START).param("endDate", END).param("displayName", "나"))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.redirectUrl").value("/travel-plans/42"));
+        verify(travelPlanService).createPlan(7L, "새 이름", LocalDate.parse(START), LocalDate.parse(END), "나", 9L);
+    }
+
+    @Test
+    void courseEntryPrefillsTitleAndRepeatedSubmitReturnsTheSamePlan() throws Exception {
+        var course = new com.tripbora.dto.CourseDetailDto(); course.setTitle("가을 코스");
+        var day = new com.tripbora.dto.CourseDayDto(); day.setDayNumber(1);
+        course.setDays(List.of(day)); course.setStops(List.of());
+        when(travelPlanService.getCourseTemplate(9L)).thenReturn(course);
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var entry = mockMvc.perform(get("/travel-plans").param("sourceCourseId", "9")
+                        .session(session).with(user(member())))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("가져올 여행코스")))
+                .andReturn();
+        var form = (com.tripbora.dto.TravelPlanCreateForm) entry.getModelAndView().getModel().get("travelPlanCreateForm");
+        assertThat(form.getTitle()).isEqualTo("가을 코스");
+        assertThat(form.getStartDate()).isNull(); assertThat(form.getDisplayName()).isNull();
+        when(travelPlanService.createPlan(7L, "수정 제목", LocalDate.parse(START), LocalDate.parse(END), "내 이름", 9L)).thenReturn(42L);
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(post("/travel-plans").session(session).with(user(member())).with(csrf())
+                            .param("sourceCourseId", "9").param("creationToken", form.getCreationToken())
+                            .param("title", "수정 제목").param("startDate", START).param("endDate", END).param("displayName", "내 이름"))
+                    .andExpect(redirectedUrl("/travel-plans/42"));
+        }
+        verify(travelPlanService).createPlan(7L, "수정 제목", LocalDate.parse(START), LocalDate.parse(END), "내 이름", 9L);
+    }
+
+    @Test
+    void periodErrorKeepsTheEditedFormCoursePreviewAndRetryToken() throws Exception {
+        var course = new com.tripbora.dto.CourseDetailDto(); course.setTitle("원본 코스");
+        course.setDays(List.of()); course.setStops(List.of());
+        when(travelPlanService.getCourseTemplate(9L)).thenReturn(course);
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var entry = mockMvc.perform(get("/travel-plans?sourceCourseId=9").session(session).with(user(member()))).andReturn();
+        var form = (com.tripbora.dto.TravelPlanCreateForm) entry.getModelAndView().getModel().get("travelPlanCreateForm");
+        when(travelPlanService.createPlan(7L, "바꾼 제목", LocalDate.parse(START), LocalDate.parse(START), "이름", 9L))
+                .thenThrow(new TravelPlanValidationException("endDate", "2일 이상으로 조정해 주세요."));
+        var result = mockMvc.perform(post("/travel-plans").session(session).with(user(member())).with(csrf())
+                        .param("sourceCourseId", "9").param("creationToken", form.getCreationToken()).param("title", "바꾼 제목")
+                        .param("startDate", START).param("endDate", START).param("displayName", "이름"))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("sourceCourse"))
+                .andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "endDate")).andReturn();
+        var retry = (com.tripbora.dto.TravelPlanCreateForm) result.getModelAndView().getModel().get("travelPlanCreateForm");
+        assertThat(retry.getTitle()).isEqualTo("바꾼 제목");
+        assertThat(retry.getCreationToken()).isEqualTo(form.getCreationToken());
+        assertThat(retry.getStartDate()).isEqualTo(LocalDate.parse(START));
+    }
+
+    @Test
+    void invalidCourseEntryIsAnOrdinaryFormWithANotice() throws Exception {
+        mockMvc.perform(get("/travel-plans").param("sourceCourseId", "not-an-id").with(user(member())))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("courseImportNotice"));
+        verify(travelPlanService, never()).getCourseTemplate(any());
+    }
+
+    @Test
+    void forgedCourseSubmissionCannotCreateAPlan() throws Exception {
+        when(travelPlanService.getCourseTemplate(9L)).thenThrow(new TravelPlanValidationException("sourceCourseId", "없는 코스"));
+        mockMvc.perform(post("/travel-plans").with(user(member())).with(csrf())
+                        .param("sourceCourseId", "9").param("creationToken", "forged").param("title", "이름")
+                        .param("startDate", START).param("endDate", END).param("displayName", "나"))
+                .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("travelPlanCreateForm", "sourceCourseId"));
+        verify(travelPlanService, never()).createPlan(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void courseEntryRequiresAuthenticationAndCachesTheCourseQuery() throws Exception {
+        var session = new org.springframework.mock.web.MockHttpSession();
+        mockMvc.perform(get("/travel-plans?sourceCourseId=9").session(session))
+                .andExpect(status().is3xxRedirection());
+        var saved = (org.springframework.security.web.savedrequest.SavedRequest) session.getAttribute("SPRING_SECURITY_SAVED_REQUEST");
+        assertThat(saved.getRedirectUrl()).contains("sourceCourseId=9");
+        verify(travelPlanService, never()).getCourseTemplate(any());
+    }
+
+    @Test
     void ajaxEmptyTypedCardReturnsThePersistedItemId() throws Exception {
         when(travelPlanService.addEmptyTypedItem(7L, 42L, 100L, "MOVE")).thenReturn(500L);
         mockMvc.perform(post("/travel-plans/42/days/100/items").with(user(member())).with(csrf())

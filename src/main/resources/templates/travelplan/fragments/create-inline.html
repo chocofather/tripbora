@@ -2,7 +2,19 @@
 <html xmlns:th="http://www.thymeleaf.org"><body>
 <section th:fragment="createInline" class="tp-create" id="travel-plan-create" aria-labelledby="tp-create-title">
   <h2 id="tp-create-title">다음 여행을 함께 시작해요</h2>
+  <p class="travel-plan-form-error" th:if="${courseImportNotice}" th:text="${courseImportNotice}" role="alert"></p>
   <form th:action="@{/travel-plans}" method="post" th:object="${travelPlanCreateForm}" data-plan-create>
+    <input type="hidden" th:field="*{sourceCourseId}">
+    <input type="hidden" th:field="*{creationToken}">
+    <div class="tp-course-preview" th:if="${sourceCourse != null}">
+      <div><span>가져올 여행코스</span><strong th:text="${sourceCourse.title}"></strong>
+        <p th:text="|여행지 ${#lists.size(sourceCourse.stops)}곳 · ${sourceCourse.durationLabel} 코스|"></p>
+        <p>코스의 모든 일정을 담을 수 있도록 여행 날짜를 선택해 주세요.</p></div>
+      <a th:href="@{/travel-plans#travel-plan-create}">가져오기 취소</a>
+    </div>
+    <p class="travel-plan-field-error" th:if="${#fields.hasErrors('sourceCourseId')}" th:errors="*{sourceCourseId}" role="alert"></p>
+    <a th:if="${sourceCourse == null and travelPlanCreateForm.sourceCourseId != null}"
+       th:href="@{/travel-plans#travel-plan-create}">가져오기 취소</a>
     <div class="travel-plan-form-error" th:if="${#fields.hasGlobalErrors()}" role="alert">
       <p th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
     </div>

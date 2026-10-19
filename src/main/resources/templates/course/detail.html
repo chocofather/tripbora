@@ -25,6 +25,10 @@
   <script src="/js/content-bookmarks.js" defer th:unless="${adminPreview == true}"></script>
   <script src="/js/course-hide-modal.js" defer th:unless="${adminPreview == true}"></script>
   <script src="/js/course-detail.js" defer></script>
+  <link rel="stylesheet" href="/css/travel-plan-list.css" />
+  <link rel="stylesheet" href="/css/course-plan-create.css" />
+  <script src="/js/travel-plan-date-range.js" defer></script>
+  <script src="/js/course-plan-create.js" defer th:unless="${adminPreview == true}"></script>
 </th:block>
 
 <th:block th:fragment="body">
@@ -149,7 +153,6 @@
           <div><dt th:text="#{course.detail.meta.updatedAt}">수정일</dt><dd th:attr="data-mobile-date=${#dates.format(course.updatedAt, 'yyyy.MM.dd')}" th:text="${#dates.format(course.updatedAt, 'yyyy-MM-dd HH:mm')}">수정일</dd></div>
           <div><dt th:text="#{course.detail.meta.views}">조회수</dt><dd th:text="${course.views}">0</dd></div>
         </dl>
-        <p class="course-official-summary" th:if="${course.courseKind == 'OFFICIAL' and !#strings.isEmpty(course.summary)}" th:text="${course.summary}"></p>
         <div th:replace="~{course/fragments/themes :: badges(${course.themes}, false)}"></div>
         <div class="content-translation-control" th:if="${course.translationAvailable and course.courseKind != 'OFFICIAL' and adminPreview != true}">
           <button id="course-translation-toggle" type="button"
@@ -167,6 +170,13 @@
              fetchpriority="high" />
       </figure>
 
+      <div class="course-detail-columns" th:classappend="${adminPreview == true} ? 'is-preview'">
+      <div class="course-detail-main">
+      <section class="course-summary-description" th:if="${course.courseKind == 'OFFICIAL' and !#strings.isEmpty(course.summary)}"
+               aria-labelledby="course-summary-description-title">
+        <h2 id="course-summary-description-title">이런 여행이에요</h2>
+        <p class="course-official-summary" th:text="${course.summary}"></p>
+      </section>
       <section class="course-introduction" th:unless="${course.courseKind == 'OFFICIAL'}">
         <h2 th:text="#{course.detail.section.introduction}">코스 소개</h2>
         <div id="course-translation-content"
@@ -174,8 +184,6 @@
              data-translation-content
              th:utext="${course.content}"></div>
       </section>
-    </article>
-
     <section class="course-route" aria-labelledby="course-route-title">
       <div class="course-route-heading">
         <h2 id="course-route-title" th:text="#{course.detail.route.title}">여행 동선</h2>
@@ -282,6 +290,21 @@
          th:if="${(course.days == null or course.days.isEmpty()) and (course.stops == null or course.stops.isEmpty())}"
          th:text="#{course.detail.route.empty}">등록된 여행지가 없습니다.</p>
     </section>
+      </div>
+      <aside class="course-plan-action" th:unless="${adminPreview == true}" aria-labelledby="course-plan-cta-title">
+        <p class="course-plan-eyebrow" th:text="${course.durationLabel}">3박 4일</p>
+        <h2 id="course-plan-cta-title">이 코스로 떠나 볼까요?</h2>
+        <p>마음에 드는 동선을 가져와 우리만의 여행을 계획해 보세요.</p>
+        <a class="course-plan-create" data-course-plan-open
+           th:href="@{/travel-plans(sourceCourseId=${course.id})} + '#travel-plan-create'"
+           aria-haspopup="dialog" aria-controls="course-plan-dialog">이 일정으로 여행 만들기</a>
+        <small>가져온 일정은 자유롭게 수정할 수 있어요.</small>
+      </aside>
+      </div>
+    </article>
+    <th:block th:unless="${adminPreview == true}">
+      <th:block th:replace="~{course/fragments/plan-create :: planCreate}"></th:block>
+    </th:block>
 
     <footer class="course-detail-footer">
       <!-- 목록 이동만 남긴다. 작성자/관리자 액션은 모두 제목 우측 메뉴로 모았다. -->

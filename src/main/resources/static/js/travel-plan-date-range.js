@@ -17,6 +17,9 @@
         const a = parse(start), b = parse(end);
         return a && b ? Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000) + 1 : 0;
     }
+    function durationLabel(count) {
+        return count < 1 ? '' : count === 1 ? '당일' : `${count - 1}박 ${count}일`;
+    }
     function mount(doc) {
         const form = doc.querySelector('[data-plan-create]');
         if (!form) return;
@@ -25,7 +28,7 @@
         const endField = form.querySelector('[data-range-end]');
         const refresh = () => {
             trigger.textContent = parse(startField.value) && parse(endField.value)
-                ? `${startField.value.replaceAll('-', '.')} — ${endField.value.replaceAll('-', '.')}` : '날짜를 선택하세요 ▦';
+                ? `${startField.value.replaceAll('-', '.')} — ${endField.value.replaceAll('-', '.')} · ${durationLabel(days(startField.value, endField.value))}` : '날짜를 선택하세요 ▦';
             trigger.setAttribute('aria-label', `여행 날짜: ${trigger.textContent}`);
         };
         let dialog = null;
@@ -44,7 +47,7 @@
             dialog.innerHTML = '<header><h2 id="tp-range-title">여행 날짜 선택</h2><button type="button" data-range-action="close" aria-label="닫기">×</button></header><div class="tp-range-navigation"><button type="button" data-range-action="previous" aria-label="이전 달">‹</button><p data-range-summary aria-live="polite"></p><button type="button" data-range-action="next" aria-label="다음 달">›</button></div><div class="tp-range-months" data-range-months></div><p class="tp-range-error" data-range-error role="status"></p><footer><button type="button" data-range-action="clear">날짜 지우기</button><button type="button" class="tp-range-confirm" data-range-action="confirm">확인</button></footer>';
             const query = s => dialog.querySelector(s);
             const render = () => {
-                query('[data-range-summary]').textContent = !start ? '가는 날을 선택하세요.' : !end ? '돌아오는 날을 선택하세요. (당일 여행은 같은 날짜)' : `${start.replaceAll('-', '.')} — ${end.replaceAll('-', '.')} · ${days(start, end)}일`;
+                query('[data-range-summary]').textContent = !start ? '가는 날을 선택하세요.' : !end ? '돌아오는 날을 선택하세요. (당일 여행은 같은 날짜)' : `${start.replaceAll('-', '.')} — ${end.replaceAll('-', '.')} · ${durationLabel(days(start, end))}`;
                 query('[data-range-error]').textContent = '';
                 query('[data-range-action="previous"]').disabled = month.getFullYear() === 1000 && month.getMonth() === 0;
                 query('[data-range-action="next"]').disabled = month.getFullYear() === 9999 && month.getMonth() === 10;
@@ -91,6 +94,7 @@
                     if (!start && !end) { startField.value = ''; endField.value = ''; refresh(); dialog.close(); return; }
                     if (!start || !end) { query('[data-range-error]').textContent = '시작일과 종료일을 모두 선택해 주세요.'; return; }
                     if (days(start, end) > 90) { query('[data-range-error]').textContent = '여행은 최대 90일까지 만들 수 있어요.'; return; }
+                    if (days(start, end) < Number(form.dataset.minDays || 1)) { query('[data-range-error]').textContent = `코스 전체를 가져오려면 ${durationLabel(Number(form.dataset.minDays))} 이상으로 선택해 주세요.`; return; }
                     startField.value = start; endField.value = end; refresh(); dialog.close();
                 }
                 if (event.target === dialog) {
@@ -102,15 +106,24 @@
             render(); doc.body.append(dialog); dialog.showModal(); doc.body.style.overflow = 'hidden';
         });
         form.addEventListener('submit', event => {
-            if (!parse(startField.value) || !parse(endField.value)) { event.preventDefault(); trigger.click(); return; }
+            const error = form.closest('dialog')?.querySelector('[data-course-plan-error]');
+            if (!parse(startField.value) || !parse(endField.value) || days(startField.value, endField.value) < Number(form.dataset.minDays || 1)) {
+                event.preventDefault();
+                if (error) error.textContent = '코스 전체를 담을 수 있는 여행 날짜를 선택해 주세요.';
+                trigger.click(); return;
+            }
             if (form.dataset.submitting) { event.preventDefault(); return; }
             form.dataset.submitting = 'true';
             form.querySelector('[type="submit"]').disabled = true;
         });
-        doc.defaultView.addEventListener('pageshow', () => { delete form.dataset.submitting; form.querySelector('[type="submit"]').disabled = false; });
+        doc.defaultView.addEventListener('pageshow', () => {
+            // 코스 모달의 준비/저장 상태는 해당 모달이 관리한다.
+            if (form.hasAttribute('data-course-plan-form')) return;
+            delete form.dataset.submitting; form.querySelector('[type="submit"]').disabled = false;
+        });
         refresh();
     }
-    if (typeof module !== 'undefined' && module.exports) module.exports = {parse, select, days};
+    if (typeof module !== 'undefined' && module.exports) module.exports = {parse, select, days, durationLabel};
     if (typeof document !== 'undefined') {
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => mount(document));
         else mount(document);

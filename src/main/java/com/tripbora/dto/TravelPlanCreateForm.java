@@ -11,6 +11,8 @@ import java.time.LocalDate;
  */
 @Data
 public class TravelPlanCreateForm {
+    private Long sourceCourseId;
+    private String creationToken;
     private String title;
     private LocalDate startDate;
     private LocalDate endDate;

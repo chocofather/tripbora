@@ -1,3 +1,7 @@
+.course-plan-action { margin: 24px 0; }
+.course-plan-create { display: inline-flex; align-items: center; justify-content: center; max-width: 100%; box-sizing: border-box; padding: 12px 18px; border: 1px solid #d9cef0; border-radius: 10px; background: #f7f4fc; color: #6742a8; font-size: 14px; font-weight: 600; text-decoration: none; }
+.course-plan-create:hover { background: #eee7f8; }
+.course-plan-create:focus-visible { outline: 2px solid #9579cd; outline-offset: 3px; }
 .course-detail-container {
     width: min(1120px, calc(100% - 64px));
     margin: 32px auto 72px;
@@ -276,8 +280,7 @@
 
 .course-route {
     margin-top: 36px;
-    padding-top: 28px;
-    border-top: 1px solid #e7eaf0;
+    padding-top: 0;
 }
 
 .course-route-heading {
@@ -1236,7 +1239,7 @@
     .course-detail-container .course-header-actions { justify-content: flex-start; flex-wrap: wrap; max-width: none; }
     .course-detail-container .course-hero { margin-top: 20px; border-radius: 8px; aspect-ratio: 16 / 9; max-height: none; }
     .course-detail-container .course-introduction { margin-top: 26px; }
-    .course-detail-container .course-route { margin-top: 32px; padding-top: 24px; }
+    .course-detail-container .course-route { margin-top: 32px; padding-top: 0; }
     .course-detail-container .course-route-heading h2 { font-size: 18px; }
     .course-day-nav { gap: 6px; margin-bottom: 20px; }
     .course-day-nav button { min-height: 36px; padding: 7px 12px; font-size: 12px; }
@@ -1252,4 +1255,8 @@
 }
 .course-admin-preview { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; color: #6c6472; font-size: 12px; }
 .course-admin-preview a { color: inherit; font-weight: 600; }
-.course-official-summary { margin: 18px 0 0; color: #626875; font-size: 15px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-line; }
+.course-summary-description > h2 { margin: 0 0 12px; color: #1f2937; font-size: 20px; font-weight: 600; line-height: 1.4; }
+.course-official-summary { margin: 0; color: #374151; font-size: 15px; font-weight: 400; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-line; }
+@media (max-width: 600px) {
+    .course-summary-description > h2 { font-size: 18px; }
+}

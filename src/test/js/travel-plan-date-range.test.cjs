@@ -1,6 +1,13 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {parse, select, days} = require('../../main/resources/static/js/travel-plan-date-range.js');
+test('duration labels use Korean nights and inclusive days', () => {
+    const {durationLabel} = require('../../main/resources/static/js/travel-plan-date-range.js');
+    assert.equal(durationLabel(1), '당일');
+    assert.equal(durationLabel(2), '1박 2일');
+    assert.equal(durationLabel(4), '3박 4일');
+    assert.equal(durationLabel(0), '');
+});
 
 test('range supports one-day trips, reverse selection and restarting a completed range', () => {
     assert.deepEqual(select('', '', '2026-12-31'), ['2026-12-31', '']);

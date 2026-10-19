@@ -34,4 +34,14 @@ public class CourseDetailDto {
     public String getCountryLabel() {
         return CourseCountryLabel.of(countryNames);
     }
+
+    public int getDayCount() {
+        return days == null ? 1 : days.stream().map(CourseDayDto::getDayNumber)
+                .filter(java.util.Objects::nonNull).mapToInt(Integer::intValue).max().orElse(1);
+    }
+
+    public String getDurationLabel() {
+        int count = getDayCount();
+        return count <= 1 ? "당일" : (count - 1) + "박 " + count + "일";
+    }
 }

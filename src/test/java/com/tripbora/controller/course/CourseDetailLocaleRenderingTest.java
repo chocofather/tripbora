@@ -345,6 +345,34 @@ class CourseDetailLocaleRenderingTest {
     }
 
     @Test
+    void rendersTheCourseCtaAndModalAndExportsABrowserFixture() throws Exception {
+        var course = course();
+        course.setCourseKind("OFFICIAL");
+        course.setSummary("오사카를 처음 방문하는 여행자를 위한 여행코스입니다.");
+        course.setRepresentativeImageUrl("/images/about/travel-course.png");
+        course.setCountryNames(List.of("일본"));
+        var days = new java.util.ArrayList<CourseDayDto>();
+        for (int i = 1; i <= 4; i++) {
+            var day = new CourseDayDto(); day.setDayNumber(i); day.setTitle("여행 " + i + "일차");
+            day.setItems(i == 1 ? course.getStops() : List.of()); days.add(day);
+        }
+        course.setDays(days);
+        when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
+        String body = mockMvc.perform(get("/courses/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var html = org.jsoup.Jsoup.parse(body);
+        assertThat(html.select(".course-detail-columns > .course-plan-action")).hasSize(1);
+        assertThat(html.select("[data-course-plan-open]").text()).isEqualTo("이 일정으로 여행 만들기");
+        assertThat(html.select(".course-plan-eyebrow").text()).isEqualTo("3박 4일");
+        assertThat(html.select("#course-plan-dialog")).hasSize(1);
+        assertThat(html.select("#course-plan-name").val()).isEqualTo(course.getTitle());
+        assertThat(html.select("[data-course-plan-form]").attr("action")).isEqualTo("/travel-plans");
+        var fixture = java.nio.file.Path.of("build/reports/course-plan-ui/detail-fixture.html");
+        java.nio.file.Files.createDirectories(fixture.getParent());
+        java.nio.file.Files.writeString(fixture, body, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Test
     void timelineUsesLocationLabelWhileKeepingMapQueryAndLayout() throws Exception {
         CourseDetailDto course = course();
         CourseStopDto palace = course.getStops().get(0);

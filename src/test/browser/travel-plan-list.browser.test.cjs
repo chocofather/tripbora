@@ -71,10 +71,17 @@ test('inline creation and two-month date range work in Chrome without overflow',
     for(const width of [1440,1280,768,430,390,360]) {
         await send('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:false});
         await send('Page.navigate',{url:'about:blank'});
-        const html=`<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><main>${list}</main></body></html>`;
+        const action=read('templates/course/detail.html').match(/<aside class="course-plan-action"[\s\S]*?<\/aside>/)[0]
+            .replace(/th:href="[^"]*"/, 'href="/travel-plans?sourceCourseId=9#travel-plan-create"');
+        const html=`<!doctype html><html><head><meta charset="utf-8"><style>${css}\n${read('static/css/course-detail.css')}</style></head><body><main><div class="course-detail-container">${action}</div>${list}</main></body></html>`;
         await send('Page.setDocumentContent',{frameId:(await send('Page.getFrameTree')).frameTree.frame.id,html});
         await evaluate(read('static/js/travel-plan-date-range.js'));
         await evaluate(`document.dispatchEvent(new Event('DOMContentLoaded'))`);
+        await evaluate(`document.querySelector('.tp-course-preview strong').textContent='제주에서 시작하는 아주 긴 여행코스 이름 '.repeat(12);document.querySelector('.tp-course-preview p').textContent='여행지 5곳 · 2일 코스';document.querySelector('[name=sourceCourseId]').value='9';document.querySelector('[name=creationToken]').value='form-token';document.querySelector('[name=title]').value='코스 제목';`);
+        assert.equal(await evaluate(`document.querySelector('.course-plan-create').getAttribute('href')`), '/travel-plans?sourceCourseId=9#travel-plan-create');
+        assert.equal(await evaluate(`document.querySelector('[name=title]').readOnly`),false);
+        await evaluate(`document.querySelector('[name=title]').value='내가 수정한 여행 이름'`);
+        assert.equal(await evaluate(`new FormData(document.querySelector('form')).get('title')`),'내가 수정한 여행 이름');
         assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
         const cards=await evaluate(`[...document.querySelectorAll('.travel-plan-card-link')].map(a=>{const r=a.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,href:a.getAttribute('href'),chevron:!!a.querySelector('.travel-plan-card-chevron')}})`);
         assert.equal(cards.length,7);
@@ -131,7 +138,7 @@ test('inline creation and two-month date range work in Chrome without overflow',
         await settle();
         assert.equal(await evaluate('document.querySelector("dialog")'),null, 'backdrop click closes modal');
         // Submitted fields remain ordinary form fields for the existing POST endpoint.
-        assert.deepEqual(await evaluate('[...new FormData(document.querySelector("form"))].map(([k])=>k)'),['title','startDate','endDate','displayName']);
+        assert.deepEqual(await evaluate('[...new FormData(document.querySelector("form"))].map(([k])=>k)'),['sourceCourseId','creationToken','title','startDate','endDate','displayName']);
         await click('[data-range-open]');await click('[data-range-action="clear"]');await click('[data-range-action="confirm"]');
         await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
         assert.equal(await evaluate('document.querySelector("[data-range-start]").value'), '');

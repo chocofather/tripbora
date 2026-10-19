@@ -29,7 +29,7 @@ class TravelPlanCompletedWriteGuardTest {
         // COMPLETED 방은 ACTIVE 조건의 잠금 조회에 나오지 않는다.
         when(plans.findPlanByIdAndStatusForUpdate(42L, "ACTIVE")).thenReturn(null);
         var service = new TravelPlanService(plans, items, alternatives, finals,
-                mock(TravelPlanInvitationService.class), events);
+                mock(TravelPlanInvitationService.class), events, mock(com.tripbora.service.course.CourseService.class));
         var preparation = new TravelPlanDashboardService(plans, dashboard, finals, events);
         List<Runnable> writes = List.of(
                 () -> service.addItem(7L, 42L, 100L, "일정"),

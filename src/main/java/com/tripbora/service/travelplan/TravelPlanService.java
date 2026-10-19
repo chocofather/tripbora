@@ -6,6 +6,9 @@ import com.tripbora.dto.TravelPlanListItemDto;
 import com.tripbora.dto.TravelPlanMemberDto;
 import com.tripbora.dto.TravelPlanMembersDto;
 import com.tripbora.dto.TravelPlanPastMemberDto;
+import com.tripbora.dto.CourseDetailDto;
+import com.tripbora.dto.CourseDayDto;
+import com.tripbora.service.course.CourseService;
 import com.tripbora.model.TravelPlan;
 import com.tripbora.model.TravelPlanDay;
 import com.tripbora.model.TravelPlanItem;
@@ -68,6 +71,18 @@ public class TravelPlanService {
     private final TravelPlanInvitationService travelPlanInvitationService;
     /** 실시간 알림은 커밋 뒤에 나가야 해서 여기서는 이벤트만 남긴다. */
     private final ApplicationEventPublisher eventPublisher;
+    private final CourseService courseService;
+
+    @Transactional(readOnly = true)
+    public CourseDetailDto getCourseTemplate(Long courseId) {
+        try {
+            return courseService.getCourseForPlan(courseId);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode() != HttpStatus.NOT_FOUND) throw exception;
+            throw new TravelPlanValidationException("sourceCourseId",
+                    "가져올 여행코스를 찾을 수 없습니다. 삭제 또는 비공개 처리되었을 수 있어요. 가져오기를 취소하고 다시 시도해 주세요.");
+        }
+    }
 
     /**
      * 현재 사용자가 ACTIVE 멤버로 참여 중인 ACTIVE 방 목록.
@@ -824,12 +839,28 @@ public class TravelPlanService {
     @Transactional
     public Long createPlan(Long userId, String title, LocalDate startDate, LocalDate endDate,
                            String displayName) {
+        return createPlan(userId, title, startDate, endDate, displayName, null);
+    }
+
+    @Transactional
+    public Long createPlan(Long userId, String title, LocalDate startDate, LocalDate endDate,
+                           String displayName, Long sourceCourseId) {
         requireUser(userId);
         String normalizedTitle = requiredText(
                 "title", title, MAX_TITLE_LENGTH, "여행계획 이름", "여행계획 이름을 입력해 주세요.");
         // 초대로 들어오는 MEMBER 와 같은 규칙을 쓴다.
         String normalizedDisplayName = TravelPlanDisplayName.normalize(displayName);
         int dayCount = requiredPeriod(startDate, endDate);
+        var course = sourceCourseId == null ? null : getCourseTemplate(sourceCourseId);
+        if (course != null) {
+            int requiredDays = course.getDays().stream()
+                    .mapToInt(CourseDayDto::getDayNumber).max().orElse(1);
+            if (dayCount < requiredDays) {
+                throw new TravelPlanValidationException("endDate",
+                        "이 코스는 " + course.getDurationLabel() + " 일정입니다. 여행 기간을 "
+                                + course.getDurationLabel() + " 이상으로 조정해 주세요.");
+            }
+        }
 
         TravelPlan plan = new TravelPlan();
         plan.setCreatedByUserId(userId);
@@ -859,9 +890,48 @@ public class TravelPlanService {
         if (travelPlanMapper.insertDays(travelPlanId, days) != days.size()) {
             throw saveFailed();
         }
+        if (course != null) {
+            copyCourseSchedule(travelPlanId, owner.getId(), course);
+        }
         // 초대 발급도 같은 트랜잭션에 참여한다. 발급 실패 시 빈 방을 남기지 않는다.
         travelPlanInvitationService.createInvitation(userId, travelPlanId);
         return travelPlanId;
+    }
+
+    /** 원본 ID에 대한 연결 없이 일반 SCHEDULE 카드의 텍스트로 복사한다. */
+    private void copyCourseSchedule(Long planId, Long ownerId, CourseDetailDto course) {
+        Map<Integer, TravelPlanDay> days = travelPlanMapper.findDaysByPlanId(planId).stream()
+                .collect(Collectors.toMap(TravelPlanDay::getDayNumber, day -> day));
+        for (var sourceDay : course.getDays()) {
+            TravelPlanDay day = days.get(sourceDay.getDayNumber());
+            if (day == null) throw saveFailed();
+            if (sourceDay.getTitle() != null && !sourceDay.getTitle().isBlank()
+                    && travelPlanMapper.updateDayTitle(planId, day.getId(), sourceDay.getTitle(), 0) != 1) {
+                throw saveFailed();
+            }
+            int order = 0;
+            for (var stop : sourceDay.getItems()) {
+                if (stop.getName() == null || stop.getName().isBlank()) {
+                    throw new TravelPlanValidationException("sourceCourseId", "이름이 없는 코스 장소를 가져올 수 없습니다.");
+                }
+                List<String> text = new ArrayList<>();
+                text.add(stop.getName().replaceAll("\\R", " ").strip());
+                if (stop.getAddress() != null && !stop.getAddress().isBlank()) text.add(stop.getAddress());
+                if (stop.getShortDescription() != null && !stop.getShortDescription().isBlank()) text.add(stop.getShortDescription());
+                if (stop.getMemo() != null && !stop.getMemo().isBlank()) text.add(stop.getMemo());
+                // 종료 시각 전용 필드가 없어 원본 값이 있을 때만 상세 텍스트에 보존한다.
+                if (stop.getEndTime() != null && !stop.getEndTime().isBlank()) text.add("종료 시각: " + stop.getEndTime());
+                TravelPlanItem item = new TravelPlanItem();
+                item.setTravelPlanDayId(day.getId());
+                item.setCreatedByMemberId(ownerId);
+                item.setTag(TravelPlanItemType.SCHEDULE.name());
+                item.setContent(requiredContent(String.join("\n", text)));
+                item.setStartTime(stop.getStartTime() == null || stop.getStartTime().isBlank()
+                        ? null : LocalTime.parse(stop.getStartTime()));
+                item.setDisplayOrder(++order);
+                if (travelPlanItemMapper.insertItem(item) != 1) throw saveFailed();
+            }
+        }
     }
 
     /** DAY 1 = startDate 부터 하루씩. 개수는 검증 단계에서 구한 값을 그대로 쓴다. */

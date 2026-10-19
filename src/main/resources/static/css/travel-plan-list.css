@@ -54,7 +54,7 @@
 .tp-range-days button:hover { background: #f5f2fa; }
 .tp-range-navigation button:disabled { color: #bbb6c3; cursor: default; }
 .tp-range-days button[aria-current="date"] { background: #d7effb; color: #075985; }
-.tp-range-days button.is-in-range { border-radius: 0; background: #f1ebfc; }
+.tp-range-days button.is-in-range { border-radius: 999px; background: #f5f1fb; box-shadow: inset 0 5px 0 #fff, inset 0 -5px 0 #fff; }
 .tp-range-days button[aria-pressed="true"] { background: #7657c8; color: #fff; }
 .tp-range-days button[aria-current="date"][aria-pressed="true"] { box-shadow: inset 0 0 0 3px #bae6fd; }
 .tp-range-days button[aria-current="date"].is-in-range { box-shadow: inset 0 0 0 2px #75c8ed; }
@@ -80,3 +80,9 @@
     .tp-range-months { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .tp-range-days button { height: 44px; }
 }
+.tp-course-preview { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; margin: 12px 0; border: 1px solid #e4dbf2; border-radius: 10px; background: #faf8fd; font-size: 13px; }
+.tp-course-preview > div { min-width: 0; overflow-wrap: anywhere; }
+.tp-course-preview span { color: #71677e; }
+.tp-course-preview strong { display: block; margin: 6px 0; color: #463754; }
+.tp-course-preview p { margin: 4px 0 0; color: #71677e; }
+.tp-course-preview a { color: #6742a8; padding: 8px 0; }

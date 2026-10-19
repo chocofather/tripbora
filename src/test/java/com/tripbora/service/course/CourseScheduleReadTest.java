@@ -26,6 +26,40 @@ class CourseScheduleReadTest {
             mock(CourseCoverStorageService.class), mock(com.tripbora.service.category.CountryCategoryService.class), mock(CourseThemeService.class));
 
     @Test
+    void planTemplateReadsPublicCourseWithoutIncrementingViews() {
+        var detail = new CourseDetailDto(); detail.setTitle("제목");
+        when(mapper.findCourseDetail(10L, null)).thenReturn(detail);
+        var stop = item(50L, 1, null);
+        var day = new CourseDay(); day.setId(50L); day.setDayNumber(1);
+        when(structure.findDays(10L)).thenReturn(List.of(day));
+        when(structure.findCourseStops(10L)).thenReturn(List.of(stop));
+        var country = new com.tripbora.model.CountryCategory(); country.setId(5L); country.setRegionName("일본");
+        when(structure.findCountries(10L)).thenReturn(List.of(country));
+        assertThat(service.getCourseForPlan(10L).getStops()).containsExactly(stop);
+        assertThat(detail.getCountryLabel()).isEqualTo("일본");
+        verify(mapper, never()).incrementViews(anyLong());
+        verify(mapper, never()).findCourseStops(anyLong());
+    }
+
+    @Test
+    void legacyPlanTemplateIsDayOneAndKeepsRepeatedVisits() {
+        when(mapper.findCourseDetail(10L, null)).thenReturn(new CourseDetailDto());
+        var first = item(null, 1, null); first.setName("장소");
+        var second = item(null, 2, null); second.setName("장소");
+        when(mapper.findCourseStops(10L)).thenReturn(List.of(first, second));
+        var template = service.getCourseForPlan(10L);
+        assertThat(template.getDays()).extracting(CourseDayDto::getDayNumber).containsExactly(1);
+        assertThat(template.getDays().get(0).getItems()).containsExactly(first, second);
+    }
+
+    @Test
+    void hiddenOrDeletedPlanTemplateIsRejected() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getCourseForPlan(10L))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verifyNoInteractions(structure);
+    }
+
+    @Test
     void keepsDirectItemsAndSkipsThemWhenChoosingFirstLinkedCover() {
         CourseStopDto direct = item(50L, 1, "/images/default.png");
         direct.setDestinationId(null); direct.setName("직접 숙소"); direct.setItemType("STAY");

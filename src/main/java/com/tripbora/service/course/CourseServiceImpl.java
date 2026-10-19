@@ -104,6 +104,20 @@ public class CourseServiceImpl implements CourseService {
         return prepareDetail(courseId, course, currentUserId, requestedLanguage);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public CourseDetailDto getCourseForPlan(Long courseId) {
+        CourseDetailDto course = courseId == null || courseId <= 0 ? null
+                : courseMapper.findCourseDetail(courseId, null);
+        if (course == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "가져올 여행코스를 찾을 수 없습니다.");
+        }
+        course.setDays(readTransitionDays(courseId, SupportedLanguage.KOREAN));
+        course.setStops(flatten(course.getDays()));
+        course.setCountryNames(readCountryNames(courseId, SupportedLanguage.KOREAN));
+        return course;
+    }
+
     CourseDetailDto prepareDetail(Long courseId, CourseDetailDto course, Long currentUserId,
                                   SupportedLanguage requestedLanguage) {
         course.setContent(postContentSanitizer.sanitize(course.getContent()));

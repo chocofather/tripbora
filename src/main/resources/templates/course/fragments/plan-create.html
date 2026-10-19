@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<dialog th:fragment="planCreate" id="course-plan-dialog" class="course-plan-dialog"
+        aria-labelledby="course-plan-dialog-title" th:data-template-url="@{/travel-plans/course-template(sourceCourseId=${course.id})}"
+        th:data-return-url="@{/courses/{id}(id=${course.id},createPlan=true)}">
+  <header><h2 id="course-plan-dialog-title">이 일정으로 내 여행 만들기</h2>
+    <button type="button" data-course-plan-close aria-label="닫기">×</button></header>
+  <div class="course-plan-source">
+    <strong data-course-plan-title th:text="${course.title}">코스 제목</strong>
+    <p><span data-course-plan-region th:text="${course.countryLabel}"></span>
+      <span data-course-plan-duration th:text="${course.durationLabel}"></span></p>
+  </div>
+  <p class="course-plan-description" data-course-plan-description
+     th:text="|전체 ${course.dayCount}일 일정을 새 여행으로 가져옵니다. 생성 후 자유롭게 수정할 수 있습니다.|"></p>
+  <p class="course-plan-error" data-course-plan-error role="alert"></p>
+  <form th:action="@{/travel-plans}" method="post" data-plan-create data-course-plan-form>
+    <input type="hidden" name="sourceCourseId" th:value="${course.id}">
+    <input type="hidden" name="creationToken">
+    <label for="course-plan-name">여행 이름</label>
+    <input id="course-plan-name" name="title" type="text" maxlength="150" required th:value="${course.title}">
+    <label id="course-plan-dates-label">여행 날짜</label>
+    <input type="hidden" name="startDate" data-range-start>
+    <input type="hidden" name="endDate" data-range-end>
+    <button type="button" class="tp-range-trigger" data-range-open aria-labelledby="course-plan-dates-label" aria-haspopup="dialog">날짜를 선택하세요 ▦</button>
+    <p class="course-plan-field-hint">코스 전체를 담을 수 있는 여행 기간을 선택해 주세요.</p>
+    <label for="course-plan-display-name">함께할 때 쓸 내 이름</label>
+    <input id="course-plan-display-name" name="displayName" type="text" maxlength="50" required placeholder="친구들에게 보여줄 이름">
+    <p class="course-plan-field-hint">일정은 새 여행에 복사되며 원본 코스에는 영향을 주지 않아요.</p>
+    <footer><button type="button" data-course-plan-close>닫기</button>
+      <button type="submit" class="course-plan-submit" disabled>여행 만들기</button></footer>
+  </form>
+</dialog>
+</body></html>

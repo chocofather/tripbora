@@ -11,6 +11,8 @@ import com.tripbora.dto.CourseThemeDto;
 import java.util.List;
 
 public interface CourseService {
+    /** 공개 코스의 일정 복사 전용 조회. 조회수나 원본 코스를 변경하지 않는다. */
+    CourseDetailDto getCourseForPlan(Long courseId);
     List<CourseThemeDto> getCourseThemes();
     List<com.tripbora.model.CountryCategory> getCourseCountries(SupportedLanguage requestedLanguage);
 

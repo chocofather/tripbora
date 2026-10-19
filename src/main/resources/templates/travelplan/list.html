@@ -61,7 +61,7 @@
               </span>
               <span class="travel-plan-card-meta-item">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                <span th:text="${plan.dayCount > 1} ? (${plan.dayCount - 1} + '박 ' + ${plan.dayCount} + '일') : '당일 여행'">2박 3일</span>
+                <span th:text="${plan.dayCount > 1} ? (${plan.dayCount - 1} + '박 ' + ${plan.dayCount} + '일') : '당일'">2박 3일</span>
               </span>
               <span class="travel-plan-card-meta-item">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></svg>
@@ -117,7 +117,7 @@
               </span>
               <span class="travel-plan-card-meta-item" th:if="${dayCount > 0}">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                <span th:text="${dayCount > 1} ? (${dayCount - 1} + '박 ' + ${dayCount} + '일') : '당일 여행'">2박 3일</span>
+                <span th:text="${dayCount > 1} ? (${dayCount - 1} + '박 ' + ${dayCount} + '일') : '당일'">2박 3일</span>
               </span>
               <span class="travel-plan-card-meta-item">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></svg>

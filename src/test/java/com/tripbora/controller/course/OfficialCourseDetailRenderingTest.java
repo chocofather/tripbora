@@ -52,6 +52,9 @@ class OfficialCourseDetailRenderingTest {
         assertThat(document.select(".course-official-badge")).hasSize(1);
         assertThat(document.select(".course-official-badge").text()).isEqualTo("TripBora 추천 코스");
         assertThat(document.select(".course-official-summary").text()).isEqualTo("핵심 일정 소개");
+        assertThat(document.select(".course-summary-header .course-official-summary")).isEmpty();
+        assertThat(document.select(".course-detail-main > .course-summary-description")).hasSize(1);
+        assertThat(document.select(".course-summary-description > h2").text()).isEqualTo("이런 여행이에요");
         assertThat(document.select("meta[name=description]").attr("content")).contains("핵심 일정 소개");
         assertThat(document.select(".course-meta").text()).contains("TripBora");
         assertThat(document.select(".course-hero-image").attr("src")).isEqualTo(course.getRepresentativeImageUrl());
@@ -62,6 +65,10 @@ class OfficialCourseDetailRenderingTest {
         assertThat(document.select(".course-breadcrumb").text()).contains(course.getTitle());
         assertThat(document.select(".course-breadcrumb .course-official-badge")).isEmpty();
         assertThat(html).doesNotContain("개인관리자닉네임", "기존 본문은 노출하지 않음", "/users/1");
+        course.setSummary(null);
+        var withoutSummary = mvc.perform(get("/courses/40")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(Jsoup.parse(withoutSummary).select(".course-summary-description")).isEmpty();
         assertThat(document.select("[data-bookmark-url='/bookmarks/courses/40']")).isNotEmpty();
         assertThat(document.select("#course-comments")).isNotEmpty();
     }

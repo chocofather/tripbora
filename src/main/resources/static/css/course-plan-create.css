@@ -1,0 +1,40 @@
+.course-detail-columns { display: grid; grid-template-columns: minmax(0, 1fr) 350px; align-items: start; gap: 40px; margin-top: 32px; }
+.course-detail-main { min-width: 0; }
+.course-detail-main > .course-summary-description { margin: 0; }
+.course-detail-main > .course-route:first-child { margin-top: 0; }
+.course-detail-columns .course-introduction { margin-top: 0; }
+.course-detail-columns.is-preview { display: block; }
+.course-plan-action { position: sticky; top: 96px; box-sizing: border-box; width: 100%; margin: 0; padding: 24px; border: 1px solid #e5e1eb; border-radius: 16px; background: #fff; overflow-wrap: anywhere; }
+.course-plan-action h2 { margin: 8px 0 12px; font-size: 18px; color: #302937; }
+.course-plan-action p { color: #746d7c; font-size: 13px; line-height: 1.8; }
+.course-plan-action .course-plan-eyebrow { color: #7657a7; font-size: 12px; font-weight: 600; }
+.course-plan-action .course-plan-create { width: 100%; margin: 20px 0 14px; padding: 13px 10px; background: #7657c8; border-color: #7657c8; color: #fff; text-align: center; }
+.course-plan-action .course-plan-create:hover { background: #6749b6; }
+.course-plan-action small { display: block; color: #837c8a; font-size: 11px; line-height: 1.7; }
+.course-plan-dialog { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(480px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 28px; border: 1px solid #e9e5ed; border-radius: 18px; background: #fff; color: #302937; overflow-y: auto; overscroll-behavior: contain; }
+.course-plan-dialog::backdrop { background: rgb(25 20 33 / 40%); }
+.course-plan-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.course-plan-dialog h2 { margin: 0; font-size: 20px; line-height: 1.5; }
+.course-plan-dialog header button { flex-shrink: 0; width: 36px; height: 36px; border: 0; background: transparent; color: #746d7c; font-size: 24px; cursor: pointer; }
+.course-plan-source { padding: 16px; border: 1px solid #e5e1eb; border-radius: 12px; overflow-wrap: anywhere; }
+.course-plan-source strong { font-size: 14px; line-height: 1.7; }
+.course-plan-source p { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0 0; font-size: 12px; color: #746d7c; }
+.course-plan-description { margin: 16px 0; font-size: 13px; line-height: 1.8; color: #746d7c; }
+.course-plan-dialog label { display: block; margin: 18px 0 8px; font-size: 13px; font-weight: 600; }
+.course-plan-dialog input[type="text"], .course-plan-dialog .tp-range-trigger { box-sizing: border-box; width: 100%; min-width: 0; min-height: 46px; padding: 12px; border: 1px solid #ded8e6; border-radius: 9px; background: #fff; color: #302937; font: inherit; font-size: 14px; }
+.course-plan-field-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.7; color: #837c8a; }
+.course-plan-error { color: #ad3c36; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.course-plan-error:empty { display: none; }
+.course-plan-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid #eeeaf2; }
+.course-plan-dialog footer button { border: 0; border-radius: 9px; padding: 12px 18px; font: inherit; font-size: 14px; background: #f4f2f7; color: #655d70; cursor: pointer; }
+.course-plan-dialog footer .course-plan-submit { background: #7657c8; color: #fff; }
+.course-plan-dialog button:disabled { opacity: .55; cursor: wait; }
+.course-plan-dialog :is(button, input):focus-visible { outline: 2px solid #9579cd; outline-offset: 3px; }
+@media (max-width: 1000px) {
+    .course-detail-columns { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .course-plan-action { position: static; }
+}
+@media (max-width: 560px) {
+    .course-plan-dialog { padding: 20px; }
+    .course-plan-dialog h2 { font-size: 18px; }
+}

@@ -138,7 +138,7 @@
           </div>
         </div>
         <dl class="course-meta">
-          <div th:if="${!#strings.isEmpty(course.countryLabel)}"><dt th:text="#{course.detail.meta.countries}">국가</dt><dd th:text="${course.countryLabel}">일본 · 프랑스</dd></div>
+          <div th:if="${!#strings.isEmpty(course.regionSummary)}"><dt th:text="#{course.detail.stop.region}">지역</dt><dd th:text="${course.regionSummary}">지역명</dd></div>
           <div th:if="${course.courseKind == 'OFFICIAL'}"><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd>TripBora</dd></div>
           <!-- 최종 탈퇴 회원은 공개 프로필이 없으므로 링크 없이 공통 문구만 보여준다. -->
           <div th:unless="${course.courseKind == 'OFFICIAL'}"><dt th:text="#{course.detail.meta.writer}">작성자</dt><dd><a
@@ -292,13 +292,31 @@
     </section>
       </div>
       <aside class="course-plan-action" th:unless="${adminPreview == true}" aria-labelledby="course-plan-cta-title">
-        <p class="course-plan-eyebrow" th:text="${course.durationLabel}">3박 4일</p>
-        <h2 id="course-plan-cta-title">이 코스로 떠나 볼까요?</h2>
-        <p>마음에 드는 동선을 가져와 우리만의 여행을 계획해 보세요.</p>
+        <div class="course-plan-brand">
+          <span>TRIPBORA COURSE</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h9a4 4 0 0 1 0 8H8a2 2 0 0 0 0 4h9"/></svg>
+        </div>
+        <h2 id="course-plan-cta-title">이 코스를 내 여행으로</h2>
+        <p class="course-plan-intro">추천 일정을 가져와 나만의 여행으로<br>완성해 보세요.</p>
+        <dl class="course-plan-stats">
+          <div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 11h16m-11 4h2m3 0h2"/></svg>
+            <dt>추천 일정</dt>
+            <dd th:text="${course.durationLabel}">당일</dd>
+          </div>
+          <div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            <dt>방문 여행지</dt>
+            <dd th:text="|${course.stops == null ? 0 : course.stops.size()}곳|">0곳</dd>
+          </div>
+        </dl>
         <a class="course-plan-create" data-course-plan-open
            th:href="@{/travel-plans(sourceCourseId=${course.id})} + '#travel-plan-create'"
-           aria-haspopup="dialog" aria-controls="course-plan-dialog">이 일정으로 여행 만들기</a>
-        <small>가져온 일정은 자유롭게 수정할 수 있어요.</small>
+           aria-haspopup="dialog" aria-controls="course-plan-dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>내 여행계획 만들기</span>
+        </a>
+        <small>코스의 일정을 가져온 뒤 자유롭게 수정할 수 있어요.</small>
       </aside>
       </div>
     </article>

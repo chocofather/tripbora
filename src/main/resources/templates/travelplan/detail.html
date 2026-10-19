@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="/css/travel-plan-chat-images.css">
   <script th:if="${planReadonly != true}" src="/js/travel-plan-datetime-picker.js" defer></script>
   <script th:if="${planReadonly == true}" src="/js/travel-plan-readonly.js" defer></script>
+  <link th:if="${planReadonly == true}" rel="stylesheet" href="/css/travel-plan-management.css">
+  <script th:if="${planReadonly == true}" src="/js/travel-plan-management.js" defer></script>
   <th:block th:if="${planReadonly != true}">
   <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
   <script src="/js/travel-plan-item-types.js" defer></script>
@@ -104,11 +106,12 @@
         </div>
 
         <th:block th:if="${planReadonly == true}">
-          <a class="travel-plan-back-link" th:href="@{/travel-plans}">← 함께 계획하기</a>
-          <span class="travel-plan-final-members" th:text="${#strings.listJoin(travelPlan.members.![displayName], ' · ')}"></span>
-          <form method="post" th:action="@{|/travel-plans/${travelPlan.plan.id}/final/delete|}">
-            <button type="submit" class="travel-plan-final-delete"
-                    onclick="return confirm('이 완료된 여행을 내 목록에서 삭제할까요?\n\n다른 참여자의 기록에는 영향을 주지 않습니다.')">삭제</button>
+          <th:block th:replace="~{travelplan/fragments/final-friends :: finalFriends}"></th:block>
+          <form th:if="${finalViewerIsOwner == true}" method="post"
+                th:action="@{|/travel-plans/${travelPlan.plan.id}/final/delete|}"
+                data-manage-kind="hide" th:data-manage-trip="${travelPlan.plan.title}">
+            <button type="button" class="tp-final-delete" data-plan-manage-open>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>여행 삭제</button>
           </form>
         </th:block>
 
@@ -125,6 +128,9 @@
       </p>
     </div>
 
+    <th:block th:if="${planReadonly == true}">
+      <th:block th:replace="~{travelplan/fragments/manage-dialog :: manageDialog}"></th:block>
+    </th:block>
     <!--
       PC 메인 협업 스케줄러.
       줄은 실제 저장된 travel_plan_items 만큼만 생기고, DAY 끝의 추가 슬롯 하나만 화면용이다.

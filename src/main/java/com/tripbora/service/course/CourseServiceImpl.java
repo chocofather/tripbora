@@ -126,6 +126,7 @@ public class CourseServiceImpl implements CourseService {
         course.setDays(days);
         course.setStops(flatten(days));
         course.setCountryNames(readCountryNames(courseId, requestedLanguage));
+        course.setRegionSummary(CourseCardDisplayLabels.regionSummary(courseMapper.findRegionsByCourseIds(List.of(courseId))));
         course.setThemes(courseThemeService.findByCourseIds(List.of(courseId)).getOrDefault(courseId, List.of()));
         course.setRepresentativeImageUrl(representativeImage(course.getCoverImageUrl(), days));
         boolean official = "OFFICIAL".equals(course.getCourseKind());

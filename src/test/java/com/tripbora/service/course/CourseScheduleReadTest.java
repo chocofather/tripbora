@@ -158,6 +158,30 @@ class CourseScheduleReadTest {
         });
     }
 
+    @Test
+    void detailUsesCatalogRegionRulesForDomesticAndForeignCoursesWithSafeFallback() {
+        prepare(List.of(item(50L, 1, null)));
+        for (String city : List.of("서울", "제주", "오사카")) {
+            var country = new CourseCatalogRegionDto();
+            country.setStopId(1L); country.setRegionId(100L); country.setCountryNode(true);
+            var region = new CourseCatalogRegionDto();
+            region.setStopId(1L); region.setRegionId(200L); region.setParentId(100L); region.setRegionName(city);
+            var rows = List.of(region, country);
+            when(mapper.findRegionsByCourseIds(List.of(10L))).thenReturn(rows);
+            var detail = service.getCourseDetail(10L, null, SupportedLanguage.KOREAN);
+            var card = new CourseCardDto(); card.setRegionSummary(CourseCardDisplayLabels.regionSummary(rows));
+            assertThat(detail.getRegionSummary()).isEqualTo(city).isEqualTo(card.getRegionSummary());
+            detail.setCountryNames(List.of("별도로 조회한 국가"));
+            assertThat(detail.getCountryLabel()).isEqualTo("별도로 조회한 국가");
+            assertThat(detail.getRegionSummary()).isEqualTo(city);
+        }
+        when(mapper.findRegionsByCourseIds(List.of(10L))).thenReturn(List.of());
+        var missing = service.getCourseDetail(10L, null, SupportedLanguage.KOREAN);
+        assertThat(missing.getRegionSummary()).isEmpty();
+        missing.setCountryNames(List.of("기존 국가"));
+        assertThat(missing.getRegionSummary()).isEqualTo("기존 국가");
+    }
+
     private void prepare(List<CourseStopDto> items) {
         CourseDay first = new CourseDay();
         first.setId(50L); first.setDayNumber(1); first.setTitle("서울 도심");

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<dialog th:fragment="manageDialog" class="tp-manage-dialog" data-plan-manage-dialog aria-labelledby="tp-manage-title">
+  <h2 id="tp-manage-title" data-plan-manage-title>여행 삭제</h2>
+  <p class="tp-manage-trip" data-plan-manage-trip></p>
+  <p class="tp-manage-description" data-plan-manage-description></p>
+  <footer><button type="button" data-plan-manage-cancel>취소</button>
+    <button type="button" class="tp-manage-confirm" data-plan-manage-confirm>삭제</button></footer>
+</dialog>
+</body></html>

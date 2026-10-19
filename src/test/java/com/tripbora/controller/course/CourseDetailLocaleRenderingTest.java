@@ -357,19 +357,32 @@ class CourseDetailLocaleRenderingTest {
             day.setItems(i == 1 ? course.getStops() : List.of()); days.add(day);
         }
         course.setDays(days);
+        course.setRegionSummary("오사카");
         when(courseService.getCourseDetail(7L, null, SupportedLanguage.KOREAN)).thenReturn(course);
         String body = mockMvc.perform(get("/courses/7")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         var html = org.jsoup.Jsoup.parse(body);
         assertThat(html.select(".course-detail-columns > .course-plan-action")).hasSize(1);
-        assertThat(html.select("[data-course-plan-open]").text()).isEqualTo("이 일정으로 여행 만들기");
-        assertThat(html.select(".course-plan-eyebrow").text()).isEqualTo("3박 4일");
+        assertThat(html.select("[data-course-plan-open]").text()).isEqualTo("내 여행계획 만들기");
+        assertThat(html.select(".course-plan-brand").text()).isEqualTo("TRIPBORA COURSE");
+        assertThat(html.select(".course-meta > div").first().text()).isEqualTo("지역 오사카");
+        assertThat(html.select("[data-course-plan-open] svg")).hasSize(1);
+        assertThat(html.select(".course-plan-stats dd").eachText())
+                .containsExactly("3박 4일", course.getStops().size() + "곳");
         assertThat(html.select("#course-plan-dialog")).hasSize(1);
         assertThat(html.select("#course-plan-name").val()).isEqualTo(course.getTitle());
         assertThat(html.select("[data-course-plan-form]").attr("action")).isEqualTo("/travel-plans");
         var fixture = java.nio.file.Path.of("build/reports/course-plan-ui/detail-fixture.html");
         java.nio.file.Files.createDirectories(fixture.getParent());
         java.nio.file.Files.writeString(fixture, body, java.nio.charset.StandardCharsets.UTF_8);
+
+        // Empty legacy courses retain the existing single-day fallback and a real zero count.
+        course.setDays(List.of());
+        course.setStops(null);
+        String emptyBody = mockMvc.perform(get("/courses/7")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(org.jsoup.Jsoup.parse(emptyBody).select(".course-plan-stats dd").eachText())
+                .containsExactly("당일", "0곳");
     }
 
     @Test

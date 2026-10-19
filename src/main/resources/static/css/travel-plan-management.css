@@ -1,0 +1,35 @@
+.tp-card-menu { position: absolute; top: 12px; right: 46px; z-index: 2; }
+.tp-card-menu > summary { display: grid; place-items: center; width: 34px; height: 34px; list-style: none; border-radius: 8px; color: #79717f; cursor: pointer; font-size: 22px; }
+.tp-card-menu > summary:hover { background: #f3eff8; color: #7657a7; }
+.tp-card-menu > summary::-webkit-details-marker, .tp-final-friends > summary::-webkit-details-marker { display: none; }
+.tp-card-menu[open] { z-index: 5; }
+.tp-card-menu-panel { position: absolute; top: calc(100% + 4px); right: 0; width: 180px; padding: 5px; border: 1px solid #e6e1eb; border-radius: 10px; background: #fff; box-shadow: 0 4px 12px rgb(30 20 40 / 6%); }
+.tp-card-menu-panel button { width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 6px; background: #fff; color: #655b6c; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+.tp-card-menu-panel button:hover { background: #fff5f5; color: #b34b4b; }
+.tp-final-friends { position: relative; }
+.tp-final-friends > summary, .tp-final-delete { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; box-sizing: border-box; padding: 8px 12px; border: 1px solid #e5e1e9; border-radius: 9px; background: #fff; color: #655d70; font: inherit; font-size: 13px; list-style: none; cursor: pointer; }
+.tp-final-friends > summary > span { color: #7657a7; font-size: 12px; }
+.tp-final-friends svg, .tp-final-delete svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tp-final-delete:hover { border-color: #eac9c9; background: #fff8f8; color: #b34b4b; }
+.tp-final-friends-panel { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; box-sizing: border-box; width: min(300px, calc(100vw - 32px)); max-height: 360px; overflow-y: auto; padding: 16px; border: 1px solid #e5e1e9; border-radius: 12px; background: #fff; box-shadow: 0 4px 14px rgb(30 20 40 / 6%); }
+.tp-final-friends-panel > p { margin: 0 0 12px; font-size: 13px; font-weight: 600; }
+.tp-final-friends-panel ul { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.tp-final-friends-panel li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tp-friend-avatar { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border-radius: 50%; background: #f2edf9; color: #7657a7; font-size: 12px; }
+.tp-friend-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
+.tp-friend-owner { flex-shrink: 0; margin-left: auto; color: #7657a7; font-size: 11px; }
+.tp-manage-dialog { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(420px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid #e5e1e9; border-radius: 16px; background: #fff; color: #39313f; }
+.tp-manage-dialog::backdrop { background: rgb(25 20 33 / 38%); }
+.tp-manage-dialog h2 { margin: 0 0 14px; font-size: 18px; }
+.tp-manage-trip { margin: 0 0 10px; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.tp-manage-description { margin: 0; font-size: 13px; line-height: 1.8; color: #746b7b; }
+.tp-manage-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.tp-manage-dialog button { min-height: 40px; padding: 9px 14px; border: 1px solid #e5e1e9; border-radius: 8px; background: #fff; color: #655d70; font: inherit; font-size: 13px; cursor: pointer; }
+.tp-manage-dialog .tp-manage-confirm { background: #8f4850; border-color: #8f4850; color: #fff; }
+.tp-manage-dialog button:disabled { opacity: .6; cursor: wait; }
+.tp-manage-dialog button:focus-visible, [data-plan-popover] > summary:focus-visible, .tp-final-delete:focus-visible { outline: 2px solid #9579cd; outline-offset: 3px; }
+@media (max-width: 600px) {
+    .tp-card-menu { top: 6px; right: 36px; }
+    .tp-card-menu > summary { width: 44px; height: 44px; }
+    .tp-final-friends > summary, .tp-final-delete { min-height: 40px; padding: 8px 10px; }
+}

@@ -575,4 +575,46 @@
         WHERE id = #{id} AND course_kind = 'OFFICIAL' AND deleted = 0
     </update>
 
+    <!-- 목록과 상세가 같은 linked STOP 경로 및 국가 경계를 사용한다. -->
+    <sql id="CourseRegionPaths">
+        WITH RECURSIVE region_paths AS (
+            SELECT stop.course_id, stop.day_number, stop.display_order, stop.stop_id,
+                   region.id AS region_id, region.parent_id, region.code AS region_code,
+                   region.region_name
+            FROM (<include refid="com.tripbora.repository.course.CourseMapper.HomeCourseStopSource"/>) stop
+            JOIN destinations destination ON destination.id = stop.destination_id
+            JOIN country_categories region ON region.id = destination.region_id
+            WHERE stop.course_id IN
+            <foreach collection="courseIds" item="courseId" open="(" separator="," close=")">#{courseId}</foreach>
+
+            UNION ALL
+
+            SELECT path.course_id, path.day_number, path.display_order, path.stop_id,
+                   parent.id, parent.parent_id, parent.code, parent.region_name
+            FROM region_paths path
+            JOIN country_categories parent ON parent.id = path.parent_id
+        )
+        SELECT path.course_id, path.stop_id, path.region_id, path.parent_id, path.region_code, path.region_name,
+               CASE WHEN NULLIF(TRIM(path.region_code), '') IS NOT NULL
+                         AND path.region_code NOT LIKE '%-%'
+                         AND (
+                             (path.parent_id IS NOT NULL AND ancestor_parent.id IS NOT NULL
+                              AND ancestor_parent.parent_id IS NULL)
+                             OR (
+                                 path.parent_id IS NULL AND EXISTS (
+                                     SELECT 1 FROM country_categories country_child
+                                     WHERE country_child.parent_id = path.region_id
+                                       AND country_child.code LIKE CONCAT(path.region_code, '-%')
+                                 )
+                             )
+                         )
+                    THEN 1 ELSE 0 END AS country_node
+        FROM region_paths path
+        LEFT JOIN country_categories ancestor_parent ON ancestor_parent.id = path.parent_id
+        ORDER BY course_id, day_number, display_order, stop_id
+    </sql>
+
+    <select id="findRegionsByCourseIds" resultType="com.tripbora.dto.CourseCatalogRegionDto">
+        <include refid="CourseRegionPaths"/>
+    </select>
 </mapper>

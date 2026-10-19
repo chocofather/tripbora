@@ -74,6 +74,16 @@ class CourseCatalogMapperContractTest {
     }
 
     private String sql(String id, Map<String, Object> overrides) throws Exception {
+        return statementSql("com.tripbora.repository.course.CourseCatalogMapper." + id, overrides);
+    }
+
+    @Test
+    void detailAndCatalogResolveExactlyTheSameRegionQuery() throws Exception {
+        assertThat(statementSql("com.tripbora.repository.course.CourseMapper.findRegionsByCourseIds", Map.of()))
+                .isEqualTo(sql("findRegionsByCourseIds", Map.of()));
+    }
+
+    private String statementSql(String statement, Map<String, Object> overrides) throws Exception {
         Configuration configuration = new Configuration();
         for (String path : List.of("mapper/CourseMapper.xml", "mapper/CourseCatalogMapper.xml")) {
             try (InputStream input = getClass().getClassLoader().getResourceAsStream(path)) {
@@ -85,7 +95,7 @@ class CourseCatalogMapperContractTest {
         values.put("kind", "ALL"); values.put("countryId", null); values.put("themeId", null);
         values.put("sort", "latest"); values.put("limit", 12); values.put("offset", 12);
         values.put("courseIds", List.of(10L, 20L)); values.putAll(overrides);
-        return configuration.getMappedStatement("com.tripbora.repository.course.CourseCatalogMapper." + id)
+        return configuration.getMappedStatement(statement)
                 .getBoundSql(values).getSql().replaceAll("\\s+", " ").trim();
     }
 }

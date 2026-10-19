@@ -9,6 +9,7 @@ import com.tripbora.dto.TravelPlanListItemDto;
 import com.tripbora.dto.TravelPlanListPageDto;
 import com.tripbora.dto.TravelPlanMembersDto;
 import com.tripbora.model.TravelPlanDay;
+import com.tripbora.model.TravelPlanRole;
 import com.tripbora.service.travelplan.TravelPlanAccessNotice;
 import com.tripbora.service.travelplan.TravelPlanConflictException;
 import com.tripbora.service.travelplan.TravelPlanDeleteService;
@@ -240,6 +241,9 @@ public class TravelPlanController {
             var finalPlan = travelPlanFinalReadService.getCompletedPlanDetail(
                     userDetails.getId(), travelPlanId);
             model.addAttribute("travelPlan", finalPlan.toPlannerDetail());
+            model.addAttribute("finalViewerIsOwner", finalPlan.getMembers().stream().anyMatch(member ->
+                    userDetails.getId().equals(member.getUserId())
+                            && member.getRole() == TravelPlanRole.OWNER));
             model.addAttribute("planReadonly", true);
         } catch (ResponseStatusException exception) {
             // 여기서도 흰 오류 화면을 보여 주지 않는다.

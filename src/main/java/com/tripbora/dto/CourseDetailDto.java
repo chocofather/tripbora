@@ -24,6 +24,7 @@ public class CourseDetailDto {
     private List<CourseStopDto> stops;
     private List<CourseDayDto> days;
     private List<String> countryNames;
+    private String regionSummary;
     private List<CourseThemeDto> themes = List.of();
     private String coverImageUrl;
     private String representativeImageUrl;
@@ -33,6 +34,10 @@ public class CourseDetailDto {
 
     public String getCountryLabel() {
         return CourseCountryLabel.of(countryNames);
+    }
+
+    public String getRegionSummary() {
+        return regionSummary == null || regionSummary.isBlank() ? getCountryLabel() : regionSummary;
     }
 
     public int getDayCount() {

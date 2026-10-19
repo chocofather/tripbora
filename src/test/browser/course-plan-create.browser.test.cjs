@@ -69,6 +69,14 @@ test('rendered course CTA, modal, nested range, errors and creation work across 
         await evaluate(`window.api={exports:{}};new Function('module','document',${JSON.stringify(script)})(api,undefined);
             api.exports.mount({querySelector:s=>document.querySelector(s),body:document.body,defaultView:{addEventListener:window.addEventListener.bind(window),location:{search:'',assign:url=>window.assignedUrl=url}}});`);
         assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false,`${width}: page overflow`);
+        assert.deepEqual(await evaluate('[...document.querySelectorAll(".course-plan-stats dd")].map(node=>node.textContent)'),['3박 4일','2곳']);
+        const stats=await evaluate(`(()=>{const nodes=[...document.querySelectorAll('.course-plan-stats > div')].map(node=>node.getBoundingClientRect());const button=document.querySelector('[data-course-plan-open]').getBoundingClientRect();return {equal:Math.abs(nodes[0].width-nodes[1].width)<1,sameRow:nodes[0].top===nodes[1].top,overflow:nodes.some(node=>node.right>innerWidth),buttonHeight:button.height}})()`);
+        assert.equal(stats.equal,true);assert.equal(stats.sameRow,true);assert.equal(stats.overflow,false);assert.ok(stats.buttonHeight>=48);
+        assert.equal(await evaluate('document.querySelector(".course-meta > div dd").textContent'),'오사카');
+        const buttonContent=await evaluate(`(()=>{const button=document.querySelector('[data-course-plan-open]'),icon=button.querySelector('svg').getBoundingClientRect(),text=button.querySelector('span').getBoundingClientRect(),bounds=button.getBoundingClientRect();return {icons:button.querySelectorAll('svg').length,centerOffset:Math.abs((icon.left+text.right)/2-(bounds.left+bounds.right)/2),position:getComputedStyle(document.querySelector('.course-plan-action')).position}})()`);
+        assert.equal(buttonContent.icons,1);assert.ok(buttonContent.centerOffset<1);assert.equal(buttonContent.position,'static');
+        const scrolling=await evaluate(`(()=>{const cta=document.querySelector('.course-plan-action');window.scrollTo(0,cta.getBoundingClientRect().top+scrollY-110);const before=cta.getBoundingClientRect().top;const start=scrollY;window.scrollBy(0,120);const moved=scrollY-start;const delta=before-cta.getBoundingClientRect().top;window.scrollTo(0,0);return {delta,moved}})()`);
+        assert.ok(scrolling.moved>0);assert.ok(Math.abs(scrolling.delta-scrolling.moved)<1,'CTA scrolls with normal page content');
         const layout=await evaluate(`(()=>{const summary=document.querySelector('.course-official-summary'),hero=document.querySelector('.course-hero'),main=document.querySelector('.course-detail-main'),cta=document.querySelector('.course-plan-action'),route=document.querySelector('.course-route');return {summaryTop:summary.getBoundingClientRect().top,heroBottom:hero.getBoundingClientRect().bottom,mainTop:main.getBoundingClientRect().top,ctaTop:cta.getBoundingClientRect().top,ctaWidth:cta.getBoundingClientRect().width,headerSummary:!!document.querySelector('.course-summary-header .course-official-summary'),routeBorder:getComputedStyle(route).borderTopWidth}})()`);
         assert.ok(layout.summaryTop>=layout.heroBottom); assert.equal(layout.headerSummary,false); assert.equal(layout.routeBorder,'0px');
         if(width>1000) {assert.equal(layout.ctaWidth,350);assert.ok(Math.abs(layout.mainTop-layout.ctaTop)<1);}
@@ -88,7 +96,7 @@ test('rendered course CTA, modal, nested range, errors and creation work across 
         if(width>1000) assert.ok(bounds.a.x>bounds.m.right,'desktop CTA occupies right column');
         else assert.ok(bounds.a.y>=bounds.m.bottom,'mobile CTA follows the main content');
         if(process.env.TRIPBORA_CAPTURE_UI && [1440,1280,768,390].includes(width)) {
-            await evaluate('window.scrollTo(0,document.querySelector(".course-detail-columns").getBoundingClientRect().top+scrollY-160)');await settle();
+            await evaluate(`window.scrollTo(0,document.querySelector(${JSON.stringify(width > 1000 ? '.course-detail-columns' : '.course-plan-action')}).getBoundingClientRect().top+scrollY-160)`);await settle();
             fs.writeFileSync(path.join(root,`build/reports/course-plan-ui/cta-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
             await evaluate('window.scrollTo(0,0)');await settle();
         }

@@ -593,6 +593,10 @@ class TravelPlanMemberListContractTest {
      * 참여자·초대·일정은 지금도 그 자리에서 다룬다.
      */
     private String outsideThePollModal(String detail) {
+        // 공용 템플릿의 확정본 전용 조각은 계획 중 참여자 UI의 계약에 포함하지 않는다.
+        var activeDetail = org.jsoup.Jsoup.parse(detail);
+        activeDetail.getElementsByAttributeValue("th:if", "${planReadonly == true}").remove();
+        detail = activeDetail.outerHtml();
         // 확정 확인 창은 방장 전용 조각으로 옮겨 가 여기에는 투표 센터만 남았다
         int pollStart = detail.indexOf("class=\"travel-plan-poll-modal\"");
         assertThat(pollStart).as("투표 센터 창").isGreaterThanOrEqualTo(0);

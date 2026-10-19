@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 함께 계획하기 목록 화면.
  *
- * <p>진행 중인 여행과 완료된 여행이 한 화면에 위아래로 늘 함께 있다.
+ * <p>진행 중·완료·전체를 같은 그리드에서 전환한다.
  * 쪽을 나누는 것은 계속 쌓이는 완료된 여행뿐이다.
  */
 class TravelPlanListUiContractTest {
@@ -23,12 +23,13 @@ class TravelPlanListUiContractTest {
         String list = listHtml();
 
         assertThat(list)
-                .contains("진행 중인 여행")
-                .contains("완료된 여행")
+                .contains("data-plan-filter=\"active\"")
+                .contains("data-plan-filter=\"completed\"")
+                .contains("data-plan-filter=\"all\"")
                 .contains("th:each=\"plan : ${travelPlans}\"")
                 .contains("th:each=\"plan : ${completedTravelPlans}\"");
         // 어느 쪽도 다른 쪽에 가려지지 않는다
-        assertThat(list).doesNotContain("travel-plan-tabs").doesNotContain("status=");
+        assertThat(list).contains("data-plan-grid").doesNotContain("travel-plan-section-title");
     }
 
     @Test
@@ -47,9 +48,8 @@ class TravelPlanListUiContractTest {
         // 목록이 비어도 구역과 제목은 그대로 있고 한 줄만 적힌다
         assertThat(list)
                 .contains("th:if=\"${#lists.isEmpty(travelPlans)}\"")
-                .contains("아직 함께 계획 중인 여행이 없어요.")
-                .contains("th:if=\"${#lists.isEmpty(completedTravelPlans)}\"")
-                .contains("완료된 여행이 아직 없어요.");
+                .contains("진행 중인 여행이 없어요.");
+        assertThat(resource("/static/js/travel-plan-list.js")).contains("아직 완료된 여행이 없어요.");
     }
 
     // ── 쪽 이동 ─────────────────────────────────────────────
@@ -62,8 +62,9 @@ class TravelPlanListUiContractTest {
                 "class=\"travel-plan-pagination\""
                         + " th:if=\"${travelPlanPage.completedTotalPages > 1}\"");
         // 쪽 이동은 완료된 여행 구역 안에만 있다
-        assertThat(list.indexOf("id=\"travel-plan-completed-title\""))
+        assertThat(list.indexOf("data-plan-grid"))
                 .isLessThan(list.indexOf("class=\"travel-plan-pagination\""));
+        assertThat(list).contains("data-completed-pagination hidden");
     }
 
     @Test
@@ -75,7 +76,7 @@ class TravelPlanListUiContractTest {
                 .contains("completedPage=${travelPlanPage.completedPage - 1}")
                 .contains("completedPage=${travelPlanPage.completedPage + 1}");
         // 쪽을 옮긴 뒤 완료된 여행 구역으로 바로 돌아온다
-        assertThat(pager).contains("'#travel-plan-completed'");
+        assertThat(pager).contains("'#tp-trips-panel'");
     }
 
     // ── 상단 / 카드 ─────────────────────────────────────────

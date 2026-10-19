@@ -778,7 +778,7 @@ class TravelPlanControllerTest {
                 .contains("data-planner-calendar")
                 .contains("data-dashboard-readonly")
                 // 함께한 사람은 큰 상자가 아니라 한 줄이다
-                .contains("민준 · 소희 · 초코");
+                .contains("함께한 친구", "민준", "소희", "초코");
         // 고칠 수 있는 것은 하나도 없다
         assertThat(body)
                 .doesNotContain("data-travel-plan-slot")
@@ -984,7 +984,7 @@ class TravelPlanControllerTest {
     // ── 한 화면에 놓인 두 구역 ──────────────────────────────
 
     @Test
-    void bothListsAreOnTheScreenAtOnceWithoutTabs() throws Exception {
+    void bothListsUseTheSameTabbedDashboard() throws Exception {
         TravelPlanListItemDto running = new TravelPlanListItemDto();
         running.setTravelPlanId(42L);
         running.setTitle("제주 여행");
@@ -1011,9 +1011,8 @@ class TravelPlanControllerTest {
                 .andExpect(content().string(org.hamcrest.Matchers.allOf(
                         org.hamcrest.Matchers.containsString("제주 여행"),
                         org.hamcrest.Matchers.containsString("부산 여행"),
-                        org.hamcrest.Matchers.containsString("진행 중인 여행"),
-                        org.hamcrest.Matchers.not(
-                                org.hamcrest.Matchers.containsString("travel-plan-tabs")))));
+                        org.hamcrest.Matchers.containsString("data-plan-filter=\"active\""),
+                        org.hamcrest.Matchers.containsString("data-plan-filter=\"completed\""))));
     }
 
     @Test
@@ -1073,7 +1072,7 @@ class TravelPlanControllerTest {
                 .andExpect(model().attribute("travelPlanPage", listPage(0, 20, 2, 3)))
                 // 쪽 이동 주소에는 완료된 여행의 쪽 번호만 붙는다
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/travel-plans?completedPage=3#travel-plan-completed")));
+                        "/travel-plans?completedPage=3#tp-trips-panel")));
 
         // 전부 읽어 와서 자르지 않는다. 건너뛸 만큼을 DB 에 알려 준다
         verify(travelPlanFinalReadService).getCompletedPlans(7L, 8, 8);
@@ -1134,6 +1133,66 @@ class TravelPlanControllerTest {
                 java.util.Map.of(), java.util.Map.of());
     }
 
+    @Test
+    void listMenusFollowActiveAndSnapshotRolesWithoutNestedControls() throws Exception {
+        var owner = new TravelPlanListItemDto(); owner.setTravelPlanId(42L); owner.setTitle("오사카 여행"); owner.setRole(TravelPlanRole.OWNER);
+        owner.setStartDate(LocalDate.parse(START)); owner.setEndDate(LocalDate.parse(END)); owner.setMemberCount(3);
+        var participant = new TravelPlanListItemDto(); participant.setTravelPlanId(43L); participant.setTitle("아주 긴 여행 제목으로 함께 떠나는 가을 여행 ".repeat(3)); participant.setRole(TravelPlanRole.MEMBER);
+        participant.setStartDate(LocalDate.parse(START)); participant.setEndDate(LocalDate.parse(END)); participant.setMemberCount(2);
+        var completed = new com.tripbora.dto.TravelPlanFinalListItemDto(); completed.setTravelPlanId(44L); completed.setTitle("완료된 여행"); completed.setRole(TravelPlanRole.MEMBER);
+        completed.setStartDate(LocalDate.parse(START)); completed.setEndDate(LocalDate.parse(END)); completed.setMemberCount(2);
+        when(travelPlanService.getActivePlans(7L)).thenReturn(List.of(owner, participant));
+        when(travelPlanFinalReadService.countCompletedPlans(7L)).thenReturn(1);
+        when(travelPlanFinalReadService.getCompletedPlans(7L, 0, 8)).thenReturn(List.of(completed));
+        var html = mockMvc.perform(get("/travel-plans").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        assertThat(doc.select(".tp-card-menu form").eachAttr("action")).containsExactly(
+                "/travel-plans/42/delete", "/travel-plans/43/members/leave", "/travel-plans/44/final/delete");
+        assertThat(doc.select(".tp-card-menu button").eachText()).containsExactly("여행 삭제", "여행에서 나가기", "내 목록에서 삭제");
+        assertThat(doc.select(".travel-plan-card-link button, .travel-plan-card-link form")).isEmpty();
+        assertThat(doc.select(".is-completed .travel-plan-card-role").text()).isEqualTo("참여자");
+        assertThat(doc.select("[data-plan-filter]").eachText()).containsExactly("진행 중 2", "완료 1", "전체 3");
+        assertThat(doc.select("[data-plan-grid]")).hasSize(1);
+        assertThat(doc.select("[data-plan-status=completed][hidden]")).hasSize(1);
+        var dir = java.nio.file.Path.of("build/reports/travel-plan-management-ui");
+        java.nio.file.Files.createDirectories(dir); java.nio.file.Files.writeString(dir.resolve("list-fixture.html"), html);
+        var completedPage = new java.util.ArrayList<com.tripbora.dto.TravelPlanFinalListItemDto>();
+        for (int index = 0; index < 9; index++) {
+            var row = new com.tripbora.dto.TravelPlanFinalListItemDto();
+            org.springframework.beans.BeanUtils.copyProperties(completed, row);
+            row.setTravelPlanId(44L + index); row.setTitle("완료 여행 " + (index + 1)); completedPage.add(row);
+        }
+        when(travelPlanFinalReadService.countCompletedPlans(7L)).thenReturn(9);
+        when(travelPlanFinalReadService.getCompletedPlans(7L, 0, 8)).thenReturn(completedPage.subList(0, 8));
+        when(travelPlanFinalReadService.getCompletedPlans(7L, 8, 8)).thenReturn(completedPage.subList(8, 9));
+        for (int page = 1; page <= 2; page++) {
+            var pagedHtml = mockMvc.perform(get("/travel-plans?completedPage=" + page).with(user(member())))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            java.nio.file.Files.writeString(dir.resolve("paged-" + page + "-fixture.html"), pagedHtml);
+        }
+    }
+
+    @Test
+    void finishedToolbarUsesSnapshotRolesAndReadOnlyFriends() throws Exception {
+        var completed = finalDetailWithMembers("방장", "이름이아주긴참여자이름이아주긴참여자");
+        when(travelPlanFinalReadService.getCompletedPlanDetail(7L, 42L)).thenReturn(completed);
+        when(travelPlanFinalReadService.getCompletedPlanDetail(8L, 42L)).thenReturn(completed);
+        var ownerHtml = mockMvc.perform(get("/travel-plans/42/final").with(user(member())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var ownerDoc = org.jsoup.Jsoup.parse(ownerHtml);
+        assertThat(ownerDoc.select(".travel-plan-back-link")).isEmpty();
+        assertThat(ownerDoc.select(".tp-final-friends summary").text()).contains("함께한 친구", "2명");
+        assertThat(ownerDoc.select(".tp-final-friends-panel li")).hasSize(2);
+        assertThat(ownerDoc.select("[data-plan-manage-open]").text()).isEqualTo("여행 삭제");
+        var memberHtml = mockMvc.perform(get("/travel-plans/42/final").with(user(plainMember())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(org.jsoup.Jsoup.parse(memberHtml).select("[data-plan-manage-open]")).isEmpty();
+        var dir = java.nio.file.Path.of("build/reports/travel-plan-management-ui");
+        java.nio.file.Files.createDirectories(dir);
+        java.nio.file.Files.writeString(dir.resolve("final-fixture.html"), ownerHtml);
+    }
+
     /** 함께한 사람과 하루치 일정이 들어 있는 최종본. 화면이 실제로 그려지는지 본다. */
     private com.tripbora.dto.TravelPlanFinalDetailDto finalDetailWithMembers(
             String... displayNames) {
@@ -1151,6 +1210,8 @@ class TravelPlanControllerTest {
             com.tripbora.model.TravelPlanFinalMember member =
                     new com.tripbora.model.TravelPlanFinalMember();
             member.setDisplayName(displayName);
+            member.setUserId(7L + members.size());
+            member.setRole(members.isEmpty() ? TravelPlanRole.OWNER : TravelPlanRole.MEMBER);
             members.add(member);
         }
 

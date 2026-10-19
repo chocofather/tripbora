@@ -50,6 +50,14 @@ class TravelPlanMemberControllerTest {
     private UserMapper userMapper;
 
     @Test
+    void leavingIgnoresForgedUserAndMemberIdentifiers() throws Exception {
+        mockMvc.perform(post("/travel-plans/42/members/leave").with(user(member())).with(csrf())
+                        .param("userId", "999").param("memberId", "888").param("targetMemberId", "777"))
+                .andExpect(redirectedUrl("/travel-plans"));
+        verify(travelPlanMemberService).leave(7L, 42L);
+    }
+
+    @Test
     void leavingSendsTheUserBackToTheRoomList() throws Exception {
         mockMvc.perform(post("/travel-plans/42/members/leave")
                         .with(user(member())).with(csrf()))

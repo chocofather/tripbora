@@ -133,7 +133,7 @@
                s.start_date,
                s.end_date,
                s.representative_image_url,
-               s.finalized_at,
+               s.finalized_at, m.role AS role,
                (SELECT COUNT(*)
                 FROM travel_plan_final_members c
                 WHERE c.snapshot_id = s.id) AS member_count

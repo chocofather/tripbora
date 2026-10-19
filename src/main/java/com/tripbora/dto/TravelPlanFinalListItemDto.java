@@ -2,6 +2,7 @@ package com.tripbora.dto;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.tripbora.model.TravelPlanRole;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -25,5 +26,7 @@ public class TravelPlanFinalListItemDto {
     private LocalDate endDate;
     private String representativeImageUrl;
     private int memberCount;
+    /** 완료 시점에 저장된 현재 사용자의 역할. */
+    private TravelPlanRole role;
     private Timestamp finalizedAt;
 }

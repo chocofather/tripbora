@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<details th:fragment="listMenu(plan, completed)" class="tp-card-menu" data-plan-popover
+         th:if="${completed or plan.role != null}"
+         th:with="owner=${plan.role != null and plan.role.name() == 'OWNER'}">
+  <summary th:aria-label="|${plan.title} 관리|">⋯</summary>
+  <div class="tp-card-menu-panel">
+    <form method="post"
+          th:action="${completed} ? @{|/travel-plans/${plan.travelPlanId}/final/delete|} : (${owner} ? @{|/travel-plans/${plan.travelPlanId}/delete|} : @{|/travel-plans/${plan.travelPlanId}/members/leave|})"
+          th:data-manage-kind="${completed ? 'hide' : (owner ? 'delete' : 'leave')}"
+          th:data-manage-trip="${plan.title}">
+      <button type="button" data-plan-manage-open
+              th:text="${completed ? '내 목록에서 삭제' : (owner ? '여행 삭제' : '여행에서 나가기')}">여행 삭제</button>
+    </form>
+  </div>
+</details>
+</body></html>

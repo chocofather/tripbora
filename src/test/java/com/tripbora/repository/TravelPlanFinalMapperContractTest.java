@@ -18,6 +18,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TravelPlanFinalMapperContractTest {
 
     @Test
+    void completedListRoleComesFromTheViewingUsersSnapshotMembership() throws IOException {
+        String select = between(mapperXml(), "<select id=\"findSnapshotsByUserId\"", "</select>");
+        assertThat(select).contains("m.role AS role", "m.user_id = #{userId}", "m.hidden_at IS NULL");
+        assertThat(select).doesNotContain("JOIN travel_plan_members ");
+    }
+
+    @Test
     void everyDeclaredMapperMethodHasAStatement() throws IOException {
         String mapper = mapperXml();
         String mapperInterface = Files.readString(

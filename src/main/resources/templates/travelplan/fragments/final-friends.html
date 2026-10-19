@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<details th:fragment="finalFriends" class="tp-final-friends" data-plan-popover>
+  <summary aria-label="함께한 친구 목록">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></svg>
+    함께한 친구 <span th:text="|${travelPlan.memberCount}명|">3명</span>
+  </summary>
+  <div class="tp-final-friends-panel">
+    <p th:text="|함께한 친구 ${travelPlan.memberCount}명|">함께한 친구 3명</p>
+    <ul><li th:each="member : ${travelPlan.members}">
+      <span class="tp-friend-avatar" aria-hidden="true" th:text="${#strings.isEmpty(member.displayName) ? '?' : #strings.substring(member.displayName, 0, 1)}">민</span>
+      <span class="tp-friend-name" th:text="${member.displayName}">민준</span>
+      <span class="tp-friend-owner" th:if="${member.role != null and member.role.name() == 'OWNER'}">방장</span>
+    </li></ul>
+  </div>
+</details>
+</body></html>

@@ -76,7 +76,9 @@ test('inline creation and two-month date range work in Chrome without overflow',
         const html=`<!doctype html><html><head><meta charset="utf-8"><style>${css}\n${read('static/css/course-detail.css')}</style></head><body><main><div class="course-detail-container">${action}</div>${list}</main></body></html>`;
         await send('Page.setDocumentContent',{frameId:(await send('Page.getFrameTree')).frameTree.frame.id,html});
         await evaluate(read('static/js/travel-plan-date-range.js'));
+        await evaluate(read('static/js/travel-plan-list.js'));
         await evaluate(`document.dispatchEvent(new Event('DOMContentLoaded'))`);
+        await click('[data-plan-filter="all"]');
         await evaluate(`document.querySelector('.tp-course-preview strong').textContent='제주에서 시작하는 아주 긴 여행코스 이름 '.repeat(12);document.querySelector('.tp-course-preview p').textContent='여행지 5곳 · 2일 코스';document.querySelector('[name=sourceCourseId]').value='9';document.querySelector('[name=creationToken]').value='form-token';document.querySelector('[name=title]').value='코스 제목';`);
         assert.equal(await evaluate(`document.querySelector('.course-plan-create').getAttribute('href')`), '/travel-plans?sourceCourseId=9#travel-plan-create');
         assert.equal(await evaluate(`document.querySelector('[name=title]').readOnly`),false);
@@ -85,11 +87,12 @@ test('inline creation and two-month date range work in Chrome without overflow',
         assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
         const cards=await evaluate(`[...document.querySelectorAll('.travel-plan-card-link')].map(a=>{const r=a.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,href:a.getAttribute('href'),chevron:!!a.querySelector('.travel-plan-card-chevron')}})`);
         assert.equal(cards.length,7);
-        assert.ok(cards.every(c=>c.x===cards[0].x && c.width===cards[0].width && c.chevron));
-        assert.ok(cards[1].y>=cards[0].y+cards[0].height+10, 'one-column rows with spacing');
+        assert.ok(cards.every(c=>Math.abs(c.width-cards[0].width)<1 && c.chevron));
+        if(width>740) assert.ok(cards[1].x>cards[0].x && cards[1].y===cards[0].y, 'two-column dashboard');
+        else assert.ok(cards[1].y>=cards[0].y+cards[0].height+14, 'one-column mobile grid');
         assert.equal(cards[0].href,'/travel-plans/42');
         assert.equal(cards.at(-1).href,'/travel-plans/42/final');
-        if(width>=1280) assert.ok(cards.every(c=>c.height>=90 && c.height<=110), 'compact desktop cards');
+        if(width>=1280) assert.ok(cards.every(c=>c.height>=120 && c.height<=180), 'readable dashboard cards');
         if(process.env.TRIPBORA_CAPTURE_UI && [1440,390].includes(width)) {
             const dir=path.join(root,'build/reports/travel-plan-ui');fs.mkdirSync(dir,{recursive:true});
             fs.writeFileSync(path.join(dir,`list-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
@@ -143,7 +146,7 @@ test('inline creation and two-month date range work in Chrome without overflow',
         await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
         assert.equal(await evaluate('document.querySelector("[data-range-start]").value'), '');
         assert.equal(await evaluate('document.querySelector("[data-range-end]").value'), '');
-        t.diagnostic(`${width}px: actual one-column cards, routes, centered/scrolled/short dialog, two months, today, range commit/cancel/clear, Escape focus, fields and overflow passed`);
+        t.diagnostic(`${width}px: responsive dashboard grid, routes, centered/scrolled/short dialog, two months, today, range commit/cancel/clear, Escape focus, fields and overflow passed`);
         const owner=read('templates/travelplan/fragments/owner-actions.html');
         const invite=owner.slice(owner.indexOf('<div class="travel-plan-invite"'),owner.indexOf('    <!--\n      방을 통째로'));
         const inviteCss=['travel-plan.css','travel-plan-planner.css','travel-plan-invite.css'].map(f=>read('static/css/'+f)).join('\n');

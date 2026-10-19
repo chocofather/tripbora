@@ -30,9 +30,7 @@ class TravelPlanFinalUiContractTest {
                 // 끝난 여행이라는 것을 한눈에 알 수 있게
                 .contains("travel-plan-card-completed");
         // 진행 중 아래 자기 구역에 놓인다. 한 목록에 섞이지 않는다
-        assertThat(list.indexOf("id=\"travel-plan-active-title\""))
-                .as("진행 중이 먼저다")
-                .isLessThan(list.indexOf("id=\"travel-plan-completed-title\""));
+        assertThat(list).contains("data-plan-filter=\"active\"", "data-plan-filter=\"completed\"");
     }
 
     @Test
@@ -40,9 +38,7 @@ class TravelPlanFinalUiContractTest {
         String list = listHtml();
 
         // 한 건도 없어도 구역은 남고 짧은 한 줄만 적힌다
-        assertThat(list)
-                .contains("th:if=\"${#lists.isEmpty(completedTravelPlans)}\"")
-                .contains("완료된 여행이 아직 없어요.");
+        assertThat(resource("/static/js/travel-plan-list.js")).contains("아직 완료된 여행이 없어요.");
     }
 
     @Test
@@ -58,7 +54,7 @@ class TravelPlanFinalUiContractTest {
                 .contains("plan.memberCount")
                 .contains(">완료</span>");
         // 목록에서 일정까지 펼치지 않는다
-        assertThat(card).doesNotContain("item").doesNotContain("day");
+        assertThat(card).doesNotContain("data-travel-plan-item", "data-travel-plan-slot", "th:each=\"day :");
     }
 
     @Test

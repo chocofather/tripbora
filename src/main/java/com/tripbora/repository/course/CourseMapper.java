@@ -18,6 +18,8 @@ import java.util.List;
 @Mapper
 public interface CourseMapper {
 
+    List<com.tripbora.dto.CourseCatalogRegionDto> findRegionsByCourseIds(@Param("courseIds") List<Long> courseIds);
+
     List<OfficialCourseListDto> findOfficialCourses(@Param("keyword") String keyword,
             @Param("status") String status, @Param("limit") int limit, @Param("offset") int offset);
     int countOfficialCourses(@Param("keyword") String keyword, @Param("status") String status);

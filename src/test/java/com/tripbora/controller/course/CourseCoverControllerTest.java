@@ -82,7 +82,7 @@ class CourseCoverControllerTest {
             assertThat(doc.select("[data-cover-preview][hidden]")).hasSize(1);
             assertThat(doc.select("button[data-cover-select]").text()).isEqualTo("이미지 선택");
             assertThat(doc.select("input[name=coverImage][accept='image/jpeg,image/png,image/webp']")).hasSize(1);
-            assertThat(doc.select("script[src='/js/course-cover.js']")).hasSize(1);
+            assertThat(doc.select("script[src^='/js/course-cover-'][src$='.js']")).hasSize(1);
             if (url.endsWith("edit")) assertThat(doc.selectFirst("[data-course-cover]").attr("data-existing-cover"))
                     .isEqualTo(edit.getCoverImageUrl());
         }

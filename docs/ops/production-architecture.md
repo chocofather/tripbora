@@ -206,3 +206,46 @@ docker port tripbora-dev-mysql                # (개발) 예상: 3306/tcp -> 127
   - Cloudflare Tunnel connector
   - DB 접근 방식
   - DBeaver 접근 방식
+
+---
+
+## 10. 배포 CSS/JS와 CDN 캐시
+
+- `WebConfig`의 Spring `VersionResourceResolver`가 파일 내용으로 해시 경로를 만든다.
+  예: `/css/travel-plan-list-<내용 해시>.css`. 날짜 query를 수동으로 갱신하지 않는다.
+- `StaticResourceDialect`가 Thymeleaf의 일반 `link href` / `script src` 중 `/css/**`, `/js/**`도
+  표준 링크 빌더와 `ResourceUrlEncodingFilter`를 거치게 한다. 공통 layout, 개별 페이지,
+  독립 로그인 화면, fragment 모두 적용되며 기존 `th:href` / `th:src`도 유지한다.
+- CSS 내부 URL은 Spring 리소스 체인의 `CssLinkResourceTransformer`가 처리한다.
+  외부 CDN과 버전이 명시된 WebJar, 사용자 업로드의 정책은 변경하지 않는다.
+- HTML의 기존 Security `no-store` 정책과 정적 파일의 캐시를 유지한다.
+  Cloudflare에서 HTML을 강제로 캐시하는 규칙을 추가하면 이 계약이 깨질 수 있다.
+  정상 새 HTML을 받아야 새 해시 URL을 요청한다.
+
+### 확인된 장애 증거
+
+2026-10-20 조사에서 같은 `/css/travel-plan-list.css`가 서로 다른 Cloudflare edge에서
+서로 다른 내용으로 반환됐다. 둘 다 HTTP 200 / `text/css` / `CF-Cache-Status: HIT`였다.
+
+| edge | 크기 | SHA-256 | 주요 차이 |
+|---|---:|---|---|
+| NRT | 10,900 bytes | `02DDC04511DE22C8E41ACF960FFF7D3F27E1900616E9D4CA41ACB70DF5371A7D` | 로컬과 동일 |
+| HKG | 9,217 bytes | `29EA2C8B21C392103E4898FDB7DBD82B736C23DE62F67AE78D36A81B5FCBAAB4` | `.tp-trip-icon`, `.tp-status-tabs` 규칙 없음 |
+
+고정 URL의 응답은 `Cache-Control: public, max-age=14400`이었다. 운영 `/courses` HTML에서도
+공통 CSS만 해시 경로이고 전용 CSS/JS는 고정 경로인 점을 확인했다.
+Mac 원본 앱 응답과 운영 컨테이너 내부 JAR는 Windows에서 직접 확인하지 못했다.
+`/travel-plans`는 인증이 필요해 공개 요청은 로그인으로 302 응답했다.
+특정 코스에서 가져오기 HTML이 누락됐다는 현상의 운영 원인은 별도 인증/상세 URL 확인이 필요하다.
+
+### 재배포 후 읽기 전용 확인
+
+1. 브라우저에서 새 페이지를 열고 CSS/JS 요청 경로에 내용 해시가 있는지 확인한다.
+   `/travel-plans`, `/travel-plans/{id}`, `/courses/{id}`의 전용 파일도 확인한다.
+2. Mac에서 해당 해시 경로의 원본 응답을 `curl -I http://127.0.0.1:8080/<해시 경로>`로 확인한다.
+   공개 응답 `https://tripbora.com/<해시 경로>`와 HTTP 상태, Content-Type, 파일 SHA-256을 비교한다.
+3. 가져오기 버튼 HTML이 없다면 캐시만 원인으로 단정하지 않는다. 배포된 템플릿과
+   `adminPreview` 조건을 확인한다. 공개 상세의 버튼/모달은 로그인 여부와 별도로 렌더링되며,
+   실제 생성과 코스 템플릿 API는 기존 인증/CSRF 검사를 따른다.
+4. 새 HTML의 해시 경로는 정상 파일을 반환해야 한다. 이전 배포의 파일이 바뀐 경우
+   이전 해시를 원본에 직접 요청하면 Spring은 새 파일을 잘못 반환하지 않고 404로 거절한다.

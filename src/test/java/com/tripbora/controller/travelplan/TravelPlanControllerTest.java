@@ -836,9 +836,9 @@ class TravelPlanControllerTest {
         assertThat(doc.select("[data-day-title-edit], [data-item-edit-button], [data-item-drag-handle],"
                 + "[data-overview-insert-bar], [data-travel-plan-slot], [data-travel-plan-item-form],"
                 + "[data-travel-plan-alt-form], .travel-plan-alt-remove-form, [data-item-editor-delete]")).isEmpty();
-        assertThat(doc.select("script[src$='travel-plan-realtime.js'], script[src$='travel-plan-scheduler.js'],"
-                + "script[src$='travel-plan-finalize.js'], script[src$='travel-plan-item-autosave.js']")).isEmpty();
-        assertThat(doc.select("script[src$='travel-plan-readonly.js']")).hasSize(1);
+        assertThat(doc.select("script[src^='/js/travel-plan-realtime'], script[src^='/js/travel-plan-scheduler'],"
+                + "script[src^='/js/travel-plan-finalize'], script[src^='/js/travel-plan-item-autosave']")).isEmpty();
+        assertThat(doc.select("script[src^='/js/travel-plan-readonly-'][src$='.js']")).hasSize(1);
         assertThat(doc.select(".tp-detail-day-title").text()).isEqualTo("확정된 첫날 제목");
         assertThat(doc.select(".travel-plan-alt-content").text()).isEqualTo("비가 오면 실내 관광");
         assertThat(doc.select("form[action='/travel-plans/42/final/delete']")).hasSize(1);
@@ -1329,8 +1329,8 @@ class TravelPlanControllerTest {
         var doc = org.jsoup.Jsoup.parse(html);
         var rendered = doc.selectFirst("#day-100 [data-travel-plan-item]");
         assertThat(doc.select("[data-plan-readonly], [data-dashboard-readonly], .travel-plan-back-link")).isEmpty();
-        assertThat(doc.select("script[src$='travel-plan-realtime.js']")).hasSize(1);
-        assertThat(doc.select("script[src$='travel-plan-readonly.js']")).isEmpty();
+        assertThat(doc.select("script[src^='/js/travel-plan-realtime-'][src$='.js']")).hasSize(1);
+        assertThat(doc.select("script[src^='/js/travel-plan-readonly']")).isEmpty();
         assertThat(rendered).isNotNull();
         assertThat(rendered.attr("data-item-type")).isEqualTo("FLIGHT");
         assertThat(rendered.attr("data-start-time")).isEqualTo("09:30");

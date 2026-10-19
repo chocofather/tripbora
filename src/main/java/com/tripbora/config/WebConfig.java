@@ -65,6 +65,11 @@ public class WebConfig implements WebMvcConfigurer {
         return new ResourceUrlEncodingFilter();
     }
 
+    @Bean
+    public StaticResourceDialect staticResourceDialect() {
+        return new StaticResourceDialect();
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         /*

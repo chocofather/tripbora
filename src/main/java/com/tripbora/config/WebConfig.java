@@ -1,10 +1,13 @@
 package com.tripbora.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
+import org.springframework.web.servlet.resource.VersionResourceResolver;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,13 +52,18 @@ public class WebConfig implements WebMvcConfigurer {
     /**
      * 정적 리소스를 브라우저가 들고 있어도 되는 시간.
      *
-     * <p>한 시간만 준다. 아직 파일 이름에 내용 해시를 붙이지 않아서, 길게 주면 배포한 뒤에도
-     * 예전 CSS 를 든 브라우저가 남는다. 해시 전략이 생기기 전까지는 이 값을 늘리지 않는다.
+     * <p>내용 해시 URL을 사용하되, 기존 버전 없는 URL의 캐시 시간도 늘리지 않는다.
      */
     private static final Duration BUNDLED_STATIC_CACHE = Duration.ofHours(1);
 
     @Value("${custom.upload-path}")
     private String uploadPath;
+
+    @Bean
+    public ResourceUrlEncodingFilter resourceUrlEncodingFilter() {
+        // Thymeleaf의 @{...}를 실제 정적 파일의 내용 해시 URL로 변환한다.
+        return new ResourceUrlEncodingFilter();
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -72,7 +80,9 @@ public class WebConfig implements WebMvcConfigurer {
         for (String directory : BUNDLED_STATIC_DIRECTORIES) {
             registry.addResourceHandler("/" + directory + "/**")
                     .addResourceLocations("classpath:/static/" + directory + "/")
-                    .setCacheControl(CacheControl.maxAge(BUNDLED_STATIC_CACHE).cachePublic());
+                    .setCacheControl(CacheControl.maxAge(BUNDLED_STATIC_CACHE).cachePublic())
+                    .resourceChain(true)
+                    .addResolver(new VersionResourceResolver().addContentVersionStrategy("/**"));
         }
 
         Path uploadRoot = Paths.get(uploadPath).toAbsolutePath().normalize();

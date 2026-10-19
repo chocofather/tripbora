@@ -635,11 +635,12 @@ body {
         top: var(--header-submenu-top, 70px);
     }
 
-    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) > .global-submenu {
+    .main-nav:has(.menu-item:hover > .submenu-col, .menu-item:focus-within > .submenu-col) > .global-submenu {
         display: block;
     }
 
-    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) .main-menu > .menu-item > .submenu-col {
+    .main-menu > .menu-item:hover > .submenu-col,
+    .main-menu > .menu-item:focus-within > .submenu-col {
         visibility: visible;
         pointer-events: auto;
     }
@@ -654,7 +655,7 @@ body {
     .search-box #auth-area { margin-left: 0; }
 }
 
-@media (min-width: 1200px) and (max-width: 1399px) {
+@media (min-width: 1200px) and (max-width: 1599px) {
     html:lang(en) .main-nav > .nav-grid,
     html:lang(ja) .main-nav > .nav-grid {
         --header-menu-gap: 40px;

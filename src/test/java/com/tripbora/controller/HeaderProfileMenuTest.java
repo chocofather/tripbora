@@ -44,6 +44,31 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, I18nConfig.class})
 class HeaderProfileMenuTest {
 
+    @Test
+    void commonAssetsUseTheirContentHashAndResolveToTheBundledBytes() throws Exception {
+        var document = page();
+        for (String asset : List.of("css/style.css", "css/course-themes.css",
+                "js/language-menu.js", "js/main.js", "js/menu.js", "js/admin-content-moderation.js")) {
+            byte[] expected;
+            try (var input = getClass().getResourceAsStream("/static/" + asset)) {
+                expected = input.readAllBytes();
+            }
+            String hash = org.springframework.util.DigestUtils.md5DigestAsHex(expected);
+            int dot = asset.lastIndexOf('.');
+            String versioned = "/" + asset.substring(0, dot) + "-" + hash + asset.substring(dot);
+            assertThat(document.select("[href], [src]").stream()
+                    .anyMatch(element -> versioned.equals(element.attr("href"))
+                            || versioned.equals(element.attr("src"))))
+                    .as("content-versioned %s", asset).isTrue();
+            var response = mockMvc.perform(get(versioned)).andExpect(status().isOk())
+                    .andReturn().getResponse();
+            assertThat(response.getContentAsByteArray()).isEqualTo(expected);
+            assertThat(response.getContentType()).startsWith(asset.endsWith(".css") ? "text/css" : "text/javascript");
+        }
+        mockMvc.perform(get("/css/style-00000000000000000000000000000000.css"))
+                .andExpect(status().isNotFound());
+    }
+
     @Autowired
     private MockMvc mockMvc;
 

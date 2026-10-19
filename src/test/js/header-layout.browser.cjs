@@ -31,7 +31,7 @@ for (const language of ['ko', 'en', 'ja', 'zh-CN', 'zh-TW']) {
     for (const width of [1280, 1440]) {
         for (const [context, styles] of contexts) cases.push({language, width, context, styles, header});
     }
-    for (const width of [360, 390, 430, 768]) cases.push({language, width, context: 'domestic', styles: ['css/destination.css'], header});
+    for (const width of [360, 390, 393, 430, 768]) cases.push({language, width, context: 'domestic', styles: ['css/destination.css'], header});
 }
 const resultsScript = `
 const results = [];
@@ -55,23 +55,30 @@ window.addEventListener('load', () => document.fonts.ready.then(() => setTimeout
         const parents = [...document.querySelectorAll('.main-menu > .menu-item')];
         const desktop = innerWidth >= 1200;
         const initiallyClosed = getComputedStyle(document.querySelector('.global-submenu')).display === 'none';
+        const groups = parents.filter(p => p.querySelector('.submenu-col'));
+        const initiallyHidden = !desktop || groups.every(p => getComputedStyle(p.querySelector('.submenu-col')).visibility === 'hidden');
         const regionTop = document.querySelector('.circle-btn')?.getBoundingClientRect().top;
         const headerBottom = document.querySelector('.main-nav').getBoundingClientRect().bottom;
         if (desktop) parents[3].querySelector('a').focus();
         else document.querySelector('#site-menu-toggle').click();
-        const pairs = desktop ? parents.filter(p => p.querySelector('.submenu-col')).map(p => {
+        const pairs = desktop ? groups.map(p => {
+            p.querySelector('a').focus();
+            const onlyCurrentVisible = groups.every(other => getComputedStyle(other.querySelector('.submenu-col')).visibility === (other === p ? 'visible' : 'hidden'));
             const parent = p.querySelector('a').getBoundingClientRect();
             const textRange = document.createRange(); textRange.selectNodeContents(p.querySelector('a'));
             const parentText = textRange.getBoundingClientRect();
             const group = p.querySelector('.submenu-col').getBoundingClientRect();
             const firstLink = p.querySelector('.submenu-col a').getBoundingClientRect();
-            return {label:p.querySelector('a').textContent.trim(), delta: Math.abs(parent.x + parent.width/2 - group.x - group.width/2), top: group.top, bottom:group.bottom, parentBottom:parent.bottom,
+            return {onlyCurrentVisible, label:p.querySelector('a').textContent.trim(), delta: Math.abs(parent.x + parent.width/2 - group.x - group.width/2), top: group.top, bottom:group.bottom, parentBottom:parent.bottom,
                 boxGap:group.top-parent.bottom, parentTextBottom:parentText.bottom, firstLinkTop:firstLink.top, visualGap:firstLink.top-parentText.bottom,
                 bridgeOwned:document.elementFromPoint(parent.x+parent.width/2, (parent.bottom+group.top)/2)?.closest('.menu-item')===p,
                 width:group.width,parentWidth:parent.width,
                 visible:getComputedStyle(p.querySelector('.submenu-col')).visibility};
         }) : [];
-        parent.postMessage({headerLayout:true,id:${id}, language:${JSON.stringify(language)},context:${JSON.stringify(context)},width:innerWidth,
+        const backdrop = document.querySelector('.global-submenu').getBoundingClientRect();
+        if (desktop) parents[0].querySelector('a').focus();
+        const closesOnDirectLink = !desktop || (getComputedStyle(document.querySelector('.global-submenu')).display === 'none' && groups.every(p => getComputedStyle(p.querySelector('.submenu-col')).visibility === 'hidden'));
+        parent.postMessage({initiallyHidden, closesOnDirectLink, headerLayout:true,id:${id}, language:${JSON.stringify(language)},context:${JSON.stringify(context)},width:innerWidth,
             overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
             offenders:[...document.querySelectorAll('body *')].filter(el=>{
                 const r=el.getBoundingClientRect(); return r.right>document.documentElement.clientWidth+1 && r.width>0 && getComputedStyle(el).visibility==='visible';
@@ -83,8 +90,8 @@ window.addEventListener('load', () => document.fonts.ready.then(() => setTimeout
             logoGap:parents[0].getBoundingClientRect().left-document.querySelector('.logo').getBoundingClientRect().right,
             menuWidth:document.querySelector('.main-menu').getBoundingClientRect().width,
             firstParent:parents[0].querySelector('a').getBoundingClientRect().left,
-            backdropBottom:document.querySelector('.global-submenu').getBoundingClientRect().bottom,
-            backdropTop:document.querySelector('.global-submenu').getBoundingClientRect().top,
+            backdropBottom:backdrop.bottom,
+            backdropTop:backdrop.top,
             mobileOpen: !document.querySelector('#site-menu').hidden}, '*');
     } catch(error) { parent.postMessage({headerLayout:true,id:${id},error:String(error)}, '*'); }
 }, 50)));`;
@@ -110,15 +117,18 @@ for (const result of results) {
     assert.ok(result.overflow <= 1, `${key}: horizontal overflow ${result.overflow}`);
     assert.equal(result.mainShift, 0, `${key}: main content moved`);
     assert.ok(result.initiallyClosed, `${key}: submenu unexpectedly starts open`);
+    assert.ok(result.initiallyHidden, `${key}: submenu links unexpectedly start visible`);
+    assert.ok(result.closesOnDirectLink, `${key}: submenu stays open after leaving its parent`);
     if (result.regionTop != null) assert.ok(result.regionTop >= result.headerBottom, `${key}: region menu overlaps the closed header`);
     if (result.width >= 1200) {
-        const expectedGap = result.width < 1400 && ['en', 'ja'].includes(result.language) ? 40 : 60;
+        const expectedGap = result.width < 1600 && ['en', 'ja'].includes(result.language) ? 40 : 60;
         for (const gap of result.primaryGaps) assert.equal(gap, expectedGap, `${key}: primary gap ${gap}px`);
         assert.ok(result.logoGap >= 0, `${key}: logo overlap ${-result.logoGap}px`);
         assert.ok(result.actionGap >= 0, `${key}: top-level menu overlaps actions by ${-result.actionGap}px`);
         assert.equal(result.pairs.length, 5, key);
         assert.ok(Math.abs(Math.min(...result.pairs.map(pair => pair.top)) - result.backdropTop) <= 1, `${key}: backdrop top`);
         for (const pair of result.pairs) {
+            assert.ok(pair.onlyCurrentVisible, `${key}/${pair.label}: another submenu is visible`);
             assert.ok(pair.delta <= 1, `${key}/${pair.label}: center delta ${pair.delta}`);
             assert.equal(pair.visible, 'visible', key);
             assert.ok(pair.boxGap >= 16 && pair.boxGap <= 18, `${key}: parent-to-submenu gap ${pair.boxGap}px`);

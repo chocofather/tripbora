@@ -36,10 +36,11 @@
     <div class="tp-detail-day-info">
       <span class="travel-plan-day-date"
             th:text="${#temporals.format(day.planDate, 'MM.dd(E)')}">09.13(일)</span>
-      <button type="button" class="tp-detail-day-title" data-day-title-edit
+      <span th:if="${planReadonly == true}" class="tp-detail-day-title" th:text="${day.title}"></span>
+      <button th:if="${planReadonly != true}" type="button" class="tp-detail-day-title" data-day-title-edit
               th:classappend="${#strings.isEmpty(day.title)} ? 'is-placeholder'"
               th:text="${#strings.isEmpty(day.title) ? '이날의 여행 제목을 적어 주세요' : day.title}">이날의 여행 제목을 적어 주세요</button>
-      <form method="post" class="tp-detail-day-title-form" hidden data-day-title-form
+      <form th:if="${planReadonly != true}" method="post" class="tp-detail-day-title-form" hidden data-day-title-form
             th:action="@{|/travel-plans/${plan.id}/days/${day.id}/title|}">
         <input type="text" name="title" maxlength="150" aria-label="DAY 여행 제목"
                placeholder="이날의 여행 제목을 적어 주세요" th:value="${day.title}">
@@ -66,7 +67,7 @@
         data-travel-plan-item>
       <div class="tp-detail-item-shell tp-item-card" th:attr="data-type=${item.itemType}">
       <div class="tp-item-order-controls">
-        <button type="button" class="tp-item-drag-handle" draggable="false"
+        <button th:if="${planReadonly != true}" type="button" class="tp-item-drag-handle" draggable="false"
                 data-item-drag-handle
                 th:attr="aria-label=|${item.title} 순서 이동|" title="드래그하여 순서 이동">
           <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" focusable="false">
@@ -85,12 +86,12 @@
         <th:block th:replace="~{travelplan/fragments/schedule-day :: detailRow(${item})}"></th:block>
         <!-- 상단 요약은 기존 공용 카드 모양을 유지한다. template은 상세 row에 노출되지 않는다. -->
         <template data-overview-item-view>
-          <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, true)}"></th:block>
+          <th:block th:replace="~{travelplan/fragments/item-card :: view(${item}, ${planReadonly != true})}"></th:block>
         </template>
 
         <form class="travel-plan-item-editor" method="post" hidden
-              th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/update|}"
-              data-travel-plan-item-form>
+              th:action="${planReadonly == true} ? null : @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/update|}"
+              th:attr="data-travel-plan-item-form=${planReadonly == true ? null : 'true'},data-item-readonly-fields=${planReadonly == true ? 'true' : null}">
           <input type="hidden" name="version" th:value="${item.version}">
           <th:block th:replace="~{travelplan/fragments/item-card :: fields(${item.details}, ${item.title}, ${item.note}, ${item.startTime == null ? '' : #temporals.format(item.startTime, 'HH:mm')}, ${item.itemType})}"></th:block>
           <textarea name="content" hidden rows="1" autocomplete="off"
@@ -100,9 +101,9 @@
             <a class="tp-card-map" th:if="${d != null and (!#strings.isEmpty(d.address) or !#strings.isEmpty(d.departurePlace))}"
                th:href="@{https://www.google.com/maps/search/(api=1,query=${#strings.isEmpty(d.address) ? d.departurePlace : d.address})}"
                target="_blank" rel="noopener noreferrer" aria-label="위치 지도 열기">위치 ↗</a>
-            <span data-item-save-status role="status" aria-live="polite">자동 저장</span>
-            <button type="button" data-item-save-retry hidden>다시 시도</button>
-            <button type="submit" class="tp-editor-delete" data-item-editor-delete formnovalidate
+            <span th:if="${planReadonly != true}" data-item-save-status role="status" aria-live="polite">자동 저장</span>
+            <button th:if="${planReadonly != true}" type="button" data-item-save-retry hidden>다시 시도</button>
+            <button th:if="${planReadonly != true}" type="submit" class="tp-editor-delete" data-item-editor-delete formnovalidate
                     th:formaction="${altCount > 0} ? @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete-group|} : @{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/delete|}"
                     th:attr="data-delete-confirm=${altCount > 0 ? '이 일정과 대안을 함께 삭제할까요?' : '이 일정을 삭제할까요?'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg><span>삭제</span></button>
           </div>
@@ -136,7 +137,7 @@
                 </p>
 
                 <!-- 조건과 내용 두 칸이라 A 와 달리 작은 저장/취소 버튼을 함께 둔다 -->
-                <form class="travel-plan-alt-editor" method="post" hidden
+                <form th:if="${planReadonly != true}" class="travel-plan-alt-editor" method="post" hidden
                       th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/alternatives/${alt.id}/update|}"
                       data-travel-plan-alt-form>
                   <input type="hidden" name="version" th:value="${alt.version}">
@@ -153,7 +154,7 @@
                 </form>
               </div>
 
-              <form method="post" class="travel-plan-alt-remove-form"
+              <form th:if="${planReadonly != true}" method="post" class="travel-plan-alt-remove-form"
                     th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/alternatives/${alt.id}/delete|}">
                 <button type="submit" class="travel-plan-alt-remove"
                         onclick="return confirm('이 대안을 삭제할까요?')">대안 삭제</button>
@@ -161,7 +162,7 @@
             </div>
 
             <!-- 새 대안. 다음 자리는 남은 개수로 정해진다 (0개면 B, 1개면 C) -->
-            <div class="travel-plan-alt is-new" th:if="${altCount lt 2}"
+            <div class="travel-plan-alt is-new" th:if="${altCount lt 2 and planReadonly != true}"
                  data-travel-plan-alt-new>
               <span class="travel-plan-alt-mark"
                     th:text="${altCount == 0 ? 'B' : 'C'}">B</span>
@@ -191,7 +192,7 @@
       </div>
 
       <!-- drag 저장 경로만 유지한다. 이동 버튼과 메뉴는 렌더링하지 않는다. -->
-      <div hidden data-travel-plan-reorder-forms>
+      <div th:if="${planReadonly != true}" hidden data-travel-plan-reorder-forms>
           <form method="post"
                 th:action="@{|/travel-plans/${plan.id}/days/${day.id}/items/${item.id}/move-up|}">
             <input type="hidden" name="version" th:value="${item.version}">
@@ -205,7 +206,7 @@
     </li>
 
     <!-- DAY 끝의 추가 슬롯 하나. 실제 일정 row 가 아니라 번호를 붙이지 않는다 -->
-    <li class="travel-plan-line is-slot"
+    <li th:if="${planReadonly != true}" class="travel-plan-line is-slot"
         th:attr="data-day-id=${day.id},data-slot-index=${itemCount + 1}"
         data-travel-plan-slot>
       <span class="travel-plan-line-order" aria-hidden="true"></span>
@@ -264,7 +265,8 @@
           th:text="${#temporals.format(item.startTime, 'HH:mm')}">09:00</time>
     <h3 class="tp-detail-item-title"
         th:text="${d != null and (type == 'FLIGHT' or type == 'TRANSPORT') and (!#strings.isEmpty(d.departurePlace) or !#strings.isEmpty(d.arrivalPlace)) ? #strings.defaultString(d.departurePlace, '') + ' → ' + #strings.defaultString(d.arrivalPlace, '') : (d != null and type == 'ACCOMMODATION' and !#strings.isEmpty(d.stayName) ? d.stayName : (#strings.isEmpty(item.title) ? (type == 'ACCOMMODATION' ? '숙소 이름 입력하기' : (special ? '구간 / 장소 입력하기' : '일정 입력하기')) : item.title))}">일정 제목</h3>
-    <button type="button" class="tp-card-edit" data-item-edit-button aria-expanded="false" aria-label="일정 편집"><span class="tp-card-edit-label">편집</span></button>
+    <button th:if="${planReadonly == true}" type="button" class="tp-card-edit" data-item-readonly-toggle aria-expanded="false" aria-label="일정 상세 보기">상세</button>
+    <button th:if="${planReadonly != true}" type="button" class="tp-card-edit" data-item-edit-button aria-expanded="false" aria-label="일정 편집"><span class="tp-card-edit-label">편집</span></button>
   </div>
   <p hidden data-travel-plan-item-content th:text="${item.content}"></p>
 </div>

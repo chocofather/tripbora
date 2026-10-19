@@ -16,7 +16,8 @@
 */
 document.addEventListener("DOMContentLoaded", () => {
     const planner = document.querySelector("[data-plan-id]");
-    if (!planner || typeof StompJs === "undefined") return;
+    // 확정본은 snapshot 조회 권한을 쓴다. ACTIVE 방의 구독 거절을 참여 자격 상실로 처리하면 안 된다.
+    if (!planner || planner.hasAttribute("data-plan-readonly") || typeof StompJs === "undefined") return;
 
     const planId = planner.getAttribute("data-plan-id");
     if (!planId) return;

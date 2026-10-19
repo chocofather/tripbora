@@ -465,10 +465,11 @@ class TravelPlanFinalizeUiContractTest {
     }
 
     @Test
-    void aCompletedRoomScreenIsStillNotPartOfThis() throws IOException {
-        // 완료된 여행 전용 화면과 숨김/삭제는 다음 단계다
+    void completedRoomsReuseTheDetailWithExplicitReadonlyState() throws IOException {
         assertThat(detailHtml())
-                .doesNotContain("완료된 여행")
+                .contains("확정된 여행계획")
+                .contains("data-plan-readonly")
+                .contains("${planReadonly != true}")
                 .doesNotContain("숨기기");
     }
 

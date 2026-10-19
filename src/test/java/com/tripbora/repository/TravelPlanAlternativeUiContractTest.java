@@ -33,7 +33,7 @@ class TravelPlanAlternativeUiContractTest {
         assertThat(detail)
                 .contains("altCount=${alternatives == null ? 0 : alternatives.size()}")
                 // 속성 값 안에서는 파서가 걸리지 않도록 lt 를 쓴다
-                .contains("th:if=\"${altCount lt 2}\"");
+                .contains("th:if=\"${altCount lt 2 and planReadonly != true}\"");
         String service = Files.readString(
                 Path.of("src/main/java/com/tripbora/service/travelplan/"
                         + "TravelPlanService.java"),

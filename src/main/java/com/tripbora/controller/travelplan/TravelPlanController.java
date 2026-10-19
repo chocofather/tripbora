@@ -56,8 +56,6 @@ public class TravelPlanController {
     private static final String LIST_VIEW = "travelplan/list";
     private static final String DETAIL_VIEW = "travelplan/detail";
     private static final String DAY_DETAIL_VIEW = "travelplan/day-detail";
-    /** 완료된 여행. 읽기 전용이라 편집 화면과 다른 템플릿을 쓴다. */
-    private static final String FINAL_DETAIL_VIEW = "travelplan/final-detail";
     /** 실시간 갱신이 가져가는 DAY 한 구역. 처음 그릴 때와 같은 fragment 다. */
     private static final String DAY_FRAGMENT_VIEW =
             "travelplan/fragments/schedule-day :: scheduleDay(plan=${plan}, days=${days},"
@@ -181,16 +179,17 @@ public class TravelPlanController {
                               Model model,
                               RedirectAttributes redirectAttributes) {
         try {
-            model.addAttribute("finalPlan",
-                    travelPlanFinalReadService.getCompletedPlanDetail(
-                            userDetails.getId(), travelPlanId));
+            var finalPlan = travelPlanFinalReadService.getCompletedPlanDetail(
+                    userDetails.getId(), travelPlanId);
+            model.addAttribute("travelPlan", finalPlan.toPlannerDetail());
+            model.addAttribute("planReadonly", true);
         } catch (ResponseStatusException exception) {
             // 여기서도 흰 오류 화면을 보여 주지 않는다.
             redirectAttributes.addFlashAttribute("travelPlanNotice",
                     TravelPlanAccessNotice.NO_ACCESS.message());
             return "redirect:/travel-plans";
         }
-        return FINAL_DETAIL_VIEW;
+        return DETAIL_VIEW;
     }
 
     /**

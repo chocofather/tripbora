@@ -188,10 +188,15 @@
 
     <select id="findDaysBySnapshotId"
             resultType="com.tripbora.model.TravelPlanFinalDay">
-        SELECT id, snapshot_id, day_number, plan_date, created_at
-        FROM travel_plan_final_days
-        WHERE snapshot_id = #{snapshotId}
-        ORDER BY day_number ASC
+        SELECT d.id, d.snapshot_id, d.day_number, d.plan_date, d.created_at, original.title
+        FROM travel_plan_final_days d
+                 JOIN travel_plan_final_snapshots s ON s.id = d.snapshot_id
+                 LEFT JOIN travel_plan_days original
+                           ON original.travel_plan_id = s.travel_plan_id
+                           AND original.day_number = d.day_number
+                           AND original.plan_date = d.plan_date
+        WHERE d.snapshot_id = #{snapshotId}
+        ORDER BY d.day_number ASC
     </select>
 
     <!-- 날짜 수만큼 조회가 나가지 않게 한 문장으로 읽는다. 완료 시점의 순서 그대로다 -->

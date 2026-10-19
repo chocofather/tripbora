@@ -635,8 +635,9 @@ class TravelPlanControllerTest {
 
         mockMvc.perform(get("/travel-plans/42/final").with(user(member())))
                 .andExpect(status().isOk())
-                .andExpect(view().name("travelplan/final-detail"))
-                .andExpect(model().attributeExists("finalPlan"));
+                .andExpect(view().name("travelplan/detail"))
+                .andExpect(model().attributeExists("travelPlan"))
+                .andExpect(model().attribute("planReadonly", true));
     }
 
     @Test
@@ -653,9 +654,12 @@ class TravelPlanControllerTest {
                 .contains("travel-plan-paper")
                 .contains("travel-plan-detail-heading")
                 .contains("travel-plan-day-heading")
-                .contains("travel-plan-day-number")
+                .contains("tp-detail-day-tile")
                 // 읽기 전용이라는 것은 작은 표시 하나로만 알린다
-                .contains("완성된 여행계획")
+                .contains("확정된 여행계획")
+                .contains("is-planning")
+                .contains("data-planner-calendar")
+                .contains("data-dashboard-readonly")
                 // 함께한 사람은 큰 상자가 아니라 한 줄이다
                 .contains("민준 · 소희 · 초코");
         // 고칠 수 있는 것은 하나도 없다
@@ -676,6 +680,54 @@ class TravelPlanControllerTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/travel-plans"))
                 .andExpect(flash().attribute("travelPlanNotice", "접근할 수 없는 여행 계획입니다."));
+    }
+
+    @Test
+    void completedPlannerRendersEveryTypeWithoutActiveRoomScriptsOrMutationControls() throws Exception {
+        var base = finalDetailWithMembers("민준", "소희");
+        base.getDays().get(0).setTitle("확정된 첫날 제목");
+        var items = new java.util.ArrayList<com.tripbora.model.TravelPlanFinalItem>();
+        for (var type : com.tripbora.model.TravelPlanItemType.values()) {
+            var item = new com.tripbora.model.TravelPlanFinalItem();
+            item.setId(920L + items.size());
+            item.setFinalDayId(910L);
+            item.setDisplayOrder(items.size() + 1);
+            item.setTag(type.name());
+            item.setContent(type.getLabel() + " 저장된 제목\n예약 확인 메모");
+            item.setStartTime(java.time.LocalTime.of(9, 30));
+            var details = new com.tripbora.model.TravelPlanItemDetails();
+            details.setDeparturePlace("인천"); details.setArrivalPlace("오사카");
+            details.setStayName("오사카 호텔"); details.setFlightNumber("KE721");
+            details.setDepartureDate("2026-09-13"); details.setDepartureTime("09:30");
+            details.setBookingMemo("예약 확인 정보");
+            item.setDetails(details);
+            items.add(item);
+        }
+        var alternative = new com.tripbora.model.TravelPlanFinalItemAlternative();
+        alternative.setId(950L); alternative.setFinalItemId(920L);
+        alternative.setAlternativeOrder(1); alternative.setContent("비가 오면 실내 관광");
+        var finalPlan = new com.tripbora.dto.TravelPlanFinalDetailDto(base.getSnapshot(), base.getMembers(),
+                base.getDays(), Map.of(910L, items), Map.of(920L, List.of(alternative)));
+        when(travelPlanFinalReadService.getCompletedPlanDetail(7L, 42L)).thenReturn(finalPlan);
+        String html = mockMvc.perform(get("/travel-plans/42/final").with(user(member())))
+                .andExpect(status().isOk()).andExpect(view().name("travelplan/detail"))
+                .andReturn().getResponse().getContentAsString();
+        var doc = org.jsoup.Jsoup.parse(html);
+        assertThat(doc.select("[data-travel-plan-item]")).hasSize(items.size());
+        assertThat(doc.select("[data-item-readonly-fields]")).hasSize(items.size());
+        assertThat(doc.select("[data-plan-readonly][data-dashboard-readonly]")).hasSize(1);
+        assertThat(doc.select("[data-day-title-edit], [data-item-edit-button], [data-item-drag-handle],"
+                + "[data-overview-insert-bar], [data-travel-plan-slot], [data-travel-plan-item-form],"
+                + "[data-travel-plan-alt-form], .travel-plan-alt-remove-form, [data-item-editor-delete]")).isEmpty();
+        assertThat(doc.select("script[src$='travel-plan-realtime.js'], script[src$='travel-plan-scheduler.js'],"
+                + "script[src$='travel-plan-finalize.js'], script[src$='travel-plan-item-autosave.js']")).isEmpty();
+        assertThat(doc.select("script[src$='travel-plan-readonly.js']")).hasSize(1);
+        assertThat(doc.select(".tp-detail-day-title").text()).isEqualTo("확정된 첫날 제목");
+        assertThat(doc.select(".travel-plan-alt-content").text()).isEqualTo("비가 오면 실내 관광");
+        assertThat(doc.select("form[action='/travel-plans/42/final/delete']")).hasSize(1);
+        // 브라우저 회귀 테스트가 실제 Thymeleaf 결과를 사용한다. DB나 DEV 서버는 필요 없다.
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/browser-fixtures"));
+        java.nio.file.Files.writeString(java.nio.file.Path.of("build/browser-fixtures/travel-plan-final.html"), html);
     }
 
     @Test
@@ -1098,6 +1150,9 @@ class TravelPlanControllerTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         var doc = org.jsoup.Jsoup.parse(html);
         var rendered = doc.selectFirst("#day-100 [data-travel-plan-item]");
+        assertThat(doc.select("[data-plan-readonly], [data-dashboard-readonly], .travel-plan-back-link")).isEmpty();
+        assertThat(doc.select("script[src$='travel-plan-realtime.js']")).hasSize(1);
+        assertThat(doc.select("script[src$='travel-plan-readonly.js']")).isEmpty();
         assertThat(rendered).isNotNull();
         assertThat(rendered.attr("data-item-type")).isEqualTo("FLIGHT");
         assertThat(rendered.attr("data-start-time")).isEqualTo("09:30");

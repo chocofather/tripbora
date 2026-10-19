@@ -14,5 +14,7 @@ public class TravelPlanFinalDay {
     private Long snapshotId;
     private Integer dayNumber;
     private LocalDate planDate;
+    /** 확정 후 변경 불가능한 원본 DAY에서 보완하는 제목. */
+    private String title;
     private Timestamp createdAt;
 }

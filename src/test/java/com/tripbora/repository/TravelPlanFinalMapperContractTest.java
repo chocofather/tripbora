@@ -126,7 +126,6 @@ class TravelPlanFinalMapperContractTest {
                 // 원본 일정을 다시 조합하지 않는다. 최종본이 기준이다
                 .doesNotContain("travel_plan_items")
                 .doesNotContain("travel_plan_item_alternatives")
-                .doesNotContain("travel_plan_days")
                 // 최종본은 한번 만들어지면 바뀌지 않는다. 지우는 문장은 없다
                 .doesNotContain("DELETE ");
 
@@ -181,7 +180,11 @@ class TravelPlanFinalMapperContractTest {
 
         // 완료 시점의 차례가 화면에 그대로 나온다
         assertThat(between(mapper, "<select id=\"findDaysBySnapshotId\"", "</select>"))
-                .contains("ORDER BY day_number ASC");
+                .contains("ORDER BY d.day_number ASC")
+                .contains("original.title")
+                .contains("original.travel_plan_id = s.travel_plan_id")
+                .contains("original.day_number = d.day_number")
+                .contains("original.plan_date = d.plan_date");
         assertThat(between(mapper, "<select id=\"findItemsBySnapshotId\"", "</select>"))
                 .contains("ORDER BY d.day_number ASC, i.display_order ASC, i.id ASC");
         assertThat(between(mapper, "<select id=\"findAlternativesBySnapshotId\"", "</select>"))

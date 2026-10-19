@@ -311,7 +311,8 @@ test('Y-only insertion and card sorting preserve full order, color and cross-vie
     };
     const headerScenario = async width => {
         await send('Page.navigate',{url:'about:blank'});
-        const detail=readTemplate('detail.html'),owner=readTemplate('fragments/owner-actions.html');
+        // This fixture models the planning branch; Thymeleaf removes final-only blocks.
+        const detail=readTemplate('detail.html').replace(/<th:block th:if="\$\{planReadonly == true\}">[\s\S]*?<\/th:block>/g, ''),owner=readTemplate('fragments/owner-actions.html');
         const header=detail.match(/<header class="travel-plan-detail-header">[\s\S]*?<\/header>/)[0];
         const entry=owner.match(/<div class="travel-plan-plan-delete-entry">[\s\S]*?<\/div>/)[0];
         const modal=owner.slice(owner.indexOf('<div class="travel-plan-plan-delete-modal"'),owner.lastIndexOf('</th:block>')).replace(/<\/?th:block[^>]*>/g,'');

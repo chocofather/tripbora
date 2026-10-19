@@ -246,8 +246,7 @@ class TravelPlanCreateFormUiContractTest {
                 .contains("th:each=\"day : ${travelPlan.days}\"")
                 .contains("class=\"tp-detail-day-tile\"")
                 .contains("${#temporals.format(day.planDate, 'MM.dd(E)')}")
-                .contains("${travelPlanMessage}")
-                .doesNotContain("class=\"travel-plan-back-link\"");
+                .contains("${travelPlanMessage}");
     }
 
     @Test

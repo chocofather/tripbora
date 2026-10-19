@@ -1,4 +1,21 @@
-/* 편집 화면 전용. 채팅/투표 및 다른 TravelPlan 화면의 스타일은 변경하지 않는다. */
+/* 계획 중·확정 상세가 공유하는 플래너. */
+.tp-plan-final-status {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #667085;
+}
+
+[data-plan-readonly] input[readonly],
+[data-plan-readonly] textarea[readonly] {
+    color: inherit;
+    background: #fff;
+    cursor: text;
+}
+
+[data-plan-readonly] .tp-detail-day-title { cursor: default; }
+.travel-plan-final-members { overflow-wrap: anywhere; }
+
 .travel-plan-page.is-planning {
     padding: 24px 28px calc(100px + env(safe-area-inset-bottom, 0px));
     background: #fff;

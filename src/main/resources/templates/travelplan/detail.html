@@ -16,7 +16,9 @@
   <link rel="stylesheet" href="/css/travel-plan-poll.css">
   <link rel="stylesheet" href="/css/travel-plan-emoji.css">
   <link rel="stylesheet" href="/css/travel-plan-chat-images.css">
-  <script src="/js/travel-plan-datetime-picker.js" defer></script>
+  <script th:if="${planReadonly != true}" src="/js/travel-plan-datetime-picker.js" defer></script>
+  <script th:if="${planReadonly == true}" src="/js/travel-plan-readonly.js" defer></script>
+  <th:block th:if="${planReadonly != true}">
   <script src="/js/travel-plan-airport-autocomplete.js" defer></script>
   <script src="/js/travel-plan-item-types.js" defer></script>
   <script src="/js/travel-plan-item-autosave.js" defer></script>
@@ -27,7 +29,11 @@
   <script src="/js/travel-plan-overview.js" defer></script>
   <script src="/js/travel-plan-overview-insert.js" defer></script>
   <script src="/js/travel-plan-overview-reorder.js" defer></script>
+  </th:block>
+  <script th:if="${planReadonly == true}" src="/js/travel-plan-item-types.js" defer></script>
+  <script th:if="${planReadonly == true}" src="/js/travel-plan-overview.js" defer></script>
   <script src="/js/travel-plan-dashboard.js" defer></script>
+  <th:block th:if="${planReadonly != true}">
   <!-- 접속 표시. STOMP 클라이언트는 CDN 이 아니라 WebJar 로 함께 배포한다 -->
   <script src="/webjars/stomp__stompjs/7.0.0/bundles/stomp.umd.min.js" defer></script>
   <script src="/js/travel-plan-realtime.js" defer></script>
@@ -43,12 +49,12 @@
   <script src="/js/travel-plan-finalize.js" defer></script>
   <!-- 여행 계획 삭제. 방장이 방을 접으면 열어 둔 사람들도 목록으로 나온다 -->
   <script src="/js/travel-plan-delete.js" defer></script>
+  </th:block>
 </th:block>
 
 <th:block th:fragment="body">
   <!--
-    is-planning 범위에서만 현대형 플래너를 적용한다.
-    최종본·초대 미리보기와 채팅은 기존 스타일을 유지한다.
+    계획 중·확정본 모두 같은 플래너를 사용한다. 수정 조작만 상태에 따라 구분한다.
   -->
   <div class="travel-plan-page is-planning">
     <div class="travel-plan-page-top">
@@ -60,7 +66,7 @@
           멤버로 그려진 화면에는 안이 비어 있어(구분선까지 함께 비어 온다)
           공통 액션만 남고, 방장을 넘겨받으면 그때 채워진다.
         -->
-        <div class="travel-plan-owner-actions" data-travel-plan-owner-actions>
+        <div class="travel-plan-owner-actions" data-travel-plan-owner-actions th:if="${planReadonly != true}">
           <th:block
               th:replace="~{travelplan/fragments/owner-actions :: ownerActions(
                   travelPlan=${travelPlan},
@@ -74,7 +80,7 @@
         <!--
           참여자 목록은 방의 ACTIVE 멤버라면 누구나 본다. 이번 단계는 조회 전용이다.
         -->
-        <div class="travel-plan-members" data-travel-plan-members>
+        <div class="travel-plan-members" data-travel-plan-members th:if="${planReadonly != true}">
           <button type="button" class="travel-plan-members-toggle"
                   aria-haspopup="true" aria-expanded="false"
                   data-travel-plan-members-toggle
@@ -96,6 +102,15 @@
                     memberLimit=${travelPlan.memberLimit})}"></th:block>
           </div>
         </div>
+
+        <th:block th:if="${planReadonly == true}">
+          <a class="travel-plan-back-link" th:href="@{/travel-plans}">← 함께 계획하기</a>
+          <span class="travel-plan-final-members" th:text="${#strings.listJoin(travelPlan.members.![displayName], ' · ')}"></span>
+          <form method="post" th:action="@{|/travel-plans/${travelPlan.plan.id}/final/delete|}">
+            <button type="submit" class="travel-plan-final-delete"
+                    onclick="return confirm('이 완료된 여행을 내 목록에서 삭제할까요?\n\n다른 참여자의 기록에는 영향을 주지 않습니다.')">삭제</button>
+          </form>
+        </th:block>
 
         </div>
 
@@ -119,16 +134,15 @@
     <article class="travel-plan-paper" aria-labelledby="travel-plan-detail-title"
              th:attr="data-plan-id=${travelPlan.plan.id},
                       data-trip-start=${travelPlan.plan.startDate},
-                      data-trip-end=${travelPlan.plan.endDate}">
+                      data-trip-end=${travelPlan.plan.endDate},
+                      data-plan-readonly=${planReadonly == true ? 'true' : null},
+                      data-dashboard-readonly=${planReadonly == true ? 'true' : null}">
 
       <!-- 여행 제목 / 기간. 관리 액션은 위의 상단 액션 줄에 있다 -->
       <header class="travel-plan-detail-header">
         <div class="travel-plan-detail-heading"
              th:with="dayCount=${#lists.size(travelPlan.days)}">
-          <!--
-            이 화면은 아직 채워 가는 중인 방에만 열린다.
-            끝난 방은 읽기 전용 최종본(/final)으로 보내므로 여기 오지 않는다.
-          -->
+          <span class="tp-plan-final-status" th:if="${planReadonly == true}">확정된 여행계획</span>
           <h1 id="travel-plan-detail-title">
             <span th:text="${travelPlan.plan.title}">제주도 여행</span>
           </h1>
@@ -175,7 +189,7 @@
                      th:if="${item.itemType.name() == 'FLIGHT' or item.itemType.name() == 'ACCOMMODATION' or item.itemType.name() == 'TRANSPORT'}"
                      th:attr="data-type=${item.itemType},data-overview-item-id=${item.id}">
                   <div class="tp-detail-item-shell tp-item-card" th:attr="data-type=${item.itemType}">
-                    <div class="tp-item-order-controls">
+                    <div class="tp-item-order-controls" th:if="${planReadonly != true}">
                       <button type="button" class="tp-item-drag-handle" draggable="true" data-overview-card-drag-handle th:attr="aria-label=|${item.title} 순서 이동|" title="드래그하여 순서 이동"><svg width="12" height="18" viewBox="0 0 10 16" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="2" cy="3" r="1.3"/><circle cx="8" cy="3" r="1.3"/><circle cx="2" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="8" cy="13" r="1.3"/></g></svg></button>
                     </div>
                     <div class="travel-plan-line-body">
@@ -184,7 +198,7 @@
                   </div>
                   <div class="tp-overview-editor-host" th:attr="data-overview-editor-host=${item.id}"></div>
                 </div>
-            <div th:if="${dayStatus.last}" class="tp-overview-insert-bar" data-overview-insert-bar data-before-item-id="" data-insert-placement="end" data-insert-default="true" th:attr="data-day-id=${day.id}" aria-label="주요 일정 삽입 위치">
+            <div th:if="${dayStatus.last and planReadonly != true}" class="tp-overview-insert-bar" data-overview-insert-bar data-before-item-id="" data-insert-placement="end" data-insert-default="true" th:attr="data-day-id=${day.id}" aria-label="주요 일정 삽입 위치">
               <button type="button" class="tp-overview-insert-grip" draggable="true" data-overview-insert-handle aria-label="삽입 위치 이동, 방향키로도 이동 가능" title="드래그하거나 방향키로 삽입 위치 이동"><svg width="12" height="18" viewBox="0 0 10 16" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="2" cy="3" r="1.3"/><circle cx="8" cy="3" r="1.3"/><circle cx="2" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="8" cy="13" r="1.3"/></g></svg></button>
               <button type="button" class="tp-item-add-type" data-overview-insert-type="FLIGHT">+ 항공</button>
               <button type="button" class="tp-item-add-type" data-overview-insert-type="ACCOMMODATION">+ 숙소</button>
@@ -206,7 +220,7 @@
       <div class="tp-planner-section-heading tp-planner-schedule-heading">
         <div>
           <h2 id="tp-schedule-title">상세 일정</h2>
-          <p>일정을 눌러 편집하고, ··· 메뉴에서 이동하거나 대안을 추가하세요.</p>
+          <p th:text="${planReadonly == true ? '일정을 펼쳐 상세 내용을 확인하세요.' : '일정을 눌러 편집하고, ··· 메뉴에서 이동하거나 대안을 추가하세요.'}">일정을 눌러 편집하고, ··· 메뉴에서 이동하거나 대안을 추가하세요.</p>
         </div>
       </div>
 

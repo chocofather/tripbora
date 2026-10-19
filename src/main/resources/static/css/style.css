@@ -635,12 +635,11 @@ body {
         top: var(--header-submenu-top, 70px);
     }
 
-    .main-nav:has(.menu-item:hover > .submenu-col, .menu-item:focus-within > .submenu-col) > .global-submenu {
+    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) > .global-submenu {
         display: block;
     }
 
-    .main-menu > .menu-item:hover > .submenu-col,
-    .main-menu > .menu-item:focus-within > .submenu-col {
+    .main-nav:has(.main-menu:hover, .global-submenu:hover, .main-menu:focus-within) .main-menu > .menu-item > .submenu-col {
         visibility: visible;
         pointer-events: auto;
     }

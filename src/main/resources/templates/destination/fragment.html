@@ -120,37 +120,8 @@
                         th:aria-label="#{destination.list.subregion.next}">›</button>
             </section>
 
-            <!-- 목록 도구줄: 카테고리 필터 · 정렬 -->
+            <!-- 목록 도구줄: 정렬 -->
             <div class="list-toolbar">
-            <!--
-              카테고리 필터(하나만 고른다): 누르면 작은 메뉴가 열리고, 항목을 누르면 바로 그 카테고리 목록으로 바뀌며 닫힌다.
-              '전체'는 필터를 푼다. 이름·순서는 DB 번역 데이터(요청 언어 이름순) 그대로다.
-            -->
-            <div class="category-filter" data-category-filter
-                 th:if="${categoryFilterOptions != null and !#lists.isEmpty(categoryFilterOptions)}">
-                <button type="button" class="category-filter-toggle" data-category-filter-toggle
-                        aria-haspopup="true" aria-expanded="false" aria-controls="destination-category-panel">
-                    <span th:text="#{destination.list.category.label}">카테고리</span>
-                    <span class="category-filter-dot" aria-hidden="true">·</span>
-                    <strong th:text="${selectedCategoryName != null} ? ${selectedCategoryName}
-                                     : #{destination.list.category.all}">전체</strong>
-                    <span class="category-filter-caret" aria-hidden="true"></span>
-                </button>
-                <div class="category-filter-panel" id="destination-category-panel"
-                     data-category-filter-panel hidden
-                     th:attr="aria-label=#{destination.list.category.panel}">
-                    <div class="category-filter-options">
-                        <button type="button" class="category-filter-option" data-category-filter-option value=""
-                                th:attr="aria-pressed=${selectedCategoryId == null}"
-                                th:text="#{destination.list.category.all}">전체</button>
-                        <button type="button" class="category-filter-option" data-category-filter-option
-                                th:each="option : ${categoryFilterOptions}"
-                                th:value="${option.id}" th:attr="aria-pressed=${option.selected}"
-                                th:text="${option.name}">고궁</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- 정렬 (세그먼트 컨트롤) -->
             <div class="list-sort-buttons" role="group"
                  th:aria-label="#{destination.list.sort.label}">
@@ -176,8 +147,6 @@
             <!-- 조건에 맞는 여행지가 없을 때 -->
             <div class="destination-list-empty" th:if="${#lists.isEmpty(destinations)}">
                 <p th:text="#{destination.list.empty.title}">조건에 맞는 여행지가 없습니다.</p>
-                <span th:if="${selectedCategoryId != null}"
-                      th:text="#{destination.list.empty.categoryHint}">다른 카테고리나 전체를 골라 보세요.</span>
             </div>
 
             <!-- 카드 리스트 -->

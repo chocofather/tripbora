@@ -4,7 +4,7 @@
       th:replace="~{layout/main :: layout(~{::body}, ~{::headFragment})}">
 
 <th:block th:fragment="headFragment">
-  <link rel="stylesheet" href="/css/destination.css?v=20261009-left-rail">
+  <link rel="stylesheet" th:href="@{/css/destination.css}">
 </th:block>
 
 <th:block th:fragment="body">
@@ -32,7 +32,7 @@
 
   <script src="/js/city-carousel.js" defer></script>
   <script src="/js/destination-region-rail.js?v=20261009-finite-rail" defer></script>
-  <script src="/js/ajax-destination-switcher.js?v=20261009-finite-rail" defer></script>
+  <script th:src="@{/js/ajax-destination-switcher.js}" defer></script>
   <script src="/js/bookmark.js" defer></script>
   <script src="/js/card-thumbnail.js?v=20261011-2" defer></script>
 </th:block>

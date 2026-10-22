@@ -1,7 +1,6 @@
 package com.tripbora.controller.destination;
 
 import com.tripbora.config.i18n.SupportedLanguage;
-import com.tripbora.dto.DestinationCategoryFilterDto;
 import com.tripbora.dto.DestinationDto;
 import com.tripbora.model.CountryCategory;
 import com.tripbora.service.category.CountryCategoryService;
@@ -121,6 +120,7 @@ class DestinationListCategoryFilterTest {
         }
         verify(destinationService, org.mockito.Mockito.times(3))
                 .getDestinationsByRegionIdsPaged(SEOUL_REGION_IDS, List.of(), 8, 8, "views");
+        verify(destinationService, org.mockito.Mockito.never()).getCategoryFilterCounts(anyList(), anyList());
     }
 
     @Test
@@ -136,12 +136,8 @@ class DestinationListCategoryFilterTest {
         verify(destinationService).getDestinationsByRegionIdsPaged(SEOUL_REGION_IDS, List.of(12L), 12, 12, "views");
         verify(destinationService).countDestinationsByRegionIds(SEOUL_REGION_IDS, List.of(12L));
         assertThat(model.getAttribute("selectedCategoryId")).isEqualTo(12L);
-        assertThat(model.getAttribute("selectedCategoryName")).isEqualTo("야경");
-        // 선택지: 서울 범위의 카테고리 + 고른 것, 이름순. 고른 것 하나만 표시된다.
-        assertThat(options(model)).extracting(DestinationCategoryFilterDto::name)
-                .containsExactly("고궁", "랜드마크", "사진명소", "야경");
-        assertThat(options(model)).extracting(DestinationCategoryFilterDto::selected)
-                .containsExactly(false, false, false, true);
+        assertThat(model.containsAttribute("categoryFilterOptions")).isFalse();
+        verify(referenceNameLocalizationService).localizeCategories(List.of(12L), SupportedLanguage.KOREAN);
     }
 
     @Test
@@ -195,11 +191,7 @@ class DestinationListCategoryFilterTest {
         variables.put("pageSize", 12);
         variables.put("sort", "views");
         variables.put("type", "domestic");
-        variables.put("categoryFilterOptions", List.of(new DestinationCategoryFilterDto(5L, "고궁", 2, true),
-                new DestinationCategoryFilterDto(3L, "랜드마크", 3, false),
-                new DestinationCategoryFilterDto(8L, "사진명소", 1, false)));
         variables.put("selectedCategoryId", 5L);
-        variables.put("selectedCategoryName", "고궁");
 
         Document page = renderList(variables, Locale.KOREAN);
 
@@ -209,41 +201,24 @@ class DestinationListCategoryFilterTest {
         Document heading = renderList(headingVariables, Locale.KOREAN);
         assertThat(heading.select(".destination-title-context")).isEmpty();
         assertThat(heading.selectFirst("#page-title").text()).isEqualTo("종로구 여행지");
-        assertThat(page.selectFirst("[data-category-filter-toggle]").text()).isEqualTo("카테고리 · 고궁");
-        // 메뉴: 버튼 바로 아래 팝오버(처음에는 닫힘). 맨 앞 '전체' + 이름만 있는 항목, 고른 것 하나만 눌린 상태
-        var panel = page.selectFirst("[data-category-filter] > [data-category-filter-panel]");
-        assertThat(panel.hasAttr("hidden")).isTrue();
-        assertThat(panel.select("[data-category-filter-option]")).extracting(e -> e.text())
-                .containsExactly("전체", "고궁", "랜드마크", "사진명소");
-        assertThat(panel.select("[data-category-filter-option]")).extracting(e -> e.val())
-                .containsExactly("", "5", "3", "8");
-        assertThat(panel.select("[data-category-filter-option][aria-pressed=true]")).extracting(e -> e.text())
-                .containsExactly("고궁");
-        // 체크박스·여행지 수·적용 버튼·선택 칩은 없다.
-        assertThat(page.select("input[type=checkbox], .category-filter-count, [data-category-filter-apply], "
-                + ".category-filter-chips")).isEmpty();
+        assertThat(page.select("[data-category-filter], [data-category-filter-toggle], [data-category-filter-panel]"))
+                .isEmpty();
+        assertThat(page.select(".list-sort-buttons .sort-btn")).hasSize(3);
         // 쪽 이동에도 지역·정렬·카테고리가 그대로 실린다.
         assertThat(page.select(".pagination a.page-number").first().attr("href"))
                 .isEqualTo("/destinations/fragment?type=domestic&region=38&page=1&size=12&sort=views&category=5");
         assertThat(page.selectFirst(".destination-list-empty").text())
-                .contains("조건에 맞는 여행지가 없습니다.", "다른 카테고리나 전체를 골라 보세요.");
+                .isEqualTo("조건에 맞는 여행지가 없습니다.");
 
-        // 안 고르면 '전체'가 눌린 상태. 다른 언어는 번역 문구를 쓴다.
-        variables.put("categoryFilterOptions", List.of(new DestinationCategoryFilterDto(5L, "고궁", 2, false),
-                new DestinationCategoryFilterDto(3L, "랜드마크", 3, false)));
+        // 기본 목록과 다른 언어에서도 드롭다운 없이 정렬과 목록을 유지한다.
         variables.put("selectedCategoryId", null);
-        variables.put("selectedCategoryName", null);
         Document none = renderList(variables, Locale.KOREAN);
-        assertThat(none.selectFirst("[data-category-filter-toggle]").text()).isEqualTo("카테고리 · 전체");
-        assertThat(none.select("[data-category-filter-option][aria-pressed=true]")).extracting(e -> e.text())
-                .containsExactly("전체");
+        assertThat(none.select("[data-category-filter]")).isEmpty();
         assertThat(none.selectFirst("#destination-list").hasAttr("data-category")).isFalse();
         Document english = renderList(variables, Locale.ENGLISH);
-        assertThat(english.selectFirst("[data-category-filter-toggle]").text()).isEqualTo("Category · All");
-        assertThat(english.selectFirst("[data-category-filter-panel]").attr("aria-label")).isEqualTo("Choose a category");
-        assertThat(english.selectFirst("[data-category-filter-option]").text()).isEqualTo("All");
-        assertThat(renderList(variables, Locale.JAPANESE).selectFirst("[data-category-filter-toggle]").text())
-                .isEqualTo("カテゴリー · すべて");
+        assertThat(english.select("[data-category-filter]")).isEmpty();
+        assertThat(english.select(".list-sort-buttons .sort-btn")).hasSize(3);
+        assertThat(renderList(variables, Locale.JAPANESE).select("[data-category-filter]")).isEmpty();
     }
 
     @Test
@@ -317,11 +292,6 @@ class DestinationListCategoryFilterTest {
         assertThat(page.select(".region-selector > .arrow.prev[hidden], .region-selector > .arrow.next[hidden]"))
                 .hasSize(2);
         assertThat(page.select(".subregion-arrow.prev[hidden], .subregion-arrow.next[hidden]")).hasSize(2);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<DestinationCategoryFilterDto> options(Model model) {
-        return (List<DestinationCategoryFilterDto>) model.getAttribute("categoryFilterOptions");
     }
 
     private static Document renderList(Map<String, Object> variables, Locale locale) {

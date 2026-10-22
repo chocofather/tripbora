@@ -47,6 +47,18 @@ class AdminDestinationListDataStatusRenderingTest {
         assertThat(buttons.get(1).attr("data-visibility-url"))
                 .isEqualTo("/admin/destinations/2/visibility");
         assertThat(buttons.get(1).attr("type")).isEqualTo("button");
+        for (Element row : page.select("tbody tr")) {
+            assertThat(row.select(".admin-action-group > a, .admin-action-group > [data-destination-actions] > button").eachText())
+                    .containsExactly("이미지 관리", "수정", "⋯");
+            Element panel = row.selectFirst("[data-destination-action-panel]");
+            assertThat(panel).isNotNull();
+            assertThat(panel.hasAttr("hidden")).isTrue();
+            assertThat(panel.select("[data-destination-visibility]")).hasSize(1);
+            assertThat(panel.selectFirst("form").attr("onsubmit"))
+                    .isEqualTo("return confirm('정말 삭제하시겠습니까?');");
+            assertThat(row.selectFirst("[data-destination-action-toggle]").attr("aria-controls"))
+                    .isEqualTo(panel.id());
+        }
         assertThat(page.select("#destination-visibility-filter option[selected]").attr("value"))
                 .isEqualTo("hidden");
         assertThat(page.selectFirst("[data-destination-visibility-error]").hasAttr("hidden")).isTrue();

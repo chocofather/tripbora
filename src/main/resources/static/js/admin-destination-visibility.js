@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
         button.addEventListener("click", async () => {
             if (button.disabled) return;
             const publicVisible = button.dataset.publicVisible !== "true";
+            if (!publicVisible && !window.confirm("이 여행지를 일반 사용자에게 숨기시겠습니까?")) return;
             button.disabled = true;
             button.setAttribute("aria-busy", "true");
             if (errorMessage) errorMessage.hidden = true;

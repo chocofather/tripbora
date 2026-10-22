@@ -1,7 +1,6 @@
 package com.tripbora.controller.destination;
 
 import com.tripbora.config.i18n.SupportedLanguage;
-import com.tripbora.dto.DestinationCategoryFilterDto;
 import com.tripbora.dto.DestinationDetailDto;
 import com.tripbora.dto.DestinationDto;
 import com.tripbora.model.CountryCategory;
@@ -35,9 +34,7 @@ import jakarta.servlet.http.HttpSession;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.Collator;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -732,35 +729,26 @@ public class DestinationController {
     }
 
     /**
-     * 목록 카테고리 필터(하나만 고른다). 주소의 category 값이 실제로 있는 카테고리일 때만 고른 것으로 보고,
-     * 아니면 전체로 본다. 선택지는 지금 지역 범위의 여행지에 등록된 카테고리와 고른 카테고리이며, 요청 언어 이름순이다.
+     * 기존 category 주소는 유지한다. 실제 카테고리가 아니면 전체로 본다.
      *
      * @return 목록 조회에 쓸 카테고리 ID(0개 또는 1개). 비어 있으면 카테고리 조건 없음(전체)
      */
     private List<Long> applyCategoryFilter(String categoryValue, List<Long> regionIds, Model model) {
         Long requested = parseCategoryId(categoryValue);
-        Map<Long, Integer> counts = destinationService.getCategoryFilterCounts(regionIds,
-                requested == null ? List.of() : List.of(requested));
+        if (requested == null) {
+            model.addAttribute("selectedCategoryId", null);
+            return List.of();
+        }
+        Map<Long, Integer> counts = destinationService.getCategoryFilterCounts(regionIds, List.of(requested));
         SupportedLanguage requestedLanguage = SupportedLanguage
                 .fromLocale(LocaleContextHolder.getLocale())
                 .orElse(SupportedLanguage.KOREAN);
-        Map<Long, String> names = counts.isEmpty() ? Map.of()
-                : referenceNameLocalizationService.localizeCategories(counts.keySet(), requestedLanguage);
+        Map<Long, String> names = !counts.containsKey(requested) ? Map.of()
+                : referenceNameLocalizationService.localizeCategories(List.of(requested), requestedLanguage);
         Long selectedId = requested != null && counts.containsKey(requested) && names.get(requested) != null
                 ? requested : null;
 
-        Collator collator = Collator.getInstance(requestedLanguage.getLocale());
-        List<DestinationCategoryFilterDto> options = counts.entrySet().stream()
-                .filter(entry -> names.get(entry.getKey()) != null)
-                .map(entry -> new DestinationCategoryFilterDto(entry.getKey(), names.get(entry.getKey()),
-                        entry.getValue(), entry.getKey().equals(selectedId)))
-                .sorted(Comparator.comparing(DestinationCategoryFilterDto::name, collator)
-                        .thenComparing(DestinationCategoryFilterDto::id))
-                .toList();
-
-        model.addAttribute("categoryFilterOptions", options);
         model.addAttribute("selectedCategoryId", selectedId);
-        model.addAttribute("selectedCategoryName", selectedId == null ? null : names.get(selectedId));
         return selectedId == null ? List.of() : List.of(selectedId);
     }
 

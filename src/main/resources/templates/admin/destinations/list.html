@@ -6,6 +6,7 @@
   <script th:src="@{/js/admin-destination-filter.js}" defer></script>
   <script th:src="@{/js/admin-destination-bulk-delete.js}" defer></script>
   <script th:src="@{/js/admin-destination-visibility.js}" defer></script>
+  <script th:src="@{/js/admin-destination-actions.js}" defer></script>
 </th:block>
 <th:block th:fragment="body">
   <section class="admin-page-section">
@@ -194,18 +195,26 @@
             <td th:text="${dest.regionName}">제주</td>
             <td class="admin-table-actions">
               <div class="admin-action-group">
-                <button type="button" class="admin-btn is-small" data-destination-visibility
-                        th:attr="data-visibility-url=@{'/admin/destinations/' + ${dest.id} + '/visibility'},data-public-visible=${dest.publicVisible},aria-label=|${dest.name} ${dest.publicVisible ? '숨기기' : '공개하기'}|"
-                        th:text="${dest.publicVisible} ? '숨기기' : '공개하기'">숨기기</button>
                 <a th:href="@{'/admin/destinations/' + ${dest.id} + '/images'}"
                    class="admin-btn is-small">이미지 관리</a>
                 <a th:href="@{'/admin/destinations/edit/' + ${dest.id}}"
                    class="admin-btn is-small">수정</a>
-                <!-- 삭제 후에도 지금 목록 조건(쪽 포함)으로 돌아오도록 조건을 주소에 함께 보낸다. -->
-                <form th:action="@{'/admin/destinations/' + ${dest.id} + '/delete' + ${listQuery}}"
-                      method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
-                  <button type="submit" class="admin-btn is-small is-danger">삭제</button>
-                </form>
+                <div data-destination-actions>
+                  <button type="button" class="admin-btn is-small admin-destination-action-toggle"
+                          data-destination-action-toggle aria-expanded="false"
+                          th:attr="aria-controls=|destination-actions-${dest.id}|,aria-label=|${dest.name} 관리 메뉴|">⋯</button>
+                  <div class="admin-destination-action-panel" data-destination-action-panel hidden
+                       th:id="|destination-actions-${dest.id}|" th:attr="aria-label=|${dest.name} 관리|" role="group">
+                    <button type="button" class="admin-btn is-small" data-destination-visibility
+                            th:attr="data-visibility-url=@{'/admin/destinations/' + ${dest.id} + '/visibility'},data-public-visible=${dest.publicVisible},aria-label=|${dest.name} ${dest.publicVisible ? '숨기기' : '공개하기'}|"
+                            th:text="${dest.publicVisible} ? '숨기기' : '공개하기'">숨기기</button>
+                    <!-- 삭제 후에도 지금 목록 조건(쪽 포함)으로 돌아온다. -->
+                    <form th:action="@{'/admin/destinations/' + ${dest.id} + '/delete' + ${listQuery}}"
+                          method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                      <button type="submit" class="admin-btn is-small is-danger">삭제</button>
+                    </form>
+                  </div>
+                </div>
               </div>
             </td>
           </tr>

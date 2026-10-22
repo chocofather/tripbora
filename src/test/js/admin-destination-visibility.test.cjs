@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('src/main/resources/static/js/admin-destination-visibility.js', 'utf8');
 
-function setup(publicVisible = true, csrf = true) {
+function setup(publicVisible = true, csrf = true, confirmed = true) {
     const events = {};
     const button = {
         dataset: {publicVisible: String(publicVisible), visibilityUrl: '/admin/destinations/17/visibility'},
@@ -16,6 +16,7 @@ function setup(publicVisible = true, csrf = true) {
     const requests = [];
     let resolve;
     let reloads = 0;
+    let confirmations = 0;
     vm.runInNewContext(source, {
         document: {
             addEventListener: (type, handler) => handler(),
@@ -23,14 +24,15 @@ function setup(publicVisible = true, csrf = true) {
             querySelector: selector => selector.includes('error') ? alert
                 : csrf ? {content: selector.includes('_csrf_header') ? 'X-CSRF-TOKEN' : 'test-token'} : null
         },
-        window: {location: {reload() { reloads++; }}, addEventListener() {}},
+        window: {location: {reload() { reloads++; }}, addEventListener() {},
+            confirm() { confirmations++; return confirmed; }},
         fetch: (url, options) => {
             requests.push({url, options});
             return new Promise(done => { resolve = done; });
         }
     });
     return {button, alert, requests, click: events.click,
-        respond: response => resolve(response), reloads: () => reloads};
+        respond: response => resolve(response), reloads: () => reloads, confirmations: () => confirmations};
 }
 
 for (const initial of [true, false]) {
@@ -39,6 +41,7 @@ for (const initial of [true, false]) {
         const pending = ui.click();
         await ui.click();
         assert.equal(ui.requests.length, 1);
+        assert.equal(ui.confirmations(), initial ? 1 : 0);
         assert.equal(ui.button.disabled, true);
         assert.equal(ui.button.dataset.publicVisible, String(initial));
         assert.equal(ui.button.textContent, initial ? '숨기기' : '공개하기');
@@ -54,6 +57,18 @@ for (const initial of [true, false]) {
         assert.equal(ui.alert.hidden, true);
     });
 }
+
+test('cancelling hide confirmation leaves the saved state and performs no POST', async () => {
+    const ui = setup(true, true, false);
+    const pending = ui.click();
+    assert.equal(ui.confirmations(), 1);
+    assert.equal(ui.requests.length, 0);
+    assert.equal(ui.button.disabled, false);
+    assert.equal(ui.button.dataset.publicVisible, 'true');
+    assert.equal(ui.reloads(), 0);
+    assert.equal(ui.alert.hidden, true);
+    await pending;
+});
 
 for (const response of [
     {ok: false},

@@ -745,7 +745,7 @@ body:has(> main #region-fragment-container) #destination-list {
     color: #424957;
 }
 
-/* ─── 목록 도구줄: 카테고리 필터 · 정렬 ─── */
+/* ─── 목록 도구줄: 정렬 ─── */
 .list-toolbar {
     position: relative;
     display: flex;
@@ -758,122 +758,6 @@ body:has(> main #region-fragment-container) #destination-list {
 
 .destination-list-wrapper .list-toolbar .list-sort-buttons {
     margin: 0 !important;
-}
-
-.category-filter {
-    position: relative;
-}
-
-.category-filter-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 42px;
-    max-width: 100%;
-    padding: 0 14px;
-    color: #475569;
-    background: #fff;
-    border: 1px solid var(--tripbora-border);
-    border-radius: 10px;
-    font-size: 0.88rem;
-    font-weight: 650;
-    cursor: pointer;
-    transition: color .15s ease, border-color .15s ease;
-}
-
-.category-filter-toggle:hover,
-.category-filter-toggle:focus-visible,
-.category-filter-toggle[aria-expanded="true"] {
-    color: var(--tripbora-primary-hover);
-    border-color: var(--tripbora-primary);
-    outline: none;
-}
-
-.category-filter-toggle strong {
-    min-width: 0;
-    max-width: 12em;
-    overflow: hidden;
-    color: var(--tripbora-primary);
-    font-weight: 750;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.category-filter-dot {
-    color: #a0a8b6;
-}
-
-.category-filter-caret {
-    flex: none;
-    width: 7px;
-    height: 7px;
-    margin-left: 2px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: translateY(-2px) rotate(45deg);
-}
-
-.category-filter-toggle[aria-expanded="true"] .category-filter-caret {
-    transform: translateY(2px) rotate(-135deg);
-}
-
-.category-filter-panel {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 30;
-    width: 320px;
-    max-width: calc(100vw - 32px);
-    padding: 10px;
-    background: #fff;
-    border: 1px solid var(--tripbora-border);
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(30, 41, 59, 0.12);
-}
-
-.category-filter-panel[hidden] {
-    display: none;
-}
-
-.category-filter-options {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 2px;
-    max-height: 280px;
-    overflow-y: auto;
-}
-
-/* 텍스트 메뉴 항목: 기본은 흰 바탕, 고른 항목만 연보라 바탕과 진한 글씨 */
-.category-filter-option {
-    display: flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 10px;
-    color: #334155;
-    background: #fff;
-    border: 0;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 0.88rem;
-    font-weight: 500;
-    text-align: left;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-}
-
-.category-filter-option:hover {
-    background: #f8f7fc;
-}
-
-.category-filter-option:focus-visible {
-    outline: 2px solid var(--tripbora-focus);
-    outline-offset: -2px;
-}
-
-.category-filter-option[aria-pressed="true"] {
-    color: var(--tripbora-primary-hover);
-    background: var(--tripbora-soft);
-    font-weight: 700;
 }
 
 /* 조건에 맞는 여행지가 없을 때 */
@@ -898,29 +782,8 @@ body:has(> main #region-fragment-container) #destination-list {
 }
 
 @media (max-width: 600px) {
-    /* 필터·정렬을 한 줄에 둔다. 메뉴는 도구줄 폭에 맞춰 화면 밖으로 나가지 않는다. */
     .list-toolbar {
-        justify-content: space-between;
-    }
-
-    .category-filter {
-        position: static;
-        min-width: 0;
-    }
-
-    .category-filter-panel {
-        left: 0;
-        right: 0;
-        width: auto;
-        max-width: none;
-    }
-
-    .category-filter-toggle {
-        padding: 0 11px;
-    }
-
-    .category-filter-toggle strong {
-        max-width: 7em;
+        justify-content: flex-end;
     }
 
     .sort-btn {
@@ -1021,47 +884,8 @@ body:has(> main #region-fragment-container) #destination-list {
     }
 
     #region-fragment-container .list-toolbar {
-        justify-content: space-between;
+        justify-content: flex-end;
         margin-bottom: 22px;
-    }
-
-    #region-fragment-container .category-filter {
-        position: static;
-        min-width: 0;
-        max-width: 100%;
-    }
-
-    #region-fragment-container .category-filter-toggle {
-        min-height: 34px;
-        padding: 0 8px;
-        border-radius: 4px;
-        font-size: 13px;
-    }
-
-    #region-fragment-container .category-filter-panel {
-        left: 0;
-        right: 0;
-        width: auto;
-        max-width: none;
-        padding: 6px;
-        border-radius: 6px;
-        box-shadow: none;
-    }
-
-    #region-fragment-container .category-filter-options {
-        max-height: 252px;
-        gap: 2px 4px;
-        scrollbar-width: thin;
-        scrollbar-color: #d4d4dc transparent;
-        overscroll-behavior-y: contain;
-    }
-
-    #region-fragment-container .category-filter-option {
-        min-height: 34px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 13px;
-        line-height: 1.4;
     }
 
     #region-fragment-container .list-sort-buttons {

@@ -30,7 +30,6 @@ function rebindList() {
     bindFragmentPagination();
     bindSubregionScrollArrows();
     bindSortButtons();
-    bindCategoryFilter();
     if (window.initBookmarkButton) window.initBookmarkButton();
 }
 
@@ -62,7 +61,7 @@ function getCurrentPageSize() {
 
 /*
   주소창을 지금 보이는 목록과 같게 맞춘다. 새로고침·공유·상세에서 뒤로 와도 같은 목록이 열린다.
-  history: 'replace'(지역·정렬·쪽) | 'push'(카테고리 바꾸기 — 뒤로 가기로 이전 카테고리로 돌아간다) | 'none'(뒤로 가기 복원)
+  history: 'replace'(지역·정렬·쪽) | 'none'(뒤로 가기 복원)
 */
 function syncAddressBar(requestUrl, history = 'replace') {
     if (history === 'none') return;
@@ -75,11 +74,7 @@ function syncAddressBar(requestUrl, history = 'replace') {
     });
     const query = params.toString();
     const url = '/destinations' + (query ? `?${query}` : '');
-    if (history === 'push') {
-        window.history.pushState({destinationList: true}, '', url);
-    } else {
-        window.history.replaceState(window.history.state, '', url);
-    }
+    window.history.replaceState(window.history.state, '', url);
 }
 
 // region-bar + 리스트 전체를 주어진 주소의 조각으로 바꾼다.
@@ -159,51 +154,6 @@ function bindSortButtons() {
             btn.classList.add('active');
             fetchListFragmentByUrl(listFragmentUrl({sort: btn.dataset.sort || 'default'}));
         };
-    });
-}
-
-// ─── 카테고리 필터(하나만 고른다) ───
-// 메뉴에서 카테고리를 누르면 바로 그 카테고리 목록(1쪽)으로 바뀌고 메뉴가 닫힌다. '전체'는 필터를 푼다.
-// 카테고리를 바꿀 때마다 방문 기록을 남겨 뒤로 가기로 이전 카테고리로 돌아간다.
-function categoryFilterParts() {
-    const filter = document.querySelector('[data-category-filter]');
-    if (!filter) return null;
-    return {
-        toggle: filter.querySelector('[data-category-filter-toggle]'),
-        panel: filter.querySelector('[data-category-filter-panel]'),
-        options: [...filter.querySelectorAll('[data-category-filter-option]')]
-    };
-}
-
-function openCategoryPanel() {
-    const parts = categoryFilterParts();
-    if (!parts) return;
-    parts.panel.hidden = false;
-    parts.toggle.setAttribute('aria-expanded', 'true');
-    (parts.options.find(option => option.getAttribute('aria-pressed') === 'true') || parts.options[0])?.focus();
-}
-
-function closeCategoryPanel(focusToggle) {
-    const parts = categoryFilterParts();
-    if (!parts || parts.panel.hidden) return;
-    parts.panel.hidden = true;
-    parts.toggle.setAttribute('aria-expanded', 'false');
-    if (focusToggle) parts.toggle.focus();
-}
-
-function selectCategory(category) {
-    closeCategoryPanel(true);
-    if (category === getCurrentCategory()) return;
-    fetchListFragmentByUrl(listFragmentUrl({category}), 'push')
-        .then(() => document.querySelector('[data-category-filter-toggle]')?.focus());
-}
-
-function bindCategoryFilter() {
-    const parts = categoryFilterParts();
-    if (!parts) return;
-    parts.toggle.onclick = () => (parts.panel.hidden ? openCategoryPanel() : closeCategoryPanel(false));
-    parts.options.forEach(option => {
-        option.onclick = () => selectCategory(option.value);
     });
 }
 
@@ -293,12 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 3) 카테고리 메뉴 바깥을 누르면 닫는다.
-        if (!e.target.closest('[data-category-filter]')) closeCategoryPanel(false);
-    });
-
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closeCategoryPanel(true);
     });
 
     window.addEventListener('popstate', restoreListFromAddress);

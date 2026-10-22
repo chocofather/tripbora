@@ -10,6 +10,7 @@ import com.tripbora.service.comment.CommentImageLimitException;
 import com.tripbora.service.file.UnsupportedImageFormatException;
 import com.tripbora.service.comment.CommentLikeService;
 import com.tripbora.service.comment.DestinationCommentService;
+import com.tripbora.service.destination.DestinationNotFoundException;
 import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.service.translation.ContentTranslationResponse;
 import com.tripbora.service.translation.ContentTranslationService;
@@ -42,6 +43,16 @@ public class DestinationCommentController {
     private final DestinationCommentService destinationCommentService;
     private final ContentTranslationService contentTranslationService;
 
+    @ExceptionHandler(DestinationNotFoundException.class)
+    public ResponseEntity<Void> destinationNotFound() {
+        return ResponseEntity.notFound().build();
+    }
+
+    private boolean isAdministrator(CustomUserDetails userDetails) {
+        return userDetails != null && userDetails.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+    }
+
     // 댓글 좋아요 토글 API
     @PostMapping("/{commentId}/like-toggle")
     public ResponseEntity<String> toggleLike(@PathVariable Long commentId,
@@ -59,6 +70,7 @@ public class DestinationCommentController {
     public ResponseEntity<List<CommentDto>> getComments(@RequestParam Long destinationId,
                                                         @RequestParam(defaultValue = "oldest") String sort,
                                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+        destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
         Long userId = (userDetails != null) ? userDetails.getId() : null;
         List<CommentDto> comments = destinationCommentService.getCommentDtosWithWriter(destinationId, userId, sort);
         return ResponseEntity.ok(comments);
@@ -103,6 +115,7 @@ public class DestinationCommentController {
                                     @RequestParam(value = "parentCommentId", required = false) Long parentCommentId,
                                     @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
+            destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
             CommentDto dto = destinationCommentService.create(
                     destinationId, userDetails.getId(), content, images, parentCommentId);
             return ResponseEntity.ok(dto);
@@ -114,7 +127,9 @@ public class DestinationCommentController {
 
     // 댓글 이미지 추출
     @GetMapping("/images")
-    public ResponseEntity<List<CommentImageDto>> getCommentImages(@RequestParam Long destinationId) {
+    public ResponseEntity<List<CommentImageDto>> getCommentImages(@RequestParam Long destinationId,
+                                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
+        destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
         List<CommentImageDto> images = destinationCommentService.getCommentImageDtos(destinationId);
         return ResponseEntity.ok(images);
     }
@@ -127,6 +142,7 @@ public class DestinationCommentController {
             @RequestParam(defaultValue = "latest") String sort,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
         Long userId = (userDetails != null) ? userDetails.getId() : null;
         PageResult<CommentDto> result = destinationCommentService.getCommentsPaged(destinationId, userId, page, size, sort);
         return ResponseEntity.ok(result);
@@ -135,8 +151,10 @@ public class DestinationCommentController {
     @GetMapping("/{commentId}/location")
     public ResponseEntity<CommentLocationDto> getCommentLocation(
             @PathVariable Long commentId,
-            @RequestParam Long destinationId
+            @RequestParam Long destinationId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
         return destinationCommentService.getCommentLocation(destinationId, commentId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -147,6 +165,7 @@ public class DestinationCommentController {
             @PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             HttpServletRequest request) {
+        destinationCommentService.requireCommentDestinationAccessible(commentId, isAdministrator(userDetails));
         String targetLanguage = SupportedLanguage.fromLocale(LocaleContextHolder.getLocale())
                 .orElse(SupportedLanguage.KOREAN)
                 .getLanguageTag();

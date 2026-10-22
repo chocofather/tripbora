@@ -79,6 +79,8 @@
 
         Destination findById(Long id);
 
+        int updateVisibility(@Param("id") Long id, @Param("publicVisible") boolean publicVisible);
+
         List<Destination> findDomestic(); // 국내만
 
         void insertDestinationCategory(@Param("destinationId") Long destinationId,
@@ -124,19 +126,22 @@
                                                                    @Param("chosungPattern") String chosungPattern,
                                                                    @Param("sort") String sort,
                                                                    @Param("offset") long offset,
-                                                                   @Param("size") int size);
+                                                                   @Param("size") int size,
+                                                                   @Param("publicVisible") Boolean publicVisible);
 
         int countAdminDestinations(@Param("regionIds") List<Long> regionIds,
                                    @Param("destinationType") String destinationType,
                                    @Param("dataStatus") String dataStatus,
                                    @Param("keyword") String keyword,
-                                   @Param("chosungPattern") String chosungPattern);
+                                   @Param("chosungPattern") String chosungPattern,
+                                   @Param("publicVisible") Boolean publicVisible);
 
         /** 데이터 상태 필터를 뺀 지금 목록 조건 안의 상태별 건수(집계 한 번). */
         AdminDestinationDataStatusCounts countAdminDestinationDataStatus(@Param("regionIds") List<Long> regionIds,
                                                                          @Param("destinationType") String destinationType,
                                                                          @Param("keyword") String keyword,
-                                                                         @Param("chosungPattern") String chosungPattern);
+                                                                         @Param("chosungPattern") String chosungPattern,
+                                                                         @Param("publicVisible") Boolean publicVisible);
 
         // 조회수 증가
         void incrementViewCount(Long id);

@@ -54,6 +54,7 @@
             FROM destination_categories dc
             WHERE dc.destination_id = d.id AND dc.category_id = c.id
         )
+        AND d.is_public = 1
         ORDER BY RAND()
         LIMIT #{limit}
     </select>
@@ -83,6 +84,7 @@
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
         WHERE d.season = #{season}
+          AND d.is_public = 1
         ORDER BY RAND()
             LIMIT #{limit}
     </select>
@@ -128,6 +130,7 @@
                   FROM destination_images di
                   WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
               )
+          AND d.is_public = 1
         ORDER BY (d.views + (
                      SELECT COUNT(*)
                      FROM bookmarks b
@@ -165,6 +168,7 @@
                  SELECT dvd.destination_id,
                         SUM(dvd.view_count) AS recent_views
                  FROM destination_view_daily dvd
+                 JOIN destinations candidate ON candidate.id = dvd.destination_id AND candidate.is_public = 1
                  WHERE dvd.view_date BETWEEN #{fromDate} AND #{toDate}
                  GROUP BY dvd.destination_id
                  ORDER BY recent_views DESC, dvd.destination_id ASC
@@ -174,6 +178,7 @@
                  LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
+        WHERE d.is_public = 1
         ORDER BY recent.recent_views DESC, recent.destination_id ASC
     </select>
 
@@ -186,8 +191,7 @@
       순서는 '지금 뜨는 여행지'와 같이 합계 내림차순, 같으면 id 오름차순이다. (RAND 없음)
       날짜는 애플리케이션이 Asia/Seoul 기준으로 넘긴다. (CURDATE() 를 쓰지 않는다)
       사진·지역 표시는 계절 큐레이션 탭과 같다. (대표 사진 중 순서가 가장 앞선 한 장, 없으면 null)
-      destinations 에는 공개·숨김·소프트 삭제 컬럼이 없고(삭제는 행 삭제, 일별 조회도 CASCADE),
-      다른 메인 여행지 추천에도 그런 공통 필터가 없어 노출 조건은 따로 두지 않는다.
+      공개 여행지만 후보로 선택한다.
     -->
     <select id="findSeasonPopularByViewDate" resultMap="SeasonDestinationDtoMap">
         SELECT
@@ -218,7 +222,7 @@
                  LEFT JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
-        WHERE (
+        WHERE d.is_public = 1 AND (
                   d.season = #{season}
                   <if test="categoryNames != null and !categoryNames.isEmpty()">
                   OR EXISTS (

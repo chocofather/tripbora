@@ -16,7 +16,7 @@
     <select id="findDestinationIds" resultType="long">
         SELECT d.id
         FROM destinations d
-        WHERE EXISTS (
+        WHERE d.is_public = 1 AND EXISTS (
             SELECT 1
             FROM destination_translations dt
             WHERE dt.destination_id = d.id

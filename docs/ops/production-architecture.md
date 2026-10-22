@@ -222,6 +222,37 @@ docker port tripbora-dev-mysql                # (개발) 예상: 3306/tcp -> 127
   Cloudflare에서 HTML을 강제로 캐시하는 규칙을 추가하면 이 계약이 깨질 수 있다.
   정상 새 HTML을 받아야 새 해시 URL을 요청한다.
 
+### 개발 시 필수 규칙
+
+이 절은 Git 추적 대상이며, Git에서 제외되는 `AGENTS.md`의 정적 리소스 개발 규칙을
+다른 개발 환경에도 전달하는 공통 기준이다. 규칙 변경 시 두 문서를 함께 갱신한다.
+
+- 신규·수정 로컬 CSS/JS는 기존 `WebConfig`의 내용 해시 리소스 체인,
+  `ResourceUrlEncodingFilter`, `StaticResourceDialect`를 사용한다. 공통 layout,
+  페이지 전용 파일, 독립 페이지와 Thymeleaf fragment 모두 같은 기준을 적용한다.
+- 신규 참조는 `th:href="@{/css/...}"`, `th:src="@{/js/...}"`를 우선한다.
+  렌더링 결과에 해시 없는 고정 URL을 새로 도입하지 않으며, `?v=날짜` 등의 수동 버전,
+  해시 하드코딩, 기능별 별도 버전 관리 구현을 추가하지 않는다.
+- 파일 내용이 바뀌면 브라우저 요청 경로의 해시도 바뀌어야 한다.
+  JavaScript에서 동적으로 불러오는 로컬 CSS/JS도 리소스 체인을 우회하지 않는다.
+- CSS 내부 `@import`, `url(...)` 및 연결된 CSS·이미지·폰트를 확인한다.
+  의존 파일만 변경한 경우에도 부모 CSS의 캐시 때문에 이전 파일을 계속 요청하지 않는지
+  실제 브라우저 요청으로 검증한다. 부모 CSS 자체의 해시만 확인하고 끝내지 않는다.
+- 새 페이지나 리소스 참조 추가 시 실제 Thymeleaf 렌더링 HTML과 브라우저 Network에서
+  공통·전용·fragment CSS/JS의 해시 경로를 확인한다. 응답 HTTP 상태와 Content-Type이
+  정상이고 404, MIME 오류, Console 오류가 없는지 확인한다. 템플릿 소스만 보고 판단하지 않는다.
+  기존 `StaticResourceRenderingTest`, `StaticResourceDeploymentTest`와 관련 브라우저 테스트를
+  변경 범위에 맞게 활용한다.
+- 배포 관련 검증에서는 Dockerfile의 기존 `./gradlew clean bootJar --no-daemon` 빌드 흐름을
+  기준으로 최신 CSS/JS와 템플릿이 JAR에 포함됐는지, 소스와 내용이 일치하는지 확인한다.
+  Windows에서 정상이어도 Linux JAR에서는 파일명 대소문자가 일치해야 한다.
+  로컬 `bootJar` 확인을 실제 운영 컨테이너 검증으로 보고하지 않는다.
+- Cloudflare가 query string을 무시해도 새 내용을 구별하는 해시 경로 전략을 유지한다.
+  전체 `Cache-Control`을 `no-cache`로 바꾸거나 HTML을 강제로 CDN 캐시하는 방식으로 우회하지 않는다.
+  외부 CDN·버전 명시 WebJar·사용자 업로드의 기존 정책도 유지한다.
+- 검증을 이유로 운영 배포나 DB 접근을 임의로 수행하지 않는다.
+  문서만 수정하는 작업은 Gradle 빌드·테스트를 실행하지 않는다.
+
 ### 확인된 장애 증거
 
 2026-10-20 조사에서 같은 `/css/travel-plan-list.css`가 서로 다른 Cloudflare edge에서

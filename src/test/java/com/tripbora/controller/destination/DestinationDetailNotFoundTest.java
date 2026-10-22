@@ -4,6 +4,9 @@ import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.dto.DestinationDetailDto;
 import com.tripbora.model.CountryCategory;
 import com.tripbora.model.Destination;
+import com.tripbora.model.User;
+import com.tripbora.model.UserRole;
+import com.tripbora.security.CustomUserDetails;
 import com.tripbora.service.category.CountryCategoryService;
 import com.tripbora.service.category.ReferenceNameLocalizationService;
 import com.tripbora.service.comment.DestinationCommentService;
@@ -62,6 +65,7 @@ class DestinationDetailNotFoundTest {
     private DestinationCommentService destinationCommentService;
 
     private MockMvc mockMvc;
+    private CustomUserDetails currentPrincipal;
 
     @BeforeEach
     void setUp() {
@@ -91,7 +95,7 @@ class DestinationDetailNotFoundTest {
                                           ModelAndViewContainer mavContainer,
                                           NativeWebRequest webRequest,
                                           WebDataBinderFactory binderFactory) {
-                return null;
+                return currentPrincipal;
             }
         };
     }
@@ -115,6 +119,53 @@ class DestinationDetailNotFoundTest {
 
         verify(destinationService, never()).recordDetailView(any(), any());
         verify(destinationService, never()).incrementViewCount(404L);
+    }
+
+    @Test
+    void hiddenDestinationAnswersNotFoundForAnonymousWithoutCountingViews() throws Exception {
+        stubHiddenDestination();
+
+        mockMvc.perform(get("/destinations/7"))
+                .andExpect(status().isNotFound());
+
+        verify(destinationService, never()).recordDetailView(any(), any());
+        verify(destinationService, never()).incrementViewCount(7L);
+    }
+
+    @Test
+    void hiddenDestinationAnswersNotFoundForOrdinaryUser() throws Exception {
+        currentPrincipal = principal(UserRole.USER);
+        stubHiddenDestination();
+
+        mockMvc.perform(get("/destinations/7"))
+                .andExpect(status().isNotFound());
+
+        verify(destinationService, never()).recordDetailView(any(), any());
+    }
+
+    @Test
+    void administratorCanStillViewHiddenDestination() throws Exception {
+        currentPrincipal = principal(UserRole.ADMIN);
+        stubExistingDestination();
+        stubHiddenDestination();
+
+        mockMvc.perform(get("/destinations/7"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("destination/detail"));
+    }
+
+    private void stubHiddenDestination() {
+        DestinationDetailDto hidden = detailDto();
+        hidden.getDestination().setPublicVisible(false);
+        when(destinationService.getDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
+                .thenReturn(hidden);
+    }
+
+    private CustomUserDetails principal(UserRole role) {
+        User user = new User();
+        user.setId(25L);
+        user.setUserRole(role);
+        return new CustomUserDetails(user);
     }
 
     @Test

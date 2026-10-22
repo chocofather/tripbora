@@ -71,7 +71,7 @@ class DestinationServiceListSearchTest {
         destinationService.getAdminDestinationPage(REGION_IDS, "ATTRACTION", "missing_image", "경복", "latest", 30, 30);
 
         verify(destinationMapper).findAdminDestinationPage(
-                REGION_IDS, "ATTRACTION", "missing_image", "경복", null, "latest", 30, 30);
+                REGION_IDS, "ATTRACTION", "missing_image", "경복", null, "latest", 30, 30, null);
     }
 
     @Test
@@ -87,7 +87,7 @@ class DestinationServiceListSearchTest {
                         chosung.capture(),
                         org.mockito.ArgumentMatchers.eq("latest"),
                         org.mockito.ArgumentMatchers.eq(0L),
-                        org.mockito.ArgumentMatchers.eq(30));
+                        org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.isNull());
         assertThat(Pattern.compile(chosung.getValue()).matcher("경복궁").find()).isTrue();
         assertThat(Pattern.compile(chosung.getValue()).matcher("창덕궁").find()).isFalse();
     }
@@ -96,7 +96,7 @@ class DestinationServiceListSearchTest {
     void blankKeywordCarriesNoSearchCondition() {
         destinationService.countAdminDestinations(REGION_IDS, null, null, "   ");
 
-        verify(destinationMapper).countAdminDestinations(REGION_IDS, null, null, null, null);
+        verify(destinationMapper).countAdminDestinations(REGION_IDS, null, null, null, null, null);
     }
 
     /** 상단 상태별 건수는 데이터 상태 조건 없이 같은 검색 조건으로 한 번만 집계한다. */
@@ -104,7 +104,7 @@ class DestinationServiceListSearchTest {
     void dataStatusCountsUseTheSameSearchConditionWithoutAStatusFilter() {
         destinationService.getAdminDestinationDataStatusCounts(REGION_IDS, "ATTRACTION", "경복");
 
-        verify(destinationMapper).countAdminDestinationDataStatus(REGION_IDS, "ATTRACTION", "경복", null);
+        verify(destinationMapper).countAdminDestinationDataStatus(REGION_IDS, "ATTRACTION", "경복", null, null);
     }
 
     /** 지역 범위가 비면 IN () 쿼리를 만들지 않고 빈 결과로 끝낸다. */

@@ -6,6 +6,7 @@ import com.tripbora.dto.CommentLocationDto;
 import com.tripbora.dto.PageResult;
 import com.tripbora.dto.WriterDto;
 import com.tripbora.model.DestinationComment;
+import com.tripbora.model.Destination;
 import com.tripbora.model.DestinationCommentImage;
 import com.tripbora.model.User;
 import com.tripbora.model.UserStatus;
@@ -14,6 +15,7 @@ import com.tripbora.repository.comment.DestinationCommentMapper;
 import com.tripbora.repository.destination.DestinationMapper;
 import com.tripbora.repository.user.UserMapper;
 import com.tripbora.service.file.FileUploadService;
+import com.tripbora.service.destination.DestinationNotFoundException;
 import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.service.translation.LocalContentLanguageDetector;
 import com.tripbora.service.translation.TranslationVisibility;
@@ -55,6 +57,25 @@ public class DestinationCommentService {
 
     @Value("${custom.upload-path}")
     private String uploadPath;
+
+    /** 공개 댓글 API는 숨김 여행지를 열람할 수 있는 관리자 요청만 예외로 허용한다. */
+    @Transactional(readOnly = true)
+    public void requireDestinationAccessible(Long destinationId, boolean administrator) {
+        Destination destination = destinationMapper.findById(destinationId);
+        if (destination == null || (!destination.isPublicVisible() && !administrator)) {
+            throw new DestinationNotFoundException();
+        }
+    }
+
+    /** 번역 요청에는 여행지 ID가 없으므로 댓글의 실제 소속 여행지를 기준으로 검사한다. */
+    @Transactional(readOnly = true)
+    public void requireCommentDestinationAccessible(Long commentId, boolean administrator) {
+        DestinationComment comment = destinationCommentMapper.findById(commentId);
+        if (comment == null) {
+            throw new DestinationNotFoundException();
+        }
+        requireDestinationAccessible(comment.getDestinationId(), administrator);
+    }
 
     public List<DestinationComment> getCommentsByDestination(Long destinationId) {
         return destinationCommentMapper.findByDestinationId(destinationId);

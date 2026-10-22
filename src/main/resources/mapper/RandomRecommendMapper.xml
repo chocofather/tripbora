@@ -43,6 +43,7 @@
         FROM destinations d
                  JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
         WHERE d.region_id = #{regionId}
+          AND d.is_public = 1
         ORDER BY RAND()
             LIMIT #{limit}
     </select>
@@ -60,7 +61,7 @@
                 SUBSTRING_INDEX(region.code, '-', 1) AS country_code
             FROM destinations d
             JOIN country_categories region ON region.id = d.region_id
-            WHERE d.region_id IN
+            WHERE d.is_public = 1 AND d.region_id IN
             <foreach collection="regionIds" item="id" open="(" separator="," close=")">
                 #{id}
             </foreach>
@@ -115,7 +116,7 @@
         JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
         JOIN country_categories region ON region.id = d.region_id
         JOIN destination_countries ON destination_countries.destination_id = d.id
-        WHERE d.region_id IN
+        WHERE d.is_public = 1 AND d.region_id IN
         <foreach collection="regionIds" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
@@ -160,6 +161,7 @@
               ON country_regions.country_id = country.id
             JOIN destinations destination
               ON destination.region_id = country_regions.region_id
+             AND destination.is_public = 1
             JOIN destination_translations translation
               ON translation.destination_id = destination.id
              AND translation.language_code = 'ko'
@@ -215,6 +217,7 @@
               ON child_regions.candidate_id = child.id
             JOIN destinations destination
               ON destination.region_id = child_regions.region_id
+             AND destination.is_public = 1
             JOIN destination_translations translation
               ON translation.destination_id = destination.id
              AND translation.language_code = 'ko'

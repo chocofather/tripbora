@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class AdminDestinationDataStatusCounts {
     private int total;
+    private int hidden;
     private int missingImage;
     private int missingMainImage;
     private int missingCategory;

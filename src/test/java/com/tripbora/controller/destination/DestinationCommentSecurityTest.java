@@ -36,6 +36,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -62,6 +64,73 @@ class DestinationCommentSecurityTest {
     private CustomLogoutSuccessHandler customLogoutSuccessHandler;
     @MockitoBean
     private UserMapper userMapper;
+
+    @Test
+    void hiddenDestinationRejectsEveryPublicCommentReadRoute() throws Exception {
+        doThrow(new com.tripbora.service.destination.DestinationNotFoundException())
+                .when(destinationCommentService).requireDestinationAccessible(10L, false);
+        for (String path : List.of("/comments/list", "/comments/list/page", "/comments/images",
+                "/comments/35/location")) {
+            mockMvc.perform(get(path).param("destinationId", "10"))
+                    .andExpect(status().isNotFound());
+        }
+        verify(destinationCommentService, never()).getCommentDtosWithWriter(10L, null, "oldest");
+        verify(destinationCommentService, never()).getCommentsPaged(10L, null, 0, 5, "latest");
+        verify(destinationCommentService, never()).getCommentImageDtos(10L);
+        verify(destinationCommentService, never()).getCommentLocation(10L, 35L);
+    }
+
+    @Test
+    void onlyAdministratorPrincipalCanUseTheHiddenCommentReadException() throws Exception {
+        doThrow(new com.tripbora.service.destination.DestinationNotFoundException())
+                .when(destinationCommentService).requireDestinationAccessible(10L, false);
+        when(destinationCommentService.getCommentLocation(10L, 35L))
+                .thenReturn(Optional.of(new CommentLocationDto(1)));
+        for (UserRole role : List.of(UserRole.USER, UserRole.ADMIN)) {
+            User user = new User();
+            user.setId(7L);
+            user.setUserRole(role);
+            CustomUserDetails principal = new CustomUserDetails(user);
+            for (String path : List.of("/comments/list", "/comments/list/page", "/comments/images",
+                    "/comments/35/location")) {
+                mockMvc.perform(get(path).param("destinationId", "10")
+                                .with(authentication(new UsernamePasswordAuthenticationToken(
+                                        principal, "n/a", principal.getAuthorities()))))
+                        .andExpect(role == UserRole.ADMIN
+                                ? status().is2xxSuccessful() : status().isNotFound());
+            }
+        }
+        verify(destinationCommentService, org.mockito.Mockito.times(4))
+                .requireDestinationAccessible(10L, true);
+    }
+
+    @Test
+    void hiddenDestinationRejectsTranslationBeforeUsingTheTranslationCache() throws Exception {
+        doThrow(new com.tripbora.service.destination.DestinationNotFoundException())
+                .when(destinationCommentService).requireCommentDestinationAccessible(35L, false);
+        mockMvc.perform(get("/comments/35/translation"))
+                .andExpect(status().isNotFound());
+        org.mockito.Mockito.verifyNoInteractions(contentTranslationService);
+    }
+
+    @Test
+    void hiddenDestinationRejectsNewCommentsBeforeSavingImages() throws Exception {
+        doThrow(new com.tripbora.service.destination.DestinationNotFoundException())
+                .when(destinationCommentService).requireDestinationAccessible(10L, false);
+        User user = new User();
+        user.setId(7L);
+        user.setUserRole(UserRole.USER);
+        CustomUserDetails principal = new CustomUserDetails(user);
+        mockMvc.perform(multipart("/comments")
+                        .param("destinationId", "10").param("content", "comment")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                principal, "n/a", principal.getAuthorities())))
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+        verify(destinationCommentService, never()).create(
+                eq(10L), eq(7L), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void guestCanGetLatestPagedCommentsWithThreadAndActiveCommentTotals() throws Exception {

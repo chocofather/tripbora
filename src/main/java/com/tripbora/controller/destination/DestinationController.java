@@ -242,7 +242,10 @@ public class DestinationController {
                 .orElse(SupportedLanguage.KOREAN);
         DestinationDetailDto dto = destinationService.getDestinationDetailWithInfo(
                 id, requestedLanguage);
-        if (dto == null || dto.getDestination() == null) {
+        boolean administrator = userDetails != null && userDetails.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+        if (dto == null || dto.getDestination() == null
+                || (!dto.getDestination().isPublicVisible() && !administrator)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "여행지를 찾을 수 없습니다.");
         }
 

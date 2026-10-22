@@ -369,7 +369,6 @@ public class AdminDestinationController {
      * 여행지 관리 목록. 범위(전체/국내/해외)·분류·데이터 상태·지역·검색·정렬은 모두 GET 조건이라
      * 새로고침·뒤로가기·쪽 이동에도 그대로 남고, DB 조회 단계에서 한 쪽(30건)만 가져온다.
      */
-    @GetMapping
     public String showDestinationList(
             @RequestParam(value = "scope", required = false) String scope,
             @RequestParam(value = "destinationType", required = false) String destinationType,
@@ -383,6 +382,29 @@ public class AdminDestinationController {
             @RequestParam(value = "sort", required = false) String sort,
             @RequestParam(value = "page", required = false) String page,
             Model model) {
+        return showDestinationList(scope, destinationType, dataStatus, continentId, countryId, cityId,
+                regionId, districtId, keyword, sort, page, model, null);
+    }
+
+    @GetMapping
+    public String showDestinationList(
+            @RequestParam(value = "scope", required = false) String scope,
+            @RequestParam(value = "destinationType", required = false) String destinationType,
+            @RequestParam(value = "dataStatus", required = false) String dataStatus,
+            @RequestParam(value = "continentId", required = false) Long continentId,
+            @RequestParam(value = "countryId", required = false) Long countryId,
+            @RequestParam(value = "cityId", required = false) Long cityId,
+            @RequestParam(value = "regionId", required = false) Long regionId,
+            @RequestParam(value = "districtId", required = false) Long districtId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "sort", required = false) String sort,
+            @RequestParam(value = "page", required = false) String page,
+            Model model,
+            @RequestParam(value = "visibility", required = false) String visibility) {
+
+        String selectedVisibility = "public".equals(visibility) || "hidden".equals(visibility) ? visibility : null;
+        Boolean publicVisible = selectedVisibility == null ? null : "public".equals(selectedVisibility);
+        model.addAttribute("visibility", selectedVisibility);
 
         // 공백만 입력한 검색어는 검색 조건 없음으로 본다.
         String searchKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.strip();
@@ -443,15 +465,20 @@ public class AdminDestinationController {
             }
         }
 
-        int totalCount = destinationService.countAdminDestinations(
-                regionIds, selectedDestinationType, selectedDataStatus, searchKeyword);
+        int totalCount = publicVisible == null
+                ? destinationService.countAdminDestinations(regionIds, selectedDestinationType, selectedDataStatus, searchKeyword)
+                : destinationService.countAdminDestinations(regionIds, selectedDestinationType, selectedDataStatus, searchKeyword, publicVisible);
         int totalPages = totalCount == 0 ? 0 : (totalCount + ADMIN_LIST_PAGE_SIZE - 1) / ADMIN_LIST_PAGE_SIZE;
         int currentPage = totalPages == 0 ? 1 : Math.min(parsePage(page), totalPages);
         long offset = (long) (currentPage - 1) * ADMIN_LIST_PAGE_SIZE;
-        var destinationList = destinationService.getAdminDestinationPage(regionIds, selectedDestinationType,
-                selectedDataStatus, searchKeyword, selectedSort, offset, ADMIN_LIST_PAGE_SIZE);
-        AdminDestinationDataStatusCounts statusCounts = destinationService.getAdminDestinationDataStatusCounts(
-                regionIds, selectedDestinationType, searchKeyword);
+        var destinationList = publicVisible == null
+                ? destinationService.getAdminDestinationPage(regionIds, selectedDestinationType, selectedDataStatus,
+                        searchKeyword, selectedSort, offset, ADMIN_LIST_PAGE_SIZE)
+                : destinationService.getAdminDestinationPage(regionIds, selectedDestinationType, selectedDataStatus,
+                        searchKeyword, selectedSort, offset, ADMIN_LIST_PAGE_SIZE, publicVisible);
+        AdminDestinationDataStatusCounts statusCounts = publicVisible == null
+                ? destinationService.getAdminDestinationDataStatusCounts(regionIds, selectedDestinationType, searchKeyword)
+                : destinationService.getAdminDestinationDataStatusCounts(regionIds, selectedDestinationType, searchKeyword, publicVisible);
         int pageStart = Math.max(1, currentPage - 2);
         int pageEnd = Math.min(totalPages, pageStart + 4);
         pageStart = Math.max(1, pageEnd - 4);
@@ -473,15 +500,15 @@ public class AdminDestinationController {
         model.addAttribute("pageOffset", offset);
         // 쪽 이동 링크와 삭제 후 돌아올 주소. 지금 조건을 그대로 담고 page 만 바꿔 붙인다.
         model.addAttribute("listUrl", adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId,
-                countryId, cityId, regionId, districtId, searchKeyword, selectedSort, null));
+                countryId, cityId, regionId, districtId, searchKeyword, selectedSort, null, selectedVisibility));
         String currentListUrl = adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId,
-                countryId, cityId, regionId, districtId, searchKeyword, selectedSort, currentPage);
+                countryId, cityId, regionId, districtId, searchKeyword, selectedSort, currentPage, selectedVisibility);
         model.addAttribute("listQuery", currentListUrl.substring("/admin/destinations".length()));
         // 데이터 상태 바로가기(select 와 같은 항목). 다른 조건은 그대로 두고 데이터 상태만 바꿔 1쪽부터 본다.
         List<DataStatusShortcut> statusShortcuts = new ArrayList<>();
         statusShortcuts.add(new DataStatusShortcut(null, "전체", statusCounts.getTotal(),
                 adminListUrl(type, selectedDestinationType, null, continentId, countryId, cityId,
-                        regionId, districtId, searchKeyword, selectedSort, null)));
+                        regionId, districtId, searchKeyword, selectedSort, null, selectedVisibility)));
         for (var shortcut : List.of(
                 Map.entry("missing_image", statusCounts.getMissingImage()),
                 Map.entry("missing_main_image", statusCounts.getMissingMainImage()),
@@ -491,8 +518,11 @@ public class AdminDestinationController {
             statusShortcuts.add(new DataStatusShortcut(shortcut.getKey(),
                     ADMIN_DATA_STATUS_LABELS.get(shortcut.getKey()), shortcut.getValue(),
                     adminListUrl(type, selectedDestinationType, shortcut.getKey(), continentId, countryId,
-                            cityId, regionId, districtId, searchKeyword, selectedSort, null)));
+                            cityId, regionId, districtId, searchKeyword, selectedSort, null, selectedVisibility)));
         }
+        statusShortcuts.add(new DataStatusShortcut("hidden", "숨김", statusCounts.getHidden(),
+                adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId, countryId,
+                        cityId, regionId, districtId, searchKeyword, selectedSort, null, "hidden")));
         model.addAttribute("statusShortcuts", statusShortcuts);
 
         // 대륙 리스트 (depth=1)
@@ -570,10 +600,11 @@ public class AdminDestinationController {
                                     @RequestParam(value = "districtId", required = false) Long districtId,
                                     @RequestParam(value = "keyword", required = false) String keyword,
                                     @RequestParam(value = "sort", required = false) String sort,
-                                    @RequestParam(value = "page", required = false) String page) {
+                                    @RequestParam(value = "page", required = false) String page,
+                                    @RequestParam(value = "visibility", required = false) String visibility) {
         destinationService.deleteById(id);
         return listRedirectAfterDelete(scope, destinationType, dataStatus, continentId, countryId, cityId,
-                regionId, districtId, keyword, sort, page);
+                regionId, districtId, keyword, sort, page, visibility);
     }
 
     /**
@@ -593,7 +624,8 @@ public class AdminDestinationController {
                                      @RequestParam(value = "keyword", required = false) String keyword,
                                      @RequestParam(value = "sort", required = false) String sort,
                                      @RequestParam(value = "page", required = false) String page,
-                                     RedirectAttributes redirectAttributes) {
+                                     RedirectAttributes redirectAttributes,
+                                     @RequestParam(value = "visibility", required = false) String visibility) {
         try {
             int deleted = destinationService.deleteByIds(destinationIds);
             redirectAttributes.addFlashAttribute("bulkDeleteResult", "여행지 " + deleted + "건을 삭제했습니다.");
@@ -602,12 +634,12 @@ public class AdminDestinationController {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
         return listRedirectAfterDelete(scope, destinationType, dataStatus, continentId, countryId, cityId,
-                regionId, districtId, keyword, sort, page);
+                regionId, districtId, keyword, sort, page, visibility);
     }
 
     private static String listRedirectAfterDelete(String scope, String destinationType, String dataStatus,
                                                   Long continentId, Long countryId, Long cityId, Long regionId,
-                                                  Long districtId, String keyword, String sort, String page) {
+                                                  Long districtId, String keyword, String sort, String page, String visibility) {
         String type = "domestic".equals(scope) || "overseas".equals(scope) ? scope : null;
         String selectedDestinationType = DESTINATION_TYPE_LABELS.containsKey(destinationType) ? destinationType : null;
         String selectedSort = ADMIN_LIST_SORT_LABELS.containsKey(sort) ? sort : DEFAULT_ADMIN_LIST_SORT;
@@ -615,7 +647,7 @@ public class AdminDestinationController {
         String searchKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.strip();
         // 마지막 쪽을 모두 지워도 목록 조회가 쪽 번호를 남은 마지막 쪽으로 맞춰 보여 준다.
         return "redirect:" + adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId, countryId,
-                cityId, regionId, districtId, searchKeyword, selectedSort, parsePage(page));
+                cityId, regionId, districtId, searchKeyword, selectedSort, parsePage(page), visibility);
     }
 
     private static int parsePage(String page) {
@@ -633,7 +665,16 @@ public class AdminDestinationController {
     static String adminListUrl(String scope, String destinationType, String dataStatus, Long continentId,
                                Long countryId, Long cityId, Long regionId, Long districtId, String keyword,
                                String sort, Integer page) {
+        return adminListUrl(scope, destinationType, dataStatus, continentId, countryId, cityId, regionId,
+                districtId, keyword, sort, page, null);
+    }
+
+    static String adminListUrl(String scope, String destinationType, String dataStatus, Long continentId,
+                               Long countryId, Long cityId, Long regionId, Long districtId, String keyword,
+                               String sort, Integer page, String visibility) {
         return org.springframework.web.util.UriComponentsBuilder.fromPath("/admin/destinations")
+                .queryParamIfPresent("visibility", Optional.ofNullable(visibility)
+                        .filter(value -> "public".equals(value) || "hidden".equals(value)))
                 .queryParamIfPresent("scope", Optional.ofNullable(scope))
                 .queryParamIfPresent("destinationType", Optional.ofNullable(destinationType))
                 .queryParamIfPresent("dataStatus", Optional.ofNullable(dataStatus))

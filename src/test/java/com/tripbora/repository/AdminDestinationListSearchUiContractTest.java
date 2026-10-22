@@ -111,7 +111,7 @@ class AdminDestinationListSearchUiContractTest {
     @Test
     void listQueryFiltersByTheDisplayedKoreanNameWithBoundParameter() throws IOException {
         String mapper = resource("/mapper/DestinationMapper.xml");
-        String select = between(mapper, "<sql id=\"adminListFromWhere\"", "</sql>");
+        String select = between(mapper, "<sql id=\"adminListScopeFromWhere\"", "</sql>");
         String page = between(mapper, "<select id=\"findAdminDestinationPage\"", "</select>");
 
         assertThat(page)
@@ -192,9 +192,9 @@ class AdminDestinationListSearchUiContractTest {
 
         String aggregate = between(mapper, "<select id=\"countAdminDestinationDataStatus\"", "</select>");
         assertThat(aggregate)
-                .contains("<include refid=\"adminListFromWhere\"/>")
+                .contains("<include refid=\"adminListScopeFromWhere\"/>")
                 .doesNotContain("adminListDataStatusFilter")
-                .contains("COUNT(*) AS total")
+                .contains("SUM(s.matchesVisibility), 0) AS total")
                 .contains("AS missingDescription")
                 .doesNotContain("hasIssue");
     }

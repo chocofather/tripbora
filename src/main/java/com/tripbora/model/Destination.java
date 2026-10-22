@@ -22,6 +22,8 @@ public class Destination {
     private Long userID; // 회원번호
     private Long regionId; // 지역 카테고리 번호
     private DestinationType type;
+    /** 일반 공개 조회에 노출할지 여부. 등록/정보 수정과 별도로 관리한다. */
+    private boolean publicVisible = true;
 
     /** 등록 출처: ADMIN(관리자 직접 입력), KTO_TOURAPI(TourAPI 가져오기). */
     private String sourceType;

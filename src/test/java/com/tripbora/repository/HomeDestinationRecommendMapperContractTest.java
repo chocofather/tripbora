@@ -123,7 +123,7 @@ class HomeDestinationRecommendMapperContractTest {
         assertThat(query.split("FROM destination_view_daily", -1)).hasSize(2);
         // 카테고리는 EXISTS 안에서만 읽는다. 바깥 FROM 에서 JOIN 하면 카테고리 수만큼 행·조회 합계가 늘어난다.
         assertThat(query.split("destination_categories", -1)).hasSize(2);
-        String outerFrom = query.substring(query.indexOf("FROM destinations d"), query.indexOf("WHERE ("));
+        String outerFrom = query.substring(query.indexOf("FROM destinations d"), query.indexOf("WHERE d.is_public"));
         assertThat(outerFrom).doesNotContain("destination_categories", "JOIN categories");
     }
 
@@ -141,7 +141,7 @@ class HomeDestinationRecommendMapperContractTest {
         BoundSql fall = statement.getBoundSql(seasonPopularParams("FALL", fallCategories));
         String fallSql = fall.getSql().replaceAll("\\s+", " ");
         assertThat(fallSql)
-                .contains("WHERE ( d.season = ? OR EXISTS ( SELECT 1 FROM destination_categories dc"
+                .contains("WHERE d.is_public = 1 AND ( d.season = ? OR EXISTS ( SELECT 1 FROM destination_categories dc"
                         + " JOIN categories c ON c.id = dc.category_id"
                         + " WHERE dc.destination_id = d.id AND c.name IN ( ? , ? , ? , ? ) ) )")
                 .contains("ORDER BY COALESCE(recent.recent_views, 0) DESC, d.id ASC LIMIT ?");
@@ -155,7 +155,7 @@ class HomeDestinationRecommendMapperContractTest {
         String springSql = statement.getBoundSql(seasonPopularParams("SPRING", List.of()))
                 .getSql().replaceAll("\\s+", " ");
         assertThat(springSql)
-                .contains("WHERE ( d.season = ? ) ORDER BY")
+                .contains("WHERE d.is_public = 1 AND ( d.season = ? ) ORDER BY")
                 .doesNotContain("EXISTS", "destination_categories");
     }
 

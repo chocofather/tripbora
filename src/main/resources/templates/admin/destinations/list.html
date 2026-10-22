@@ -2,9 +2,10 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'destinations')}">
 <th:block th:fragment="headFragment">
-  <link rel="stylesheet" href="/css/admin-compact-lists.css?v=20261009-1">
-  <script src="/js/admin-destination-filter.js?v=20261010-1" defer></script>
-  <script src="/js/admin-destination-bulk-delete.js?v=20261011-1" defer></script>
+  <link rel="stylesheet" th:href="@{/css/admin-compact-lists.css}">
+  <script th:src="@{/js/admin-destination-filter.js}" defer></script>
+  <script th:src="@{/js/admin-destination-bulk-delete.js}" defer></script>
+  <script th:src="@{/js/admin-destination-visibility.js}" defer></script>
 </th:block>
 <th:block th:fragment="body">
   <section class="admin-page-section">
@@ -24,6 +25,7 @@
 
     <div th:if="${error}" class="admin-alert" role="alert" th:text="${error}"></div>
     <div th:if="${bulkDeleteResult}" class="admin-alert" role="status" th:text="${bulkDeleteResult}"></div>
+    <div class="admin-alert" role="alert" data-destination-visibility-error hidden></div>
 
     <div class="admin-filter-card is-toolbar">
       <form id="admin-destination-filter-form" method="get"
@@ -55,6 +57,12 @@
           <option value="">분류 전체</option>
           <option th:each="entry : ${destinationTypeLabels}" th:value="${entry.key}" th:text="${entry.value}"
                   th:selected="${destinationType} == ${entry.key}">관광지</option>
+        </select>
+
+        <select id="destination-visibility-filter" name="visibility" class="admin-select" aria-label="공개 상태">
+          <option value="" th:selected="${visibility == null}">전체</option>
+          <option value="public" th:selected="${visibility == 'public'}">공개</option>
+          <option value="hidden" th:selected="${visibility == 'hidden'}">숨김</option>
         </select>
 
         <!-- 데이터 상태(누락 항목)도 바꾸는 즉시 조회한다. 판정은 DB 조회 단계에서 한다. -->
@@ -110,7 +118,7 @@
     <!-- 데이터 상태 바로가기. 건수는 데이터 상태만 뺀 지금 조건 기준이고, 누르면 그 상태로 1쪽부터 본다. -->
     <nav class="admin-data-status-bar" aria-label="데이터 상태 바로가기">
       <a th:each="shortcut : ${statusShortcuts}"
-         th:with="active=${shortcut.status() == null ? dataStatus == null : shortcut.status() == dataStatus}"
+         th:with="active=${shortcut.status() == 'hidden' ? visibility == 'hidden' : (shortcut.status() == null ? dataStatus == null : shortcut.status() == dataStatus)}"
          th:href="${shortcut.url()}" class="admin-data-status-link"
          th:classappend="${active ? 'is-active' : ''} + ${shortcut.status() != null and shortcut.count() > 0 ? ' has-issue' : ''}"
          th:attr="aria-current=${active} ? 'true' : null">
@@ -166,6 +174,9 @@
             <td class="admin-table-number" th:text="${pageOffset + stat.index + 1}">1</td>
             <td>
               <span th:text="${dest.name}">제주도</span>
+              <span class="admin-destination-visibility-badge"
+                    th:classappend="${dest.publicVisible} ? 'is-public' : 'is-hidden'"
+                    th:text="${dest.publicVisible} ? '공개' : '숨김'">공개</span>
               <!-- 누락 항목이 있을 때만 작게 표시한다(정상 여행지에는 붙이지 않는다). -->
               <div class="admin-data-issues" th:if="${dest.hasDataIssue()}">
                 <span class="admin-data-issue" th:if="${dest.missingImage}">이미지 없음</span>
@@ -183,6 +194,9 @@
             <td th:text="${dest.regionName}">제주</td>
             <td class="admin-table-actions">
               <div class="admin-action-group">
+                <button type="button" class="admin-btn is-small" data-destination-visibility
+                        th:attr="data-visibility-url=@{'/admin/destinations/' + ${dest.id} + '/visibility'},data-public-visible=${dest.publicVisible},aria-label=|${dest.name} ${dest.publicVisible ? '숨기기' : '공개하기'}|"
+                        th:text="${dest.publicVisible} ? '숨기기' : '공개하기'">숨기기</button>
                 <a th:href="@{'/admin/destinations/' + ${dest.id} + '/images'}"
                    class="admin-btn is-small">이미지 관리</a>
                 <a th:href="@{'/admin/destinations/edit/' + ${dest.id}}"

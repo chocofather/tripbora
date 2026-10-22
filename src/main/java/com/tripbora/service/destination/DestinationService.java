@@ -402,6 +402,18 @@ public class DestinationService {
         return destinationMapper.findById(id);
     }
 
+    /** 공개 상태만 갱신한다. 본문·이미지·번역·기존 코스/계획 참조에는 손대지 않는다. */
+    @Transactional
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public boolean setPublicVisible(Long id, boolean publicVisible) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("여행지 ID가 올바르지 않습니다.");
+        if (destinationMapper.updateVisibility(id, publicVisible) == 0) {
+            // 동일 상태로 재요청한 경우에도 대상이 존재하면 성공이다.
+            if (destinationMapper.findById(id) == null) throw new DestinationNotFoundException();
+        }
+        return publicVisible;
+    }
+
     // ✅ 추가: 이미지 리스트만 따로 불러올 수 있도록
     public List<DestinationImage> getImagesByDestinationId(Long id) {
         return destinationMapper.findImagesByDestinationId(id);
@@ -415,34 +427,49 @@ public class DestinationService {
     public List<AdminDestinationListItemDto> getAdminDestinationPage(List<Long> regionIds, String destinationType,
                                                                      String dataStatus, String keyword, String sort,
                                                                      long offset, int size) {
+        return getAdminDestinationPage(regionIds, destinationType, dataStatus, keyword, sort, offset, size, null);
+    }
+
+    public List<AdminDestinationListItemDto> getAdminDestinationPage(List<Long> regionIds, String destinationType,
+            String dataStatus, String keyword, String sort, long offset, int size, Boolean publicVisible) {
         if (regionIds == null || regionIds.isEmpty()) {
             return List.of();
         }
         DestinationSearchKeyword search = DestinationSearchKeyword.of(keyword);
         return destinationMapper.findAdminDestinationPage(regionIds, destinationType, dataStatus,
-                search.namePattern(), search.chosungPattern(), sort, offset, size);
+                search.namePattern(), search.chosungPattern(), sort, offset, size, publicVisible);
     }
 
     public int countAdminDestinations(List<Long> regionIds, String destinationType, String dataStatus,
                                       String keyword) {
+        return countAdminDestinations(regionIds, destinationType, dataStatus, keyword, null);
+    }
+
+    public int countAdminDestinations(List<Long> regionIds, String destinationType, String dataStatus,
+                                      String keyword, Boolean publicVisible) {
         if (regionIds == null || regionIds.isEmpty()) {
             return 0;
         }
         DestinationSearchKeyword search = DestinationSearchKeyword.of(keyword);
         return destinationMapper.countAdminDestinations(regionIds, destinationType, dataStatus,
-                search.namePattern(), search.chosungPattern());
+                search.namePattern(), search.chosungPattern(), publicVisible);
     }
 
     /** 관리자 목록 상단 데이터 상태별 건수. 데이터 상태 필터만 빼고 지금 목록 조건을 그대로 쓴다. */
     public AdminDestinationDataStatusCounts getAdminDestinationDataStatusCounts(List<Long> regionIds,
                                                                                 String destinationType,
                                                                                 String keyword) {
+        return getAdminDestinationDataStatusCounts(regionIds, destinationType, keyword, null);
+    }
+
+    public AdminDestinationDataStatusCounts getAdminDestinationDataStatusCounts(List<Long> regionIds,
+            String destinationType, String keyword, Boolean publicVisible) {
         if (regionIds == null || regionIds.isEmpty()) {
             return new AdminDestinationDataStatusCounts();
         }
         DestinationSearchKeyword search = DestinationSearchKeyword.of(keyword);
         AdminDestinationDataStatusCounts counts = destinationMapper.countAdminDestinationDataStatus(
-                regionIds, destinationType, search.namePattern(), search.chosungPattern());
+                regionIds, destinationType, search.namePattern(), search.chosungPattern(), publicVisible);
         return counts != null ? counts : new AdminDestinationDataStatusCounts();
     }
 

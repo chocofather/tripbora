@@ -60,6 +60,7 @@
             WHERE c1.parent_id = 7 OR c1.id = 7
             ) sub
             )
+        AND d.is_public = 1
         GROUP BY d.id, d.region_id, dt.name, cc.region_name, d.views
         ORDER BY (d.views + (
             SELECT COUNT(*)
@@ -116,6 +117,7 @@
             WHERE c1.parent_id = 7 OR c1.id = 7
             ) sub
             )
+        AND d.is_public = 1
         GROUP BY d.id, d.region_id, dt.name, cc.region_name, d.views
         ORDER BY (d.views + (
             SELECT COUNT(*)
@@ -159,6 +161,7 @@
         <foreach collection="categoryIds" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
+        AND d.is_public = 1
         GROUP BY d.id, d.region_id, dt.name, cc.region_name, d.views
         ORDER BY (d.views + (
         SELECT COUNT(*)

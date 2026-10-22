@@ -8,6 +8,7 @@
     <!-- 썸네일용 -->
     <resultMap id="destinationWithThumbnail" type="com.tripbora.model.Destination">
         <id     property="id"            column="id"/>
+        <result property="publicVisible" column="is_public"/>
         <result property="latitude"      column="latitude"/>
         <result property="longitude"     column="longitude"/>
         <result property="season" column="season" javaType="com.tripbora.model.DestinationSeason"/>
@@ -81,6 +82,7 @@
     <!-- 상세페이지용 (필요하면 컬럼 더 추가) -->
     <resultMap id="DestinationDetailMap" type="com.tripbora.model.Destination">
         <id     property="id"            column="id"/>
+        <result property="publicVisible" column="is_public"/>
         <result property="latitude"      column="latitude"/>
         <result property="longitude"     column="longitude"/>
         <result property="googlePlaceId" column="google_place_id"/>
@@ -281,6 +283,10 @@
         WHERE d.id = #{id}
     </select>
 
+    <update id="updateVisibility">
+        UPDATE destinations SET is_public = #{publicVisible} WHERE id = #{id}
+    </update>
+
     <!-- 국내(대한민국=7) 리스트 + 썸네일 -->
     <select id="findDomestic" resultMap="destinationWithThumbnail">
         WITH RECURSIVE region_tree AS (
@@ -297,6 +303,7 @@
                  LEFT JOIN destination_images i ON d.id = i.destination_id
             AND i.is_main       = true
         WHERE d.region_id IN (SELECT id FROM region_tree)
+          AND d.is_public = 1
     </select>
 
     <!-- 카테고리 연결 -->
@@ -469,7 +476,7 @@
       관리자 여행지 목록 조건. 지역 범위 + 분류 + 여행지명 검색을 모두 DB 조회 단계에서 AND 로 건다.
       목록 쿼리와 건수 쿼리가 같은 조건을 쓴다.
     -->
-    <sql id="adminListFromWhere">
+    <sql id="adminListScopeFromWhere">
         FROM destinations d
         JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
         JOIN country_categories cc ON d.region_id = cc.id
@@ -488,6 +495,13 @@
         <!-- 초성검색(ㄱㅂㄱ 등). 패턴은 서버에서 초성 범위로만 조립해 bind 한다. -->
         <if test="chosungPattern != null and chosungPattern != ''">
             AND dt.name REGEXP #{chosungPattern}
+        </if>
+    </sql>
+
+    <sql id="adminListFromWhere">
+        <include refid="adminListScopeFromWhere"/>
+        <if test="publicVisible != null">
+            AND d.is_public = #{publicVisible}
         </if>
     </sql>
 
@@ -578,6 +592,7 @@
     <select id="findAdminDestinationPage" resultType="com.tripbora.dto.AdminDestinationListItemDto">
         SELECT
         d.id,
+        d.is_public AS publicVisible,
         dt.name AS name,
         d.type,
         d.region_id AS regionId,
@@ -610,23 +625,30 @@
     <!--
       목록 상단 데이터 상태별 건수. 데이터 상태 필터만 빼고 지금 범위·분류·지역·검색 조건 안에서
       한 번 훑으며 상태마다 센다(상태 수만큼 목록 쿼리를 다시 돌리지 않는다).
+      숨김 건수는 공개 상태 선택과 무관하게 제공하고, 기존 건수에는 공개 상태 조건을 유지한다.
     -->
     <select id="countAdminDestinationDataStatus" resultType="com.tripbora.dto.AdminDestinationDataStatusCounts">
         SELECT
-        COUNT(*) AS total,
-        COALESCE(SUM(s.missingImage), 0) AS missingImage,
-        COALESCE(SUM(s.missingMainImage), 0) AS missingMainImage,
-        COALESCE(SUM(s.missingCategory), 0) AS missingCategory,
-        COALESCE(SUM(s.missingTranslation), 0) AS missingTranslation,
-        COALESCE(SUM(s.missingDescription), 0) AS missingDescription
+        COALESCE(SUM(s.matchesVisibility), 0) AS total,
+        COALESCE(SUM(s.hidden), 0) AS hidden,
+        COALESCE(SUM(s.missingImage * s.matchesVisibility), 0) AS missingImage,
+        COALESCE(SUM(s.missingMainImage * s.matchesVisibility), 0) AS missingMainImage,
+        COALESCE(SUM(s.missingCategory * s.matchesVisibility), 0) AS missingCategory,
+        COALESCE(SUM(s.missingTranslation * s.matchesVisibility), 0) AS missingTranslation,
+        COALESCE(SUM(s.missingDescription * s.matchesVisibility), 0) AS missingDescription
         FROM (
             SELECT
+            d.is_public = 0 AS hidden,
+            <choose>
+                <when test="publicVisible != null">d.is_public = #{publicVisible}</when>
+                <otherwise>1</otherwise>
+            </choose> AS matchesVisibility,
             <include refid="adminMissingImage"/> AS missingImage,
             <include refid="adminMissingMainImage"/> AS missingMainImage,
             <include refid="adminMissingCategory"/> AS missingCategory,
             <include refid="adminMissingTranslation"/> AS missingTranslation,
             <include refid="adminMissingDescription"/> AS missingDescription
-            <include refid="adminListFromWhere"/>
+            <include refid="adminListScopeFromWhere"/>
         ) s
     </select>
 
@@ -760,6 +782,7 @@
         LEFT JOIN destination_images i ON d.id = i.destination_id AND i.is_main = true
         JOIN destination_categories dc ON d.id = dc.destination_id
         WHERE d.region_id = #{regionId}
+        AND d.is_public = 1
         AND dc.category_id IN
         <foreach item="cid" collection="categoryIds" open="(" separator="," close=")">
             #{cid}
@@ -804,6 +827,7 @@
             #{id}
         </foreach>
         <include refid="listCategoryFilter"/>
+        AND d.is_public = 1
         <!-- 같은 값이면 id 순으로 고정한다. 그래야 쪽을 넘길 때 같은 여행지가 두 쪽에 나오거나 빠지지 않는다. -->
         <choose>
             <when test="sort == 'views'">
@@ -844,6 +868,7 @@
             #{id}
         </foreach>
         <include refid="listCategoryFilter"/>
+        AND d.is_public = 1
     </select>
 
     <!--
@@ -856,6 +881,7 @@
         FROM categories c
         LEFT JOIN destination_categories dc ON dc.category_id = c.id
         LEFT JOIN destinations d ON d.id = dc.destination_id
+            AND d.is_public = 1
             AND d.region_id IN
             <foreach item="id" collection="regionIds" open="(" separator="," close=")">
                 #{id}
@@ -896,6 +922,7 @@
         JOIN destination_translations t ON d.id = t.destination_id
         AND t.language_code = 'ko'
         WHERE d.region_id IN (SELECT id FROM region_tree)
+        AND d.is_public = 1
         <choose>
             <when test="sort == 'views'">
                 ORDER BY d.views DESC
@@ -919,6 +946,7 @@
         )
         SELECT COUNT(*) FROM destinations d
         WHERE d.region_id IN (SELECT id FROM region_tree)
+          AND d.is_public = 1
     </select>
 
     <select id="findAllRegionIdsUnder" resultType="long" parameterType="long">

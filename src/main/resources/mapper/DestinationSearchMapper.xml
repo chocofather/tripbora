@@ -75,7 +75,7 @@
                  LEFT JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
                  LEFT JOIN destination_countries dc ON dc.destination_id = d.id
-        WHERE
+        WHERE d.is_public = 1 AND
             (
                 dt.name LIKE CONCAT('%', #{keyword}, '%')
                     OR dt.short_description LIKE CONCAT('%', #{keyword}, '%')

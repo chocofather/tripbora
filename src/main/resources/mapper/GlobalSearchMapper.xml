@@ -60,7 +60,7 @@
     </sql>
 
     <sql id="destinationWhere">
-        WHERE (
+        WHERE d.is_public = 1 AND (
             dt.name LIKE CONCAT('%', #{keywordPattern}, '%') ESCAPE '!'
             OR dt.short_description LIKE CONCAT('%', #{keywordPattern}, '%') ESCAPE '!'
             OR dt.description LIKE CONCAT('%', #{keywordPattern}, '%') ESCAPE '!'

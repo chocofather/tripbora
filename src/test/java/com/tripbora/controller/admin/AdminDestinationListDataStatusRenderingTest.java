@@ -31,6 +31,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AdminDestinationListDataStatusRenderingTest {
 
     @Test
+    void visibilityBadgesAndActionsMatchSavedStateAndFilterIsRetained() throws IOException {
+        AdminDestinationListItemDto visible = row(1L, "경복궁");
+        visible.setPublicVisible(true);
+        AdminDestinationListItemDto hidden = row(2L, "남산공원");
+        hidden.setPublicVisible(false);
+        Document page = render(List.of(visible, hidden), null, "hidden");
+
+        assertThat(page.select(".admin-destination-visibility-badge")).extracting(Element::text)
+                .containsExactly("공개", "숨김");
+        List<Element> buttons = page.select("[data-destination-visibility]");
+        assertThat(buttons).extracting(Element::text).containsExactly("숨기기", "공개하기");
+        assertThat(buttons.get(0).attr("data-public-visible")).isEqualTo("true");
+        assertThat(buttons.get(1).attr("data-public-visible")).isEqualTo("false");
+        assertThat(buttons.get(1).attr("data-visibility-url"))
+                .isEqualTo("/admin/destinations/2/visibility");
+        assertThat(buttons.get(1).attr("type")).isEqualTo("button");
+        assertThat(page.select("#destination-visibility-filter option[selected]").attr("value"))
+                .isEqualTo("hidden");
+        assertThat(page.selectFirst("[data-destination-visibility-error]").hasAttr("hidden")).isTrue();
+    }
+
+    @Test
+    void visibilityDefaultsToAllAndFiltersStartAtPageOne() throws IOException {
+        Document page = render(List.of(row(1L, "경복궁")), null);
+        assertThat(page.select("#destination-visibility-filter option[selected]")).hasSize(1);
+        assertThat(page.select("#destination-visibility-filter option[selected]").attr("value")).isEmpty();
+        assertThat(page.select("#admin-destination-filter-form [name=page]")).isEmpty();
+        assertThat(page.select(".admin-filter-actions a").attr("href")).isEqualTo("/admin/destinations");
+    }
+
+    @Test
     void onlyRowsWithMissingDataGetBadgesAndTheActiveShortcutIsMarked() throws IOException {
         AdminDestinationListItemDto complete = row(1L, "경복궁");
         complete.setCompleteTranslationLanguages("en,ja,zh-CN,zh-TW");
@@ -53,7 +84,7 @@ class AdminDestinationListDataStatusRenderingTest {
         List<Element> shortcuts = page.select(".admin-data-status-link");
         assertThat(shortcuts).extracting(Element::text)
                 .containsExactly("전체 1,284", "이미지 없음 12", "대표 이미지 없음 4", "카테고리 없음 0",
-                        "번역 미완료 19", "기본 설명 없음 7");
+                        "번역 미완료 19", "기본 설명 없음 7", "숨김 24");
         assertThat(shortcuts.get(1).hasClass("is-active")).isTrue();
         assertThat(shortcuts.get(1).attr("aria-current")).isEqualTo("true");
         assertThat(shortcuts.get(0).hasClass("is-active")).isFalse();
@@ -64,6 +95,24 @@ class AdminDestinationListDataStatusRenderingTest {
 
         assertThat(page.select("#destination-data-status-filter option[selected]").attr("value"))
                 .isEqualTo("missing_image");
+    }
+
+    @Test
+    void hiddenShortcutSharesTheSelectedStyleAndCombinesWithMissingImage() throws IOException {
+        Document page = render(List.of(row(1L, "경복궁")), "missing_image", "hidden");
+        Element hidden = page.selectFirst(".admin-data-status-link[href*='visibility=hidden']");
+        assertThat(hidden).isNotNull();
+        assertThat(hidden.text()).isEqualTo("숨김 24");
+        assertThat(hidden.hasClass("is-active")).isTrue();
+        assertThat(hidden.hasClass("has-issue")).isTrue();
+        assertThat(hidden.attr("aria-current")).isEqualTo("true");
+        assertThat(page.select(".admin-data-status-link.is-active").eachText())
+                .containsExactly("이미지 없음 12", "숨김 24");
+        assertThat(page.select("#destination-visibility-filter option[selected]").attr("value"))
+                .isEqualTo("hidden");
+        assertThat(page.select(".admin-filter-actions a").attr("href")).isEqualTo("/admin/destinations");
+        assertThat(render(List.of(), null, "public").selectFirst(".admin-data-status-link[href*='visibility=hidden']")
+                .hasClass("is-active")).isFalse();
     }
 
     /** 선택 삭제: 행마다 체크박스가 선택 삭제 폼에 묶이고, 폼은 지금 목록 조건을 담아 POST 한다. 단건 삭제도 그대로다. */
@@ -114,6 +163,10 @@ class AdminDestinationListDataStatusRenderingTest {
     }
 
     private Document render(List<AdminDestinationListItemDto> rows, String dataStatus) throws IOException {
+        return render(rows, dataStatus, null);
+    }
+
+    private Document render(List<AdminDestinationListItemDto> rows, String dataStatus, String visibility) throws IOException {
         MockServletContext servletContext = new MockServletContext();
         WebContext context = new WebContext(JakartaServletWebApplication.buildApplication(servletContext)
                 .buildExchange(new MockHttpServletRequest(servletContext), new MockHttpServletResponse()),
@@ -123,6 +176,7 @@ class AdminDestinationListDataStatusRenderingTest {
         statusLabels.put("missing_main_image", "대표 이미지 없음");
         context.setVariable("destinationList", rows);
         context.setVariable("dataStatus", dataStatus);
+        context.setVariable("visibility", visibility);
         context.setVariable("dataStatusLabels", statusLabels);
         context.setVariable("destinationTypeLabels", Map.of());
         context.setVariable("sortLabels", Map.of("latest", "최신 등록순"));
@@ -138,7 +192,9 @@ class AdminDestinationListDataStatusRenderingTest {
                 new AdminDestinationController.DataStatusShortcut("missing_translation", "번역 미완료", 19,
                         "/admin/destinations?dataStatus=missing_translation"),
                 new AdminDestinationController.DataStatusShortcut("missing_description", "기본 설명 없음", 7,
-                        "/admin/destinations?dataStatus=missing_description")));
+                        "/admin/destinations?dataStatus=missing_description"),
+                new AdminDestinationController.DataStatusShortcut("hidden", "숨김", 24,
+                        "/admin/destinations?visibility=hidden&dataStatus=missing_image")));
         context.setVariable("totalCount", rows.size());
         context.setVariable("pageOffset", 0L);
         context.setVariable("currentPage", 1);

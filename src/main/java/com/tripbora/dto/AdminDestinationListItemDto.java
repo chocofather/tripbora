@@ -13,6 +13,7 @@ import java.util.List;
 public class AdminDestinationListItemDto {
     private Long id;
     private String name;
+    private boolean publicVisible = true;
     private String type;
     private Long regionId;
     private String regionName;

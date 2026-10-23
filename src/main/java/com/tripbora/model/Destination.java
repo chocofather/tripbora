@@ -37,6 +37,8 @@ public class Destination {
     private String regionName; // country_categories.region_name 조인 결과 담기용
 
     private String thumbnailPath; // 메인 이미지 URL
+    private int cardPositionX = 50;
+    private int cardPositionY = 50;
     // Destination.java
     private List<DestinationImage> images = new ArrayList<>();
 

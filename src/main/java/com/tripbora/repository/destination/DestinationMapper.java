@@ -102,6 +102,9 @@
         void deleteImageById(Long imageId);
         void clearMainImagesByDestinationId(Long destinationId);
         void setMainImage(Long imageId);
+        int updateImageCardPosition(@Param("destinationId") Long destinationId,
+                                    @Param("imageId") Long imageId,
+                                    @Param("x") int x, @Param("y") int y);
         void updateImageSlide(@Param("imageId") Long imageId,
                               @Param("isSlide") boolean isSlide);
         void updateImageOrder(@Param("imageId") Long imageId,

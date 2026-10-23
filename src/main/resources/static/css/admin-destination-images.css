@@ -649,6 +649,60 @@
     background: #eef2f8;
 }
 
+/* 현재 대표 미리보기와 목록 카드는 같은 4:3 프레임과 cover 구도를 사용한다. */
+.admin-destination-image-card:has([data-image-position-open]) .admin-destination-image-preview {
+    aspect-ratio: 4 / 3;
+}
+
+.admin-destination-image-preview img[data-card-position-preview],
+.admin-image-position-stage img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover !important;
+    object-position: var(--card-position-x, 50%) var(--card-position-y, 50%) !important;
+    transform: none !important;
+}
+
+.admin-image-position-dialog {
+    box-sizing: border-box;
+    margin: auto;
+    width: min(560px, calc(100% - 24px));
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    color: #293241;
+    background: #fff;
+    border: 1px solid #e4deed;
+    border-radius: 12px;
+    overflow-y: auto;
+}
+.admin-image-position-dialog::backdrop { background: rgb(24 20 33 / 40%); }
+.admin-image-position-content { padding: 20px; }
+.admin-image-position-content h2 { margin: 0 0 10px; font-size: 18px; }
+.admin-image-position-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #eef1f5;
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+.admin-image-position-stage:active { cursor: grabbing; }
+.admin-image-position-stage img { position: absolute; inset: 0; max-width: none; }
+.admin-image-position-control { display: block; margin-top: 16px; font-size: 14px; }
+.admin-image-position-control span { display: flex; justify-content: space-between; gap: 8px; }
+.admin-image-position-control input { display: block; width: 100%; min-height: 32px; margin: 4px 0 0; accent-color: #7657c8; }
+.admin-image-position-status { min-height: 1.5em; margin: 12px 0; font-size: 13px; color: #5e469f; overflow-wrap: anywhere; }
+.admin-image-position-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.admin-image-position-actions [data-position-reset] { margin-right: auto; }
+@media (max-width: 600px) {
+    .admin-image-position-content { padding: 16px; }
+    .admin-image-position-actions .admin-btn { min-height: 40px; }
+}
+
 .admin-destination-image-preview img {
     display: block;
     width: 100%;

@@ -44,6 +44,8 @@
         <result property="licenseCheckedAt" column="img_license_checked_at"/>
         <result property="sourceRecordPresent" column="img_source_record_present"/>
         <result property="isMain"     column="img_is_main"/>
+        <result property="cardPositionX" column="img_card_position_x"/>
+        <result property="cardPositionY" column="img_card_position_y"/>
         <result property="isSlide"    column="img_is_slide"/>
         <result property="orderIndex" column="img_order_index"/>
         <result property="destinationId" column="img_destination_id"/>
@@ -73,6 +75,8 @@
         CASE WHEN s.destination_image_id IS NOT NULL THEN s.license_checked_at ELSE di.license_checked_at END AS img_license_checked_at,
         CASE WHEN s.destination_image_id IS NULL THEN 0 ELSE 1 END AS img_source_record_present,
         di.is_main AS img_is_main,
+        di.card_position_x AS img_card_position_x,
+        di.card_position_y AS img_card_position_y,
         di.is_slide AS img_is_slide,
         di.order_index AS img_order_index,
         di.destination_id AS img_destination_id,
@@ -375,6 +379,12 @@
         UPDATE destination_images
         SET is_main = true
         WHERE id = #{imageId}
+    </update>
+
+    <update id="updateImageCardPosition">
+        UPDATE destination_images
+        SET card_position_x = #{x}, card_position_y = #{y}
+        WHERE id = #{imageId} AND destination_id = #{destinationId} AND is_main = 1
     </update>
 
     <update id="updateImageSlide">
@@ -808,12 +818,9 @@
         d.season,
         d.user_id AS userID,
         d.region_id AS regionId,
-        (
-        SELECT image_url
-        FROM destination_images
-        WHERE destination_id = d.id AND is_main = 1
-        LIMIT 1
-        ) AS thumbnailPath,
+        card_image.image_url AS thumbnailPath,
+        COALESCE(card_image.card_position_x, 50) AS cardPositionX,
+        COALESCE(card_image.card_position_y, 50) AS cardPositionY,
         cc.region_name AS regionName,
         <if test="sort == 'bookmarks'">
             (SELECT COUNT(*) FROM bookmarks WHERE target_type = 'DESTINATION' AND target_id = d.id) AS bookmarkCount,
@@ -822,6 +829,10 @@
         FROM destinations d
         JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
         JOIN country_categories cc ON d.region_id = cc.id
+        LEFT JOIN destination_images card_image ON card_image.id = (
+            SELECT id FROM destination_images
+            WHERE destination_id = d.id AND is_main = 1 ORDER BY id LIMIT 1
+        )
         WHERE d.region_id IN
         <foreach item="id" collection="regionIds" open="(" separator="," close=")">
             #{id}
@@ -907,12 +918,9 @@
         c.region_name,
         t.name,
         t.short_description AS shortDescription,
-        (
-        SELECT image_url
-        FROM destination_images
-        WHERE destination_id = d.id AND is_main = 1
-        LIMIT 1
-        ) AS thumbnailPath,
+        card_image.image_url AS thumbnailPath,
+        COALESCE(card_image.card_position_x, 50) AS cardPositionX,
+        COALESCE(card_image.card_position_y, 50) AS cardPositionY,
         <if test="sort == 'bookmarks'">
             (SELECT COUNT(*) FROM bookmarks WHERE target_type = 'DESTINATION' AND target_id = d.id) AS bookmarkCount,
         </if>
@@ -921,6 +929,10 @@
         JOIN country_categories c ON d.region_id = c.id
         JOIN destination_translations t ON d.id = t.destination_id
         AND t.language_code = 'ko'
+        LEFT JOIN destination_images card_image ON card_image.id = (
+            SELECT id FROM destination_images
+            WHERE destination_id = d.id AND is_main = 1 ORDER BY id LIMIT 1
+        )
         WHERE d.region_id IN (SELECT id FROM region_tree)
         AND d.is_public = 1
         <choose>

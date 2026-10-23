@@ -326,7 +326,9 @@ body:has(> main #region-fragment-container) #destination-list {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    /* 목록에서는 공통 비율별 위치 보정·is-no-derivatives 규칙보다 우선한다. */
+    object-fit: cover !important;
+    object-position: var(--card-position-x, 50%) var(--card-position-y, 50%) !important;
     transition: opacity .18s ease;
 }
 

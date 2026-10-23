@@ -39,6 +39,8 @@
         private Boolean isSlide; // 슬라이드 여부
         private Integer orderIndex; // 이미지 순서
         private Long destinationId; // 여행지번호
+        private int cardPositionX = 50; // 목록 카드의 object-position (%)
+        private int cardPositionY = 50;
 
         public String getLicenseLabel() {
             return DestinationImageLicenseType.displayName(licenseType);

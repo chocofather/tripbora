@@ -39,10 +39,16 @@ class StaticResourceDeploymentTest {
         var template = new StringBuilder("<html><head>");
         try (var paths = Files.walk(Path.of("src/main/resources/templates"))) {
             for (var path : paths.filter(p -> p.toString().endsWith(".html")).toList()) {
-                for (var asset : Jsoup.parse(Files.readString(path))
-                        .select("link[href^=/css/], script[src^=/js/]")) {
+                for (var asset : Jsoup.parse(Files.readString(path)).select("link, script")) {
                     String attribute = asset.tagName().equals("link") ? "href" : "src";
                     String url = asset.attr(attribute);
+                    if (url.isEmpty()) {
+                        String expression = asset.attr("th:" + attribute);
+                        if (expression.matches("@\\{/((css|js)/[^}]+)}")) {
+                            url = expression.substring(2, expression.length() - 1);
+                        }
+                    }
+                    if (!url.startsWith("/css/") && !url.startsWith("/js/")) continue;
                     if (references.add(url)) template.append(new org.jsoup.nodes.Element(asset.tagName())
                             .attr(attribute, url).outerHtml());
                 }

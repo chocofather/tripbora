@@ -14,6 +14,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DestinationListPerformanceMapperTest {
 
+    @Test
+    void listReadsTheSameMainImagesUrlAndPositionInItsExistingQuery() throws IOException {
+        Configuration configuration = mapperConfiguration("/mapper/DestinationMapper.xml", "mapper/DestinationMapper.xml");
+        for (String sql : List.of(destinationListSql(configuration, "default"), domesticDestinationListSql(configuration, "default"))) {
+            assertThat(sql).contains("card_image.image_url AS thumbnailPath",
+                    "COALESCE(card_image.card_position_x, 50) AS cardPositionX",
+                    "COALESCE(card_image.card_position_y, 50) AS cardPositionY",
+                    "WHERE destination_id = d.id AND is_main = 1 ORDER BY id LIMIT 1");
+        }
+    }
+
     private static final String COUNTRY_CATEGORY_NAMESPACE =
             "com.tripbora.repository.category.CountryCategoryMapper";
     private static final String DESTINATION_NAMESPACE =

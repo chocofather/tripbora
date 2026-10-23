@@ -263,6 +263,19 @@ public class DestinationImageService {
         destinationMapper.setMainImage(imageId);
     }
 
+    /** 파일·대표 지정·출처는 변경하지 않고 해당 대표 이미지의 목록 구도만 저장한다. */
+    @Transactional
+    public void saveCardPosition(Long destinationId, Long imageId, Integer x, Integer y) {
+        if (x == null || y == null || x < 0 || x > 100 || y < 0 || y > 100) {
+            throw new IllegalArgumentException("가로·세로 위치는 0~100 사이의 정수여야 합니다.");
+        }
+        DestinationImage image = requireDestinationImage(destinationId, imageId);
+        if (!Boolean.TRUE.equals(image.getIsMain())
+                || destinationMapper.updateImageCardPosition(destinationId, imageId, x, y) != 1) {
+            throw new IllegalArgumentException("대표 이미지가 변경되었거나 삭제되었습니다. 새로고침 후 다시 조절해 주세요.");
+        }
+    }
+
     @Transactional
     public void toggleSlideImage(Long destinationId, Long imageId) {
         DestinationImage image = requireDestinationImage(destinationId, imageId);

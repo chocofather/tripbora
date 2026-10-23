@@ -24,6 +24,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DestinationImageMapperContractTest {
 
+    @Test
+    void positionSaveChangesOnlyTheLinkedMainImagesCoordinatesAndSwitchingMainKeepsThem() throws IOException {
+        Configuration configuration = mapperConfiguration();
+        assertThat(normalizedSql(configuration, "updateImageCardPosition",
+                Map.of("destinationId", 3L, "imageId", 8L, "x", 0, "y", 100)))
+                .isEqualTo("UPDATE destination_images SET card_position_x = ?, card_position_y = ? "
+                        + "WHERE id = ? AND destination_id = ? AND is_main = 1");
+        for (String statement : List.of("setMainImage", "clearMainImagesByDestinationId")) {
+            assertThat(normalizedSql(configuration, statement, 8L)).doesNotContain("card_position");
+        }
+        assertThat(configuration.getResultMap(NAMESPACE + ".imageMap").getResultMappings())
+                .extracting(org.apache.ibatis.mapping.ResultMapping::getProperty)
+                .contains("cardPositionX", "cardPositionY");
+    }
+
     private static final String NAMESPACE =
             "com.tripbora.repository.destination.DestinationMapper";
 

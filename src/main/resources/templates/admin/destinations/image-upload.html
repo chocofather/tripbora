@@ -3,7 +3,8 @@
       th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'destinations')}">
 <th:block th:fragment="headFragment">
   <link rel="stylesheet" href="/css/destination-create.css?v=20261009-1">
-  <link rel="stylesheet" href="/css/admin-destination-images.css?v=20261009-2">
+  <link rel="stylesheet" th:href="@{/css/admin-destination-images.css}">
+  <script th:src="@{/js/admin-destination-image-position.js}" defer></script>
   <script src="/js/admin-kto-photo-search.js?v=20261009-3" defer></script>
   <script src="/js/admin-destination-image-upload-preview.js?v=20260927-1" defer></script>
   <script src="/js/admin-destination-image-batch-upload.js?v=20261008-1" defer></script>
@@ -329,6 +330,8 @@
           <div class="admin-destination-image-preview">
             <!-- 이미 만들어 둔 썸네일을 쓴다(아직이면 원본, 만들기를 기다리지 않는다). 화면 아래 사진은 보일 때 불러온다. -->
             <img th:src="${imageThumbnails[img.id] != null} ? ${imageThumbnails[img.id]} : @{${img.imageUrl}}"
+                 th:attr="data-card-position-preview=${img.isMain} ? '' : null"
+                 th:style="|--card-position-x: ${img.cardPositionX}%; --card-position-y: ${img.cardPositionY}%;|"
                  th:classappend="${img.noDerivatives} ? 'is-no-derivatives'"
                  loading="lazy" decoding="async"
                  th:alt="${img.sourceTitle != null and !#strings.isEmpty(img.sourceTitle) ? img.sourceTitle : '여행지 이미지'}"
@@ -372,6 +375,12 @@
 
             <div class="admin-destination-image-actions">
               <span class="admin-image-current-state" th:if="${img.isMain}">현재 대표</span>
+              <button type="button" class="admin-btn is-small" th:if="${img.isMain}"
+                      data-image-position-open
+                      th:attr="data-position-x=${img.cardPositionX}, data-position-y=${img.cardPositionY},
+                               data-position-url=@{/admin/api/destinations/{id}/images/{imageId}/card-position(id=${destinationId},imageId=${img.id})}">
+                위치 조절
+              </button>
               <form th:unless="${img.isMain}"
                     th:action="@{/admin/destinations/images/{imageId}/main(imageId=${img.id})}"
                     method="post">
@@ -505,6 +514,28 @@
         </article>
       </div>
     </section>
+    <dialog id="image-position-dialog" class="admin-image-position-dialog" aria-labelledby="image-position-title">
+      <div class="admin-image-position-content">
+        <h2 id="image-position-title">대표 이미지 위치 조절</h2>
+        <p class="admin-field-help">사진을 드래그하거나 슬라이더로 목록 카드의 구도를 조절하세요.</p>
+        <div class="admin-image-position-stage" data-position-stage></div>
+        <label class="admin-image-position-control" for="image-position-x">
+          <span>가로 위치 <output data-position-x-output>50%</output></span>
+          <input id="image-position-x" type="range" min="0" max="100" step="1" value="50" disabled>
+        </label>
+        <label class="admin-image-position-control" for="image-position-y">
+          <span>세로 위치 <output data-position-y-output>50%</output></span>
+          <input id="image-position-y" type="range" min="0" max="100" step="1" value="50" disabled>
+        </label>
+        <p class="admin-field-help">잘리는 영역이 없는 방향은 중앙으로 고정됩니다. 여행지 상세 사진은 변경되지 않습니다.</p>
+        <p class="admin-image-position-status" data-position-status role="status" aria-live="polite"></p>
+        <div class="admin-image-position-actions">
+          <button type="button" class="admin-btn" data-position-reset>중앙 초기화</button>
+          <button type="button" class="admin-btn" data-position-cancel>취소</button>
+          <button type="button" class="admin-btn is-primary" data-position-save disabled>저장</button>
+        </div>
+      </div>
+    </dialog>
   </section>
 </th:block>
 </html>

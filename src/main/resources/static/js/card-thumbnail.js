@@ -1,7 +1,8 @@
 /*
   여행지 카드 썸네일(img.card-thumb)의 자르는 위치.
 
-  카드는 언제나 object-fit: cover 로 칸을 빈틈없이 채운다. 세로 사진을 가운데 기준으로 자르면
+  여행지 목록은 CSS 로 중앙 cover 를 유지하며 이 위치 보정에서 제외한다.
+  그 밖의 카드에서 세로 사진을 가운데 기준으로 자르면
   탑·고층 건물의 윗부분이 먼저 잘리므로, 실제 픽셀 비율(세로/가로)로 단계를 정해 data-thumb-shape 를 붙이고
   style.css 가 단계별로 조금 위쪽을 남긴다. 출처(업로드·외부 주소)와 관계없이 같은 기준이다.
   - 1.2 이상: portrait (일반 세로 사진)
@@ -15,6 +16,7 @@
     const TALL_RATIO = 1.6;
 
     const update = image => {
+        if (image.closest('.destination-card-media')) return;
         const ratio = image.naturalWidth ? image.naturalHeight / image.naturalWidth : 0;
         if (ratio >= TALL_RATIO) {
             image.dataset.thumbShape = 'tall';
@@ -35,4 +37,5 @@
     document.querySelectorAll('img.card-thumb').forEach(image => {
         if (image.complete) update(image);
     });
+
 })();

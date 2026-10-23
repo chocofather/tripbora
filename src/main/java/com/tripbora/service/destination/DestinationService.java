@@ -655,6 +655,8 @@ public class DestinationService {
                             : localizedField(DestinationTranslation::getName,
                             requested, korean, translations, dest.getName()));
                     dto.setThumbnailPath(dest.getThumbnailPath());
+                    dto.setCardPositionX(dest.getCardPositionX());
+                    dto.setCardPositionY(dest.getCardPositionY());
                     dto.setRegionName(localizedRegionNames.getOrDefault(
                             dest.getRegionId(), dest.getRegionName()));
                     dto.setShortDescription(requestedLanguage == null

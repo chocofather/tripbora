@@ -59,6 +59,8 @@ class DestinationServiceLocalizedListTest {
     @Test
     void localizesCurrentPageCardsWithOneTranslationBatchAndFieldLevelFallback() {
         Destination palace = destination(15L, 235L, "경복궁", "한국어 소개");
+        palace.setCardPositionX(25);
+        palace.setCardPositionY(80);
         Destination village = destination(16L, 236L, "마을", "마을 소개");
         when(destinationMapper.findTranslationsByDestinationIds(List.of(15L, 16L)))
                 .thenReturn(List.of(
@@ -82,6 +84,10 @@ class DestinationServiceLocalizedListTest {
         assertThat(cards).extracting(DestinationDto::getRegionName)
                 .containsExactly("Jongno-gu", "Jung-gu");
         assertThat(cards.get(0).isBookmarked()).isTrue();
+        assertThat(cards.get(0).getCardPositionX()).isEqualTo(25);
+        assertThat(cards.get(0).getCardPositionY()).isEqualTo(80);
+        assertThat(cards.get(1).getCardPositionX()).isEqualTo(50);
+        assertThat(cards.get(1).getCardPositionY()).isEqualTo(50);
         assertThat(cards.get(0).getCommentCount()).isEqualTo(4);
         verify(destinationMapper, times(1))
                 .findTranslationsByDestinationIds(List.of(15L, 16L));

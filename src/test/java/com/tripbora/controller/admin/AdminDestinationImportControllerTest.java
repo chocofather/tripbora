@@ -11,6 +11,8 @@ import com.tripbora.repository.user.UserMapper;
 import com.tripbora.security.CustomUserDetails;
 import com.tripbora.service.destinationimport.DestinationImportMasterExportService;
 import com.tripbora.service.destinationimport.DestinationImportService;
+import com.tripbora.service.destinationimport.DestinationImportUpdateService;
+import com.tripbora.dto.destinationimport.DestinationUpdatePreview;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -25,6 +27,7 @@ import java.util.Map;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -41,6 +44,7 @@ class AdminDestinationImportControllerTest {
     @Autowired private MockMvc mockMvc;
     @MockitoBean private DestinationImportService importService;
     @MockitoBean private DestinationImportMasterExportService masterExportService;
+    @MockitoBean private DestinationImportUpdateService updateService;
     @MockitoBean private CustomLoginSuccessHandler customLoginSuccessHandler;
     @MockitoBean private CustomLogoutSuccessHandler customLogoutSuccessHandler;
     @MockitoBean private UserMapper userMapper;
@@ -96,6 +100,49 @@ class AdminDestinationImportControllerTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(importService, masterExportService);
+    }
+
+    @Test
+    void updatePreviewAndApplyRequireAdminAndCsrfAndPassTheServerSession() throws Exception {
+        String base = "/admin/api/destinations/import-json/update/";
+        when(updateService.preview(any(), any(), eq(7L)))
+                .thenReturn(new DestinationUpdatePreview(List.of(), List.of()));
+        when(updateService.apply(any(), any(), eq(7L)))
+                .thenReturn(new DestinationUpdatePreview.Result("UPDATED", "완료", 42L, 1));
+        for (String endpoint : List.of("preview", "apply", "status")) {
+            mockMvc.perform(post(base + endpoint).contentType(MediaType.APPLICATION_JSON).content("{}")
+                    .with(user("user").roles("USER")).with(csrf())).andExpect(status().isForbidden());
+            mockMvc.perform(post(base + endpoint).contentType(MediaType.APPLICATION_JSON).content("{}")
+                    .with(user(new CustomUserDetails(admin())))).andExpect(status().isForbidden());
+        }
+        mockMvc.perform(post(base + "preview").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"json\":\"{}\",\"selections\":[]}")
+                .with(user(new CustomUserDetails(admin()))).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rows").isEmpty())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Server-Timing", org.hamcrest.Matchers.matchesPattern("preview;dur=[0-9]+\\.[0-9]{3}")));
+        mockMvc.perform(post(base + "apply").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\":\"server-token\",\"confirmed\":true}")
+                .with(user(new CustomUserDetails(admin()))).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.destinationId").value(42))
+                .andExpect(jsonPath("$.status").value("UPDATED"));
+        verify(updateService).preview(any(), any(), eq(7L));
+        verify(updateService).apply(any(), any(), eq(7L));
+    }
+
+    @Test
+    void readOnlyApplyReceiptUsesAdminSessionAndEchoesSafeRequestId() throws Exception {
+        String trace = "00000000-1111-2222-3333-444444444444";
+        when(updateService.applyStatus(eq("receipt"), any(), eq(7L)))
+                .thenReturn(new DestinationUpdatePreview.Result("RUNNING", "처리 중", 42L, 0));
+        mockMvc.perform(post("/admin/api/destinations/import-json/update/status")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"receipt\"}")
+                        .header("X-Import-Request-Id", trace)
+                        .with(user(new CustomUserDetails(admin()))).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("RUNNING"))
+                .andExpect(header().string("X-Import-Request-Id", trace))
+                .andExpect(header().string("Cache-Control", "no-store"));
+        verifyNoInteractions(importService);
     }
 
     private static User admin() {

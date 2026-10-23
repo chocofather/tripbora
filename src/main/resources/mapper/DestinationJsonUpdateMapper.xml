@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.destination.DestinationJsonUpdateMapper">
+    <!-- Preview only. No locking or language fallback; final save still locks and rechecks each row. -->
+    <select id="findExternalTargets" resultType="map">
+        SELECT id, external_content_id FROM destinations WHERE source_type=#{sourceType}
+        AND external_content_id IN <foreach collection="contentIds" item="contentId" open="(" separator="," close=")">#{contentId}</foreach>
+        ORDER BY id
+    </select>
+    <sql id="previewIds"><foreach collection="ids" item="previewId" open="(" separator="," close=")">#{previewId}</foreach></sql>
+    <sql id="previewInfoTable"><choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info</when><when test="type.name() == &quot;RESTAURANTS&quot; or type.name() == &quot;CAFE&quot;">restaurant_info</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info</when><when test="type.name() == &quot;SHOP&quot;">shop_info</when></choose></sql>
+    <sql id="previewInfoTranslationTable"><choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info_translations</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info_translations</when><when test="type.name() == &quot;RESTAURANTS&quot; or type.name() == &quot;CAFE&quot;">restaurant_info_translations</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info_translations</when><when test="type.name() == &quot;SHOP&quot;">shop_info_translations</when></choose></sql>
+    <sql id="previewAmenityTable"><choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_amenities</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_amenities</when><when test="type.name() == &quot;RESTAURANTS&quot; or type.name() == &quot;CAFE&quot;">restaurant_amenities</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_amenities</when><when test="type.name() == &quot;SHOP&quot;">shop_amenities</when></choose></sql>
+    <sql id="previewAmenityOwner"><choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_id</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_id</when><when test="type.name() == &quot;RESTAURANTS&quot; or type.name() == &quot;CAFE&quot;">restaurant_id</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_id</when><when test="type.name() == &quot;SHOP&quot;">shop_id</when></choose></sql>
+    <select id="findBases" resultType="map">
+        SELECT d.*, c.region_name FROM destinations d JOIN country_categories c ON c.id=d.region_id
+        WHERE d.id IN <include refid="previewIds"/> ORDER BY d.id
+    </select>
+    <select id="findTranslationsBatch" resultType="map">
+        SELECT * FROM destination_translations WHERE destination_id IN <include refid="previewIds"/> ORDER BY destination_id, language_code
+    </select>
+    <select id="findCategoriesBatch" resultType="map">
+        SELECT dc.destination_id, dc.category_id, dc.is_main, c.name FROM destination_categories dc JOIN categories c ON c.id=dc.category_id
+        WHERE dc.destination_id IN <include refid="previewIds"/> ORDER BY dc.destination_id, dc.category_id
+    </select>
+    <select id="findInfoBatch" resultType="map">
+        SELECT * FROM <include refid="previewInfoTable"/> WHERE destination_id IN <include refid="previewIds"/> ORDER BY destination_id
+    </select>
+    <select id="findInfoTranslationsBatch" resultType="map">
+        SELECT * FROM <include refid="previewInfoTranslationTable"/> WHERE destination_id IN <include refid="previewIds"/> ORDER BY destination_id, language_code
+    </select>
+    <select id="findAmenitiesBatch" resultType="map">
+        SELECT da.<include refid="previewAmenityOwner"/> AS destination_id, da.amenity_id, a.code
+        FROM <include refid="previewAmenityTable"/> da JOIN amenities a ON a.id=da.amenity_id
+        WHERE da.<include refid="previewAmenityOwner"/> IN <include refid="previewIds"/> ORDER BY destination_id, da.amenity_id
+    </select>
+    <!-- Literal identifier allowlists. Store validates fields against each subtype. -->
+    <select id="lockDestination" resultType="long">
+        SELECT id FROM destinations WHERE id=#{id} FOR UPDATE
+    </select>
+    <select id="findBase" resultType="map">
+        SELECT d.*, c.region_name FROM destinations d JOIN country_categories c ON c.id=d.region_id WHERE d.id=#{id}<if test="lock"> FOR UPDATE</if>
+    </select>
+    <select id="findTranslations" resultType="map">
+        SELECT * FROM destination_translations WHERE destination_id=#{id} ORDER BY language_code<if test="lock"> FOR UPDATE</if>
+    </select>
+    <select id="findInfo" resultType="map">
+        SELECT * FROM <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info</when><when test="type.name() == &quot;SHOP&quot;">shop_info</when></choose> WHERE destination_id=#{id}<if test="lock"> FOR UPDATE</if>
+    </select>
+    <select id="findInfoTranslations" resultType="map">
+        SELECT * FROM <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info_translations</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info_translations</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info_translations</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info_translations</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info_translations</when><when test="type.name() == &quot;SHOP&quot;">shop_info_translations</when></choose> WHERE destination_id=#{id} ORDER BY language_code<if test="lock"> FOR UPDATE</if>
+    </select>
+    <select id="findCategories" resultType="map">
+        SELECT dc.category_id, dc.is_main, c.name FROM destination_categories dc JOIN categories c ON c.id=dc.category_id WHERE dc.destination_id=#{id} ORDER BY dc.category_id<if test="lock"> FOR UPDATE</if>
+    </select>
+    <select id="findAmenities" resultType="map">
+        SELECT da.amenity_id, a.code FROM <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_amenities</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_amenities</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_amenities</when><when test="type.name() == &quot;CAFE&quot;">restaurant_amenities</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_amenities</when><when test="type.name() == &quot;SHOP&quot;">shop_amenities</when></choose> da JOIN amenities a ON a.id=da.amenity_id WHERE da.<choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_id</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_id</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_id</when><when test="type.name() == &quot;CAFE&quot;">restaurant_id</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_id</when><when test="type.name() == &quot;SHOP&quot;">shop_id</when></choose>=#{id} ORDER BY da.amenity_id<if test="lock"> FOR UPDATE</if>
+    </select>
+    <update id="updateBaseField">
+        UPDATE destinations SET <choose><when test="field == &quot;latitude&quot;">latitude</when><when test="field == &quot;longitude&quot;">longitude</when><when test="field == &quot;season&quot;">season</when><when test="field == &quot;regionId&quot;">region_id</when><when test="field == &quot;googlePlaceId&quot;">google_place_id</when></choose>=#{value} WHERE id=#{id}
+    </update>
+    <insert id="insertTranslation">
+        INSERT INTO destination_translations(destination_id,language_code,name) VALUES(#{id},#{language},'')
+    </insert>
+    <update id="updateTranslationField">
+        UPDATE destination_translations SET <choose><when test="field == &quot;name&quot;">name</when><when test="field == &quot;shortDescription&quot;">short_description</when><when test="field == &quot;description&quot;">description</when></choose>=#{value} WHERE destination_id=#{id} AND language_code=#{language}
+    </update>
+    <insert id="insertInfo">
+        INSERT INTO <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info</when><when test="type.name() == &quot;SHOP&quot;">shop_info</when></choose>(destination_id) VALUES(#{id})
+    </insert>
+    <update id="updateInfoField">
+        UPDATE <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info</when><when test="type.name() == &quot;SHOP&quot;">shop_info</when></choose> SET <choose><when test="field == &quot;closedDays&quot;">closed_days</when><when test="field == &quot;openingHours&quot;">opening_hours</when><when test="field == &quot;admissionFee&quot;">admission_fee</when><when test="field == &quot;guide&quot;">guide</when><when test="field == &quot;roomType&quot;">room_type</when><when test="field == &quot;etc&quot;">etc</when><when test="field == &quot;mainMenu&quot;">main_menu</when><when test="field == &quot;priceRange&quot;">price_range</when><when test="field == &quot;breakTime&quot;">break_time</when><when test="field == &quot;requiredTime&quot;">required_time</when><when test="field == &quot;ageLimit&quot;">age_limit</when><when test="field == &quot;mainProducts&quot;">main_products</when><when test="field == &quot;parkingAvailable&quot;">parking_available</when><when test="field == &quot;contactNumber&quot;">contact_number</when><when test="field == &quot;homepageUrl&quot;">homepage_url</when><when test="field == &quot;checkinTime&quot;">checkin_time</when><when test="field == &quot;checkoutTime&quot;">checkout_time</when><when test="field == &quot;roomCount&quot;">room_count</when><when test="field == &quot;starRating&quot;">star_rating</when><when test="field == &quot;breakfastIncluded&quot;">breakfast_included</when><when test="field == &quot;petAllowed&quot;">pet_allowed</when><when test="field == &quot;seatCount&quot;">seat_count</when><when test="field == &quot;takeoutAvailable&quot;">takeout_available</when><when test="field == &quot;deliveryAvailable&quot;">delivery_available</when><when test="field == &quot;reservation&quot;">reservation</when><when test="field == &quot;equipmentIncluded&quot;">equipment_included</when></choose>=#{value} WHERE destination_id=#{id}
+    </update>
+    <insert id="insertInfoTranslation">
+        INSERT INTO <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info_translations</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info_translations</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info_translations</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info_translations</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info_translations</when><when test="type.name() == &quot;SHOP&quot;">shop_info_translations</when></choose>(destination_id,language_code) VALUES(#{id},#{language})
+    </insert>
+    <update id="updateInfoTranslationField">
+        UPDATE <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_info_translations</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_info_translations</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_info_translations</when><when test="type.name() == &quot;CAFE&quot;">restaurant_info_translations</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_info_translations</when><when test="type.name() == &quot;SHOP&quot;">shop_info_translations</when></choose> SET <choose><when test="field == &quot;closedDays&quot;">closed_days</when><when test="field == &quot;openingHours&quot;">opening_hours</when><when test="field == &quot;admissionFee&quot;">admission_fee</when><when test="field == &quot;guide&quot;">guide</when><when test="field == &quot;roomType&quot;">room_type</when><when test="field == &quot;etc&quot;">etc</when><when test="field == &quot;mainMenu&quot;">main_menu</when><when test="field == &quot;priceRange&quot;">price_range</when><when test="field == &quot;breakTime&quot;">break_time</when><when test="field == &quot;requiredTime&quot;">required_time</when><when test="field == &quot;ageLimit&quot;">age_limit</when><when test="field == &quot;mainProducts&quot;">main_products</when></choose>=#{value} WHERE destination_id=#{id} AND language_code=#{language}
+    </update>
+    <delete id="deleteAmenity">
+        DELETE FROM <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_amenities</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_amenities</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_amenities</when><when test="type.name() == &quot;CAFE&quot;">restaurant_amenities</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_amenities</when><when test="type.name() == &quot;SHOP&quot;">shop_amenities</when></choose> WHERE <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_id</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_id</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_id</when><when test="type.name() == &quot;CAFE&quot;">restaurant_id</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_id</when><when test="type.name() == &quot;SHOP&quot;">shop_id</when></choose>=#{id} AND amenity_id=#{amenityId}
+    </delete>
+    <insert id="insertAmenity">
+        INSERT INTO <choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_amenities</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_amenities</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_amenities</when><when test="type.name() == &quot;CAFE&quot;">restaurant_amenities</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_amenities</when><when test="type.name() == &quot;SHOP&quot;">shop_amenities</when></choose>(<choose><when test="type.name() == &quot;ATTRACTION&quot;">attraction_id</when><when test="type.name() == &quot;ACCOMMODATION&quot;">accommodation_id</when><when test="type.name() == &quot;RESTAURANTS&quot;">restaurant_id</when><when test="type.name() == &quot;CAFE&quot;">restaurant_id</when><when test="type.name() == &quot;ACTIVITY&quot;">activity_id</when><when test="type.name() == &quot;SHOP&quot;">shop_id</when></choose>,amenity_id) VALUES(#{id},#{amenityId})
+    </insert>
+</mapper>

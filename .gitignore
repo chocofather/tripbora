@@ -49,6 +49,8 @@ src/main/resources/application-local.yml
 !README.md
 !docs/licenses/diary-pdf-third-party.md
 !docs/destination-registration.md
+!docs/destination-json-update-protection.md
+!docs/superpowers/plans/2026-10-24-destination-json-update.md
 !docs/ops/production-architecture.md
 
 ### Claude Code local config ###

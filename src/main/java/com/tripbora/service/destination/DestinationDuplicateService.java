@@ -54,6 +54,68 @@ public class DestinationDuplicateService {
         return checkAll(List.of(query)).get(0);
     }
 
+    /** 업데이트 대상 자신의 이름·외부 ID를 중복으로 오인하지 않고 다른 여행지와 비교한다. */
+    public DestinationDuplicateCheck checkExcluding(DestinationDuplicateQuery query, Long excludedId) {
+        return check(query, new Index(destinationMapper.findDuplicateIndex().stream()
+                .filter(row -> !java.util.Objects.equals(excludedId, row.getDestinationId())).toList()), new RegionPaths());
+    }
+
+    /** 이름·위치 기준의 모든 후보. 자동 업데이트의 근거가 아니며 관리자 확정용으로만 사용한다. */
+    public List<DestinationDuplicateCheck> findUpdateCandidates(DestinationDuplicateQuery query) {
+        return findUpdateCandidatesAll(List.of(query)).get(0);
+    }
+
+    /** Request-scoped lookup: one index and region-path cache for the whole update file. */
+    public List<List<DestinationDuplicateCheck>> findUpdateCandidatesAll(List<DestinationDuplicateQuery> queries) {
+        if (queries == null || queries.isEmpty()) return List.of();
+        return openUpdateLookup().findCandidates(queries);
+    }
+
+    /** A bounded preview owns this scope; no shared/global cache and no reuse during apply. */
+    public UpdateLookup openUpdateLookup() {
+        return new UpdateLookup(List.copyOf(destinationMapper.findDuplicateIndex()));
+    }
+
+    public final class UpdateLookup {
+        private final List<DestinationDuplicateIndexRow> rows;
+        private final Index index;
+        private final RegionPaths regions = new RegionPaths();
+
+        private UpdateLookup(List<DestinationDuplicateIndexRow> rows) {
+            this.rows = rows;
+            this.index = new Index(rows);
+        }
+
+        public List<List<DestinationDuplicateCheck>> findCandidates(List<DestinationDuplicateQuery> queries) {
+            List<List<DestinationDuplicateCheck>> results = new ArrayList<>(queries.size());
+            for (var query : queries) results.add(findUpdateCandidates(query, index, regions));
+            return List.copyOf(results);
+        }
+
+        public DestinationDuplicateCheck checkExcluding(DestinationDuplicateQuery query, Long excludedId) {
+            // Filtering the in-memory index preserves the original exclusion policy without another DB read.
+            return check(query, new Index(rows.stream()
+                    .filter(row -> !java.util.Objects.equals(excludedId, row.getDestinationId())).toList()), regions);
+        }
+    }
+
+    private List<DestinationDuplicateCheck> findUpdateCandidates(DestinationDuplicateQuery query,
+                                                                Index index, RegionPaths regions) {
+        List<DestinationDuplicateCheck> candidates = new ArrayList<>();
+        for (Entry entry : index.byNames(query.names())) {
+            Integer distance = distanceMeters(query.latitude(), query.longitude(), entry.latitude, entry.longitude);
+            if (distance != null && distance <= NEARBY_DISTANCE_METERS) {
+                candidates.add(DestinationDuplicateCheck.possibleDuplicate(DestinationDuplicateReason.NAME_AND_NEARBY,
+                        entry.id, entry.displayName(), distance));
+            } else if ((distance == null || query.regionId() != null)
+                    && regions.related(query.regionId(), entry.regionId)) {
+                candidates.add(DestinationDuplicateCheck.possibleDuplicate(DestinationDuplicateReason.NAME_AND_REGION,
+                        entry.id, entry.displayName(), distance));
+            }
+        }
+        return List.copyOf(candidates);
+    }
+
     /** 후보 여러 건을 한 번에 판별한다. 결과는 넘긴 순서와 같다. */
     public List<DestinationDuplicateCheck> checkAll(List<DestinationDuplicateQuery> queries) {
         if (queries == null || queries.isEmpty()) {

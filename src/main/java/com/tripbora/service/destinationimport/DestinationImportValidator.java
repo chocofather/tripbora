@@ -76,6 +76,14 @@ public class DestinationImportValidator {
      * @param domestic Master Resolver 가 판단한 국내 여부. 국가를 찾지 못했으면 null 이고 국내·해외 규칙은 건너뛴다
      */
     public Result validate(DestinationImportItem item, String path, Boolean domestic) {
+        return validate(item, path, domestic, false);
+    }
+
+    public Result validateUpdate(DestinationImportItem item, String path, Boolean domestic) {
+        return validate(item, path, domestic, true);
+    }
+
+    private Result validate(DestinationImportItem item, String path, Boolean domestic, boolean update) {
         List<DestinationImportIssue> errors = new ArrayList<>();
         List<DestinationImportIssue> warnings = new ArrayList<>();
         List<String> factFields = new ArrayList<>();
@@ -85,7 +93,7 @@ public class DestinationImportValidator {
             errors.add(issue(path + ".key", "영문·숫자·.·_·- 로 " + DestinationImportFields.KEY_MAX_LENGTH
                     + "자 이내여야 합니다."));
         }
-        validateTranslations(item, path + ".translations", errors);
+        validateTranslations(item, path + ".translations", errors, update);
         validateCoordinates(item, path, domestic, errors, warnings, factFields);
         validateExternal(item.external(), path + ".external", domestic, errors, warnings, factFields);
         validateInfo(item, path + ".info", errors, factFields);
@@ -114,7 +122,8 @@ public class DestinationImportValidator {
         return duplicates;
     }
 
-    private void validateTranslations(DestinationImportItem item, String path, List<DestinationImportIssue> errors) {
+    private void validateTranslations(DestinationImportItem item, String path, List<DestinationImportIssue> errors,
+                                      boolean update) {
         for (String language : DestinationImportFields.LANGUAGES) {
             DestinationImportItem.Text text = item.translation(language);
             if (text == null) continue;
@@ -123,7 +132,7 @@ public class DestinationImportValidator {
             maxLength(text.shortDescription(), DestinationImportFields.SHORT_DESCRIPTION_MAX_LENGTH,
                     languagePath + ".shortDescription", errors);
             maxBytes(text.description(), DestinationImportFields.TEXT_MAX_BYTES, languagePath + ".description", errors);
-            if (!DestinationImportFields.KOREAN.equals(language) && text.name() == null
+            if (!update && !DestinationImportFields.KOREAN.equals(language) && text.name() == null
                     && (text.shortDescription() != null || text.description() != null)) {
                 errors.add(issue(languagePath + ".name", "설명을 넣으려면 이 언어의 여행지명도 넣어야 합니다."));
             }

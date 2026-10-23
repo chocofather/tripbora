@@ -2,11 +2,18 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'destinations')}">
 <th:block th:fragment="headFragment">
-  <link rel="stylesheet" href="/css/admin-kto-tour-import.css?v=20261008-1">
-  <link rel="stylesheet" href="/css/admin-destination-json-import.css?v=20261008-1">
-  <script src="/js/admin-destination-json-import.js?v=20261008-2" defer></script>
+  <link rel="stylesheet" th:href="@{/css/admin-kto-tour-import.css}">
+  <link rel="stylesheet" th:href="@{/css/admin-destination-json-import.css}">
+  <script th:src="@{/js/admin-destination-json-import.js}" defer></script>
+  <script th:src="@{/js/admin-destination-json-update.js}" defer></script>
 </th:block>
 <th:block th:fragment="body">
+  <div data-json-workspace>
+    <fieldset class="admin-card admin-json-mode">
+      <legend>JSON 작업 방식</legend>
+      <label><input type="radio" name="json-mode" value="import" checked> 신규 등록</label>
+      <label><input type="radio" name="json-mode" value="update"> 기존 여행지 업데이트</label>
+    </fieldset>
   <section class="admin-page-section" data-json-import>
     <header class="admin-page-header">
       <div class="admin-page-heading">
@@ -103,5 +110,51 @@
       <p class="admin-kto-import-status" data-json-import-empty hidden>이 상태의 여행지가 없습니다.</p>
     </section>
   </section>
+  <section class="admin-page-section" data-json-update hidden>
+    <header class="admin-page-header">
+      <div class="admin-page-heading">
+        <h1 class="admin-page-title">JSON 기존 여행지 업데이트</h1>
+        <p class="admin-page-description">파일을 선택하면 자동으로 분석합니다. 여행지와 변경 내용을 확인한 뒤 최종 업데이트를 누르세요. 분석만으로 저장하지 않습니다.</p>
+      </div>
+    </header>
+    <ol class="admin-json-update-steps" aria-label="기존 여행지 업데이트 단계">
+      <li data-update-step="1" aria-current="step">① JSON 파일 선택 및 자동 분석</li>
+      <li data-update-step="2">② 여행지 확인 및 변경 내용 선택</li>
+      <li data-update-step="3">③ 선택한 여행지 업데이트</li>
+    </ol>
+    <div class="admin-card admin-json-import-input">
+      <div class="admin-json-import-input-head">
+        <label class="admin-btn is-small admin-json-import-file">JSON 파일 선택<input type="file" accept=".json,application/json" class="admin-visually-hidden" data-update-file></label>
+        <span class="admin-json-import-file-name" data-update-file-name>선택한 파일 없음</span>
+        <span class="admin-json-import-limit">최대 30건 · 1MB</span>
+      </div>
+      <details class="admin-json-update-source">
+        <summary>JSON 원문 확인 또는 직접 입력</summary>
+        <textarea class="admin-input admin-json-import-text" rows="12" spellcheck="false" aria-label="업데이트할 여행지 JSON" data-update-text></textarea>
+      </details>
+      <div class="admin-json-import-input-actions">
+        <p class="admin-kto-import-status" role="status" aria-live="polite" data-update-status>JSON 파일을 선택하세요. 자동 추가는 기본 선택하고 기존 값 교체는 직접 선택합니다.</p>
+        <button type="button" class="admin-btn is-small" data-update-preview>JSON 다시 분석</button>
+      </div>
+      <ul class="admin-json-import-issues is-error" data-update-errors hidden></ul>
+    </div>
+    <section class="admin-card admin-json-update-results" data-update-results hidden>
+      <h2 class="admin-json-update-section-title">여행지 확인 및 변경 내용 선택</h2>
+      <p class="admin-json-update-summary" aria-live="polite" data-update-summary>자동 추가 0개 · 교체 후보 0개 · 유지 0개 · 확인 필요 0건</p>
+      <p class="admin-json-update-note">한국어 원문의 한 줄 소개와 상세 설명, 각 언어의 번역은 따로 선택합니다. 자동 보강은 선택을 해제해 제외할 수 있습니다. 기존 값 교체는 직접 선택하며 같은 값은 유지됩니다. 목록은 기본적으로 기존 값에 추가하며, 교체를 선택하면 기존 항목이 제거될 수 있습니다.</p>
+      <details class="admin-json-update-common">
+        <summary>공통 항목 선택 — 모든 여행지에 적용</summary>
+        <div data-update-common></div>
+        <button type="button" class="admin-btn is-small" data-update-common-apply>공통 선택을 모든 여행지에 적용</button>
+      </details>
+      <div class="admin-json-update-toolbar">
+        <button type="button" class="admin-btn is-small" data-update-select-all>갱신 가능한 여행지 전체선택</button>
+        <button type="button" class="admin-btn is-small" data-update-clear>여행지 선택해제</button>
+        <button type="button" class="admin-btn is-primary is-small" data-update-apply disabled>선택한 여행지 업데이트</button>
+      </div>
+      <div data-update-rows></div>
+    </section>
+  </section>
+  </div>
 </th:block>
 </html>

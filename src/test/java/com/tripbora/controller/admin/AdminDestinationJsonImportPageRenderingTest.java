@@ -25,6 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.DigestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -81,8 +85,39 @@ class AdminDestinationJsonImportPageRenderingTest {
         var master = document.selectFirst("a[href='/admin/api/destinations/import-json/master']");
         assertThat(master).isNotNull();
         assertThat(master.attr("download")).isEqualTo("destination-import-master.json");
-        assertThat(document.select("script[src^='/js/admin-destination-json-import.js']")).hasSize(1);
+        assertThat(document.select("script[src^='/js/admin-destination-json-import-']")).hasSize(1);
         assertThat(document.selectFirst("meta[name=_csrf]").attr("content")).isNotBlank();
+    }
+
+    @Test
+    void updateModeRendersAlongsideCreateAndRequestsHashedAssetsOverHttp() throws Exception {
+        String html = mockMvc.perform(get("/admin/destinations/json-import").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var document = Jsoup.parse(html);
+        assertThat(document.select("input[name=json-mode][value=import][checked]")).hasSize(1);
+        assertThat(document.select("input[name=json-mode][value=update]")).hasSize(1);
+        assertThat(document.select("[data-json-update][hidden]")).hasSize(1);
+        assertThat(document.select("[data-update-step]").eachText()).containsExactly(
+                "① JSON 파일 선택 및 자동 분석", "② 여행지 확인 및 변경 내용 선택", "③ 선택한 여행지 업데이트");
+        assertThat(document.select(".admin-json-update-source:not([open]) [data-update-text]")).hasSize(1);
+        assertThat(document.select("[data-update-preview]").text()).isEqualTo("JSON 다시 분석");
+        assertThat(document.text()).contains("한 줄 소개", "상세 설명", "한국어");
+        var directory = Path.of("build/reports/destination-json-update");
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("page.html"), html);
+        for (var asset : document.select("link[href^=/css/],script[src^=/js/]")) {
+            String url = asset.hasAttr("href") ? asset.attr("href") : asset.attr("src");
+            assertThat(url).matches("/(css|js)/.+-[a-f0-9]{32}\\.(css|js)");
+            String original = url.replaceFirst("-[a-f0-9]{32}(?=\\.(css|js)$)", "");
+            byte[] source = new ClassPathResource("static" + original).getContentAsByteArray();
+            assertThat(url).contains("-" + DigestUtils.md5DigestAsHex(source) + ".");
+            var response = mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();
+            assertThat(response.getContentType()).isIn("text/css", "text/javascript", "application/javascript");
+            assertThat(response.getContentAsString()).doesNotContain("<!DOCTYPE html>");
+            var file = directory.resolve("assets" + url);
+            Files.createDirectories(file.getParent());
+            Files.write(file, response.getContentAsByteArray());
+        }
     }
 
     @Test

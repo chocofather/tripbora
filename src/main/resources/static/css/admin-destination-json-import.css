@@ -1,5 +1,50 @@
 /* 여행지 JSON 일괄 등록. 표·배지·상태 문구는 국내·해외 일괄 등록(admin-kto-tour-import.css)을 그대로 쓰고 여기에는 이 화면만의 부분만 둔다. */
 
+[data-json-workspace] [hidden] { display: none !important; }
+.admin-json-mode { display: flex; flex-wrap: wrap; gap: 12px 22px; padding: 12px 16px; margin: 0 0 18px; }
+.admin-json-mode legend { font-size: .8rem; font-weight: 700; padding: 0 5px; }
+.admin-json-mode label, .admin-json-update-check { display: flex; align-items: flex-start; gap: 7px; font-size: .82rem; cursor: pointer; overflow-wrap: anywhere; }
+.admin-json-mode input, .admin-json-update-check input { flex: 0 0 auto; margin-top: 3px; accent-color: #7950c9; }
+.admin-json-update-results { margin-top: 16px; padding: 16px; min-width: 0; }
+.admin-json-update-note { color: #626b7d; font-size: .8rem; line-height: 1.6; overflow-wrap: anywhere; }
+.admin-json-update-common { padding: 12px; border: 1px solid #e6e1ef; border-radius: 8px; }
+.admin-json-update-common summary, .admin-json-update-group > summary { cursor: pointer; font-size: .84rem; font-weight: 700; padding: 4px 0; }
+.admin-json-update-common .admin-json-update-check { margin: 8px 0; }
+.admin-json-update-toolbar, .admin-json-update-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.admin-json-update-toolbar { margin: 16px 0; font-size: .83rem; }
+.admin-json-update-row { border: 1px solid #e6e1ef; border-radius: 9px; padding: 14px; margin-top: 12px; min-width: 0; overflow-wrap: anywhere; }
+.admin-json-update-row > p { font-size: .8rem; }
+.admin-json-update-row-head { justify-content: space-between; font-weight: 700; }
+.admin-json-update-row-head > span { color: #70539d; font-size: .77rem; }
+.admin-json-update-candidate { display: grid; gap: 7px; margin-bottom: 10px; font-size: .82rem; }
+.admin-json-update-candidate select { width: 100%; min-width: 0; max-width: 100%; }
+.admin-json-update-group { margin-top: 12px; }
+.admin-json-update-kind { margin-top: 14px; }
+.admin-json-update-kind > summary { cursor: pointer; font-size: .87rem; font-weight: 700; color: #654490; padding: 5px 0; }
+.admin-json-update-change { padding: 10px; margin-top: 7px; border: 1px solid #e4e7ee; border-radius: 7px; background: #fafbfc; }
+.admin-json-update-change.is-selected { border-color: #bba4e5; background: #f8f5ff; }
+.admin-json-update-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.admin-json-update-values > div { min-width: 0; }
+.admin-json-update-values strong { font-size: .73rem; color: #626b7d; }
+.admin-json-update-values pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-height: 220px; overflow: auto; margin: 4px 0 0; font: inherit; font-size: .78rem; line-height: 1.6; }
+.admin-json-update-change details > summary { font-size: .78rem; cursor: pointer; margin-top: 8px; }
+.admin-json-update-warning { color: #8c5a18; background: #fffaee; padding: 8px; border-radius: 5px; font-size: .8rem; }
+.admin-json-update-outcome { border-top: 1px solid #e4e7ee; padding-top: 10px; font-weight: 700; }
+.admin-json-update-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; margin: 0 0 16px; color: #626b7d; font-size: .82rem; }
+.admin-json-update-steps .is-current { color: #70539d; font-weight: 700; }
+.admin-json-update-source summary { cursor: pointer; font-size: .82rem; padding: 5px 0; }
+.admin-json-update-section-title { font-size: 1rem; margin: 0 0 10px; }
+.admin-json-update-summary { font-size: .83rem; line-height: 1.65; overflow-wrap: anywhere; }
+.admin-json-update-candidate-choice { border: 1px solid #e6e1ef; border-radius: 7px; padding: 10px; }
+.admin-json-update-candidate-choice p { margin: 0 0 8px; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+    .admin-json-update-results { padding: 10px; }
+    .admin-json-update-row { padding: 10px; }
+    .admin-json-update-values { grid-template-columns: minmax(0, 1fr); }
+    .admin-json-update-toolbar > strong { flex-basis: 100%; }
+    .admin-json-update-toolbar .admin-btn { white-space: normal; }
+}
+
 .admin-json-import-input {
     display: grid;
     gap: 10px;

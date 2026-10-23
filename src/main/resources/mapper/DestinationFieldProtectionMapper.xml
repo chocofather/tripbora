@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.destination.DestinationFieldProtectionMapper">
+    <select id="findFieldPaths" resultType="string">
+        SELECT field_path
+        FROM destination_field_protections
+        WHERE destination_id = #{destinationId}
+        ORDER BY field_path
+    </select>
+
+    <select id="findProtectedFieldsBatch" resultType="map">
+        SELECT destination_id, field_path FROM destination_field_protections
+        WHERE destination_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY destination_id, field_path
+    </select>
+
+    <insert id="insert">
+        INSERT INTO destination_field_protections (destination_id, field_path, protected_by)
+        VALUES (#{destinationId}, #{fieldPath}, #{userId})
+        ON DUPLICATE KEY UPDATE protected_at = protected_at
+    </insert>
+</mapper>

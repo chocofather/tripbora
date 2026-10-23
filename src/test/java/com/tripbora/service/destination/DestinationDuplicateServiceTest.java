@@ -243,6 +243,51 @@ class DestinationDuplicateServiceTest {
         assertThat(DestinationNameNormalizer.normalize("  ")).isNull();
     }
 
+    @Test
+    void updateCandidateListIncludesAllSameRegionMatchesAndNeverUsesJsonKey() {
+        destination(1L, ADMIN_SOURCE_TYPE, null, null, 11L, null, null, "ko", "경복궁");
+        destination(2L, ADMIN_SOURCE_TYPE, null, null, 11L, null, null, "ko", "경복궁");
+        destination(2L, ADMIN_SOURCE_TYPE, null, null, 11L, null, null, "en", "Gyeongbokgung");
+        destination(3L, ADMIN_SOURCE_TYPE, null, null, 21L, null, null, "ko", "경복궁");
+        assertThat(service.findUpdateCandidates(tourApi(null, "경복궁", 11L, null, null)))
+                .extracting(DestinationDuplicateCheck::destinationId).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void updateExcludesItsOwnSourceIdentityButFindsAnotherDestinationsPlaceId() {
+        destination(1L, KTO_TOUR_API_SOURCE_TYPE, "126508", null, 11L, null, null, "ko", "경복궁");
+        destination(2L, ADMIN_SOURCE_TYPE, null, "ChIJLU7jZClu5kcR4PcOOO6p3I0", 111L, null, null, "ko", "다른 여행지");
+        assertThat(service.checkExcluding(tourApi("126508", "경복궁", 11L, null, null), 1L).status())
+                .isEqualTo(NOT_REGISTERED);
+        var query = new DestinationDuplicateQuery(KTO_TOUR_API_SOURCE_TYPE, "126508",
+                "ChIJLU7jZClu5kcR4PcOOO6p3I0", List.of("경복궁"), 11L, null, null);
+        assertThat(service.checkExcluding(query, 1L).destinationId()).isEqualTo(2L);
+    }
+
+    @Test
+    void updateFileReusesOneIndexAndRegionPathsAcrossThirtyCandidates() {
+        destination(1L, ADMIN_SOURCE_TYPE, null, null, 11L, null, null, "ko", "경복궁");
+        var queries = java.util.Collections.nCopies(30, tourApi(null, "경복궁", 11L, null, null));
+        assertThat(service.findUpdateCandidatesAll(queries)).hasSize(30).allSatisfy(matches ->
+                assertThat(matches).extracting(DestinationDuplicateCheck::destinationId).containsExactly(1L));
+        verify(mapper, times(1)).findDuplicateIndex();
+        verify(regions, times(1)).getById(11L);
+        verify(regions, times(1)).getById(10L);
+        verify(regions, times(1)).getById(1L);
+    }
+
+    @Test
+    void updateScopeSharesItsIndexWithThirtyPlaceChecksAndPreservesSelfExclusion() {
+        destination(1L, ADMIN_SOURCE_TYPE, null, "ChIJsharedPlace12345", 11L, null, null, "ko", "경복궁");
+        destination(2L, ADMIN_SOURCE_TYPE, null, "ChIJsharedPlace12345", 11L, null, null, "ko", "다른 이름");
+        var scope = service.openUpdateLookup();
+        assertThat(scope.findCandidates(java.util.Collections.nCopies(30,
+                tourApi(null, "경복궁", 11L, null, null)))).hasSize(30);
+        var query = new DestinationDuplicateQuery(null, null, "ChIJsharedPlace12345", List.of(), 11L, null, null);
+        for (int i = 0; i < 30; i++) assertThat(scope.checkExcluding(query, 1L).destinationId()).isEqualTo(2L);
+        verify(mapper, times(1)).findDuplicateIndex();
+    }
+
     private void region(Long id, Long parentId) {
         parents.put(id, parentId);
     }

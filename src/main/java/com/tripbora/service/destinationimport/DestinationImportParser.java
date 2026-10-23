@@ -68,6 +68,15 @@ public class DestinationImportParser {
     }
 
     public ParsedFile parseFile(String json) {
+        return parseFile(json, false);
+    }
+
+    /** 업데이트에서만 누락·null을 기존값 유지로 해석한다. 신규 등록 계약은 그대로 둔다. */
+    public ParsedFile parseUpdateFile(String json) {
+        return parseFile(json, true);
+    }
+
+    private ParsedFile parseFile(String json, boolean update) {
         List<DestinationImportIssue> errors = new ArrayList<>();
         JsonNode root = readTree(json, errors);
         if (root == null) {
@@ -111,9 +120,33 @@ public class DestinationImportParser {
         }
         List<ParsedItem> items = new ArrayList<>(destinations.size());
         for (int index = 0; index < destinations.size(); index++) {
-            items.add(parseItem(destinations.get(index), index));
+            items.add(update ? parseUpdateItem(destinations.get(index), index) : parseItem(destinations.get(index), index));
         }
         return new ParsedFile(List.of(), items);
+    }
+
+    private ParsedItem parseUpdateItem(JsonNode node, int index) {
+        ParsedItem parsed = parseItem(node, index);
+        if (node == null || !node.isObject()) return parsed;
+        List<DestinationImportIssue> errors = new ArrayList<>(parsed.errors());
+        String prefix = parsed.path();
+        // 스키마·형식 오류는 유지하고, 업데이트에 필요 없는 신규 등록 필수값 오류만 제외한다.
+        errors.removeIf(error -> (error.message().startsWith("필수 값입니다")
+                && ((error.path().equals(prefix + ".type") && absent(node.get("type")))
+                || (error.path().equals(prefix + ".season") && absent(node.get("season")))
+                || (error.path().equals(prefix + ".region") && absent(node.get("region")))))
+                || error.path().equals(prefix + ".categories") && (absent(node.get("categories"))
+                    || node.path("categories").isArray() && node.path("categories").isEmpty())
+                || error.path().equals(prefix + ".translations.ko.name")
+                    && error.message().equals("한국어 여행지명은 필수입니다."));
+        if (parsed.item().type() == null && !absent(node.get("info"))) {
+            errors.add(issue(prefix + ".type", "운영정보를 보낼 때에는 기존 여행지의 type을 함께 지정해 주세요."));
+        }
+        return new ParsedItem(index, parsed.path(), parsed.item(), List.copyOf(errors));
+    }
+
+    private static boolean absent(JsonNode node) {
+        return node == null || node.isNull();
     }
 
     /** 등록 요청 본문: {"index": 3, "allowPossibleDuplicate": false, "item": {...}} */

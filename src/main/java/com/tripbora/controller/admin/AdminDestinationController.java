@@ -402,10 +402,6 @@ public class AdminDestinationController {
             Model model,
             @RequestParam(value = "visibility", required = false) String visibility) {
 
-        String selectedVisibility = "public".equals(visibility) || "hidden".equals(visibility) ? visibility : null;
-        Boolean publicVisible = selectedVisibility == null ? null : "public".equals(selectedVisibility);
-        model.addAttribute("visibility", selectedVisibility);
-
         // 공백만 입력한 검색어는 검색 조건 없음으로 본다.
         String searchKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.strip();
         // 알 수 없는 값은 조건 없음(전체 범위·전체 분류·최신 등록순)으로 본다.
@@ -413,6 +409,12 @@ public class AdminDestinationController {
         String selectedDestinationType = DESTINATION_TYPE_LABELS.containsKey(destinationType) ? destinationType : null;
         String selectedSort = ADMIN_LIST_SORT_LABELS.containsKey(sort) ? sort : DEFAULT_ADMIN_LIST_SORT;
         String selectedDataStatus = ADMIN_DATA_STATUS_LABELS.containsKey(dataStatus) ? dataStatus : null;
+        // 명시적인 전체(all)와 미지정을 구분한다. 데이터 상태 조회의 기본 대상은 공개 여행지다.
+        String selectedVisibility = "public".equals(visibility) || "hidden".equals(visibility)
+                || "all".equals(visibility) ? visibility : (selectedDataStatus == null ? null : "public");
+        Boolean publicVisible = "public".equals(selectedVisibility) ? Boolean.TRUE
+                : "hidden".equals(selectedVisibility) ? Boolean.FALSE : null;
+        model.addAttribute("visibility", selectedVisibility);
         // 지역 조건은 지금 범위에 속한 것만 쓴다(국내: 시/도·시/군/구, 해외: 대륙·국가·도시).
         if (!"domestic".equals(type)) {
             regionId = null;
@@ -479,6 +481,13 @@ public class AdminDestinationController {
         AdminDestinationDataStatusCounts statusCounts = publicVisible == null
                 ? destinationService.getAdminDestinationDataStatusCounts(regionIds, selectedDestinationType, searchKeyword)
                 : destinationService.getAdminDestinationDataStatusCounts(regionIds, selectedDestinationType, searchKeyword, publicVisible);
+        // 기본 전체 목록에서도 데이터 상태 배지는 클릭 후 조회할 공개 범위로 집계한다.
+        AdminDestinationDataStatusCounts dataStatusCounts = selectedVisibility == null
+                ? destinationService.getAdminDestinationDataStatusCounts(regionIds, selectedDestinationType, searchKeyword, true)
+                : statusCounts;
+        int hiddenCount = selectedDataStatus == null ? statusCounts.getHidden()
+                : Boolean.FALSE.equals(publicVisible) ? totalCount
+                : destinationService.countAdminDestinations(regionIds, selectedDestinationType, selectedDataStatus, searchKeyword, false);
         int pageStart = Math.max(1, currentPage - 2);
         int pageEnd = Math.min(totalPages, pageStart + 4);
         pageStart = Math.max(1, pageEnd - 4);
@@ -510,19 +519,21 @@ public class AdminDestinationController {
                 adminListUrl(type, selectedDestinationType, null, continentId, countryId, cityId,
                         regionId, districtId, searchKeyword, selectedSort, null, selectedVisibility)));
         for (var shortcut : List.of(
-                Map.entry("missing_image", statusCounts.getMissingImage()),
-                Map.entry("missing_main_image", statusCounts.getMissingMainImage()),
-                Map.entry("missing_category", statusCounts.getMissingCategory()),
-                Map.entry("missing_translation", statusCounts.getMissingTranslation()),
-                Map.entry("missing_description", statusCounts.getMissingDescription()))) {
+                Map.entry("missing_image", dataStatusCounts.getMissingImage()),
+                Map.entry("missing_main_image", dataStatusCounts.getMissingMainImage()),
+                Map.entry("missing_category", dataStatusCounts.getMissingCategory()),
+                Map.entry("missing_translation", dataStatusCounts.getMissingTranslation()),
+                Map.entry("missing_description", dataStatusCounts.getMissingDescription()))) {
             statusShortcuts.add(new DataStatusShortcut(shortcut.getKey(),
                     ADMIN_DATA_STATUS_LABELS.get(shortcut.getKey()), shortcut.getValue(),
                     adminListUrl(type, selectedDestinationType, shortcut.getKey(), continentId, countryId,
                             cityId, regionId, districtId, searchKeyword, selectedSort, null, selectedVisibility)));
         }
-        statusShortcuts.add(new DataStatusShortcut("hidden", "숨김", statusCounts.getHidden(),
+        String hiddenShortcutVisibility = "hidden".equals(selectedVisibility)
+                ? (selectedDataStatus == null ? null : "public") : "hidden";
+        statusShortcuts.add(new DataStatusShortcut("hidden", "숨김", hiddenCount,
                 adminListUrl(type, selectedDestinationType, selectedDataStatus, continentId, countryId,
-                        cityId, regionId, districtId, searchKeyword, selectedSort, null, "hidden")));
+                        cityId, regionId, districtId, searchKeyword, selectedSort, null, hiddenShortcutVisibility)));
         model.addAttribute("statusShortcuts", statusShortcuts);
 
         // 대륙 리스트 (depth=1)
@@ -674,7 +685,7 @@ public class AdminDestinationController {
                                String sort, Integer page, String visibility) {
         return org.springframework.web.util.UriComponentsBuilder.fromPath("/admin/destinations")
                 .queryParamIfPresent("visibility", Optional.ofNullable(visibility)
-                        .filter(value -> "public".equals(value) || "hidden".equals(value)))
+                        .filter(value -> "public".equals(value) || "hidden".equals(value) || "all".equals(value)))
                 .queryParamIfPresent("scope", Optional.ofNullable(scope))
                 .queryParamIfPresent("destinationType", Optional.ofNullable(destinationType))
                 .queryParamIfPresent("dataStatus", Optional.ofNullable(dataStatus))

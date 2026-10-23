@@ -78,6 +78,8 @@ class AdminDestinationListResourceTest {
                 .thenReturn(List.of(row(17L, "경복궁", true), row(18L, "남산공원", false)));
         when(destinations.getAdminDestinationDataStatusCounts(REGION_IDS, null, null))
                 .thenReturn(new AdminDestinationDataStatusCounts());
+        when(destinations.getAdminDestinationDataStatusCounts(REGION_IDS, null, null, true))
+                .thenReturn(new AdminDestinationDataStatusCounts());
     }
 
     @Test
@@ -88,7 +90,7 @@ class AdminDestinationListResourceTest {
                 .containsExactly("공개", "숨김");
         assertThat(document.select("[data-destination-visibility]").eachText())
                 .containsExactly("숨기기", "공개하기");
-        assertThat(document.select("#destination-visibility-filter option[selected]").attr("value")).isEmpty();
+        assertThat(document.select("#destination-visibility-filter option[selected]").attr("value")).isEqualTo("all");
         assertThat(document.selectFirst("meta[name=_csrf]").attr("content")).isNotBlank();
         assertThat(document.selectFirst("meta[name=_csrf_header]").attr("content")).isNotBlank();
         assertResources(html);
@@ -110,9 +112,51 @@ class AdminDestinationListResourceTest {
                 .isNotEmpty().allSatisfy(url -> assertThat(url).contains("visibility=hidden"));
         assertThat(document.select("tbody form[action], #destination-bulk-delete-form").eachAttr("action"))
                 .hasSize(2).allSatisfy(url -> assertThat(url).contains("visibility=hidden"));
-        assertThat(document.select(".admin-data-status-link").eachAttr("href"))
+        assertThat(document.select(".admin-data-status-link:not(:last-child)").eachAttr("href"))
                 .isNotEmpty().allSatisfy(url -> assertThat(url).contains("visibility=hidden"));
+        assertThat(document.select(".admin-data-status-link:last-child").attr("href"))
+                .isEqualTo("/admin/destinations");
         assertResources(html);
+    }
+
+    @Test
+    void dataStatusHiddenToggleRendersMatchingRowsCountsDropdownAndActiveStyles() throws Exception {
+        var publicCounts = new AdminDestinationDataStatusCounts();
+        publicCounts.setTotal(2);
+        publicCounts.setMissingImage(1);
+        var hiddenCounts = new AdminDestinationDataStatusCounts();
+        hiddenCounts.setTotal(3);
+        hiddenCounts.setMissingImage(2);
+        when(destinations.getAdminDestinationDataStatusCounts(REGION_IDS, null, null, true)).thenReturn(publicCounts);
+        when(destinations.getAdminDestinationDataStatusCounts(REGION_IDS, null, null, false)).thenReturn(hiddenCounts);
+        when(destinations.countAdminDestinations(REGION_IDS, null, "missing_image", null, true)).thenReturn(1);
+        when(destinations.countAdminDestinations(REGION_IDS, null, "missing_image", null, false)).thenReturn(2);
+        when(destinations.getAdminDestinationPage(REGION_IDS, null, "missing_image", null, "latest", 0, 30, true))
+                .thenReturn(List.of(row(17L, "경복궁", true)));
+        when(destinations.getAdminDestinationPage(REGION_IDS, null, "missing_image", null, "latest", 0, 30, false))
+                .thenReturn(List.of(row(18L, "남산공원", false), row(19L, "숨김 여행지", false)));
+
+        var visible = Jsoup.parse(render("/admin/destinations?dataStatus=missing_image", "admin-destinations-public-missing.html"));
+        assertThat(visible.select("#destination-visibility-filter option[selected]").val()).isEqualTo("public");
+        assertThat(visible.select(".admin-list-summary").text()).isEqualTo("총 1곳");
+        assertThat(visible.select(".admin-data-status-link:nth-child(2)").text()).isEqualTo("이미지 없음 1");
+        assertThat(visible.select(".admin-data-status-link:last-child").text()).isEqualTo("숨김 2");
+        assertThat(visible.select(".admin-destination-visibility-badge").eachText()).containsExactly("공개");
+
+        String hiddenUrl = visible.select(".admin-data-status-link:last-child").attr("href");
+        var hidden = Jsoup.parse(render(hiddenUrl, "admin-destinations-hidden-missing.html"));
+        assertThat(hidden.select("#destination-visibility-filter option[selected]").val()).isEqualTo("hidden");
+        assertThat(hidden.select(".admin-list-summary").text()).isEqualTo("총 2곳");
+        assertThat(hidden.select(".admin-data-status-link:nth-child(2)").text()).isEqualTo("이미지 없음 2");
+        assertThat(hidden.select(".admin-data-status-link:last-child").hasClass("is-active")).isTrue();
+        assertThat(hidden.select(".admin-destination-visibility-badge").eachText()).containsExactly("숨김", "숨김");
+
+        String restoredUrl = hidden.select(".admin-data-status-link:last-child").attr("href");
+        assertThat(restoredUrl).contains("visibility=public", "dataStatus=missing_image").doesNotContain("page=");
+        var restored = Jsoup.parse(render(restoredUrl, "admin-destinations-restored.html"));
+        assertThat(restored.select("#destination-visibility-filter option[selected]").val()).isEqualTo("public");
+        assertThat(restored.select(".admin-data-status-link:last-child").hasClass("is-active")).isFalse();
+        assertThat(restored.select(".admin-list-summary").text()).isEqualTo("총 1곳");
     }
 
     private String render(String url, String fixture) throws Exception {

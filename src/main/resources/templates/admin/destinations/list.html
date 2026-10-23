@@ -60,8 +60,9 @@
                   th:selected="${destinationType} == ${entry.key}">관광지</option>
         </select>
 
-        <select id="destination-visibility-filter" name="visibility" class="admin-select" aria-label="공개 상태">
-          <option value="" th:selected="${visibility == null}">전체</option>
+        <select id="destination-visibility-filter" name="visibility" class="admin-select" aria-label="공개 상태"
+                th:attr="data-implicit-visibility=${visibility == null}">
+          <option value="all" th:selected="${visibility == null or visibility == 'all'}">전체</option>
           <option value="public" th:selected="${visibility == 'public'}">공개</option>
           <option value="hidden" th:selected="${visibility == 'hidden'}">숨김</option>
         </select>

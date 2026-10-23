@@ -26,7 +26,11 @@ document.addEventListener("DOMContentLoaded", () => {
             clearTimeout(searchTimer);
             searchTimer = null;
         }
+        // 기본 전체 표시를 명시적인 전체 선택으로 바꾸지 않는다.
+        if (visibilitySelect?.dataset.implicitVisibility === "true") visibilitySelect.disabled = true;
         form.submit();
+        // 뒤로가기로 복원되는 폼에도 공개 상태 선택을 유지한다.
+        if (visibilitySelect) visibilitySelect.disabled = false;
     }
 
     function cancelScheduledSearch() {
@@ -81,6 +85,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // 하위 지역 목록은 선택 즉시 재조회되는 서버 렌더링 결과로 채워진다.
 
     // 검색창만 debounce, 그 외 필터는 변경 즉시 적용한다.
+    form.addEventListener("submit", event => {
+        event.preventDefault();
+        submitFilters();
+    });
     restoreKeywordFocus();
 
     keywordInput?.addEventListener("compositionstart", () => {
@@ -129,7 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // 분류·데이터 상태·정렬도 바꾸는 즉시 조회한다. 쪽 번호는 폼에 없으므로 조건이 바뀌면 1쪽부터 본다.
     destinationTypeSelect?.addEventListener("change", submitFilters);
     dataStatusSelect?.addEventListener("change", submitFilters);
-    visibilitySelect?.addEventListener("change", submitFilters);
+    visibilitySelect?.addEventListener("change", () => {
+        visibilitySelect.dataset.implicitVisibility = "false";
+        submitFilters();
+    });
     sortSelect?.addEventListener("change", submitFilters);
 
     form.querySelectorAll(".admin-filter-tab[value]").forEach(button => {

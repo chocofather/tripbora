@@ -89,9 +89,97 @@ class AdminDestinationListSearchTest {
         when(countryCategoryService.getRegionsByDepth(1)).thenReturn(List.of());
         when(destinationService.getAdminDestinationDataStatusCounts(any(), any(), any()))
                 .thenReturn(new AdminDestinationDataStatusCounts());
+        when(destinationService.getAdminDestinationDataStatusCounts(any(), any(), any(), any()))
+                .thenReturn(new AdminDestinationDataStatusCounts());
     }
 
     private static final List<Long> ALL_REGION_IDS = List.of(KOREA_ID, 10L, ASIA_ID, 20L);
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "missing_image", "missing_main_image", "missing_category", "missing_translation", "missing_description"})
+    void dataStatusDefaultsToPublicAndHiddenShortcutTogglesBack(String status) {
+        Model initial = list(null, null, null, status, null, "4");
+        assertThat(initial.getAttribute("visibility")).isEqualTo("public");
+        assertThat((String) initial.getAttribute("listUrl"))
+                .contains("visibility=public", "dataStatus=" + status);
+        verify(destinationService).getAdminDestinationPage(ALL_REGION_IDS, null, status, null, "latest", 0, 30, true);
+
+        Model hidden = followShortcut(initial, "hidden");
+        assertThat(hidden.getAttribute("visibility")).isEqualTo("hidden");
+        assertThat(hidden.getAttribute("dataStatus")).isEqualTo(status);
+        Model restored = followShortcut(hidden, "hidden");
+        assertThat(restored.getAttribute("visibility")).isEqualTo("public");
+        assertThat(restored.getAttribute("dataStatus")).isEqualTo(status);
+        assertThat(restored.getAttribute("currentPage")).isEqualTo(1);
+        assertThat(restored.getAttribute("listUrl")).isEqualTo(initial.getAttribute("listUrl"));
+    }
+
+    @Test
+    void hiddenWithoutDataStatusTogglesBackToDefaultAllList() {
+        Model initial = list(null, null);
+        Model hidden = followShortcut(initial, "hidden");
+        assertThat(hidden.getAttribute("visibility")).isEqualTo("hidden");
+        Model restored = followShortcut(hidden, "hidden");
+        assertThat(restored.getAttribute("visibility")).isNull();
+        assertThat(restored.getAttribute("listUrl")).isEqualTo("/admin/destinations");
+    }
+
+    @Test
+    void selectingAnotherDataStatusWhileHiddenKeepsHidden() {
+        Model hidden = followShortcut(list(null, null, null, "missing_image", null, null), "hidden");
+        Model changed = followShortcut(hidden, "missing_translation");
+        assertThat(changed.getAttribute("visibility")).isEqualTo("hidden");
+        assertThat(changed.getAttribute("dataStatus")).isEqualTo("missing_translation");
+        assertThat(changed.getAttribute("currentPage")).isEqualTo(1);
+    }
+
+    @Test
+    void explicitAllSurvivesDataStatusChangesAndPagination() {
+        when(destinationService.countAdminDestinations(ALL_REGION_IDS, null, "missing_image", null)).thenReturn(35);
+        Model model = new ExtendedModelMap();
+        controller.showDestinationList(null, null, "missing_image", null, null, null, null, null,
+                null, null, "2", model, "all");
+        assertThat(model.getAttribute("visibility")).isEqualTo("all");
+        assertThat((String) model.getAttribute("listUrl")).contains("visibility=all", "dataStatus=missing_image");
+        assertThat(model.getAttribute("currentPage")).isEqualTo(2);
+        assertThat((String) model.getAttribute("listQuery")).contains("visibility=all", "page=2");
+        verify(destinationService).getAdminDestinationPage(ALL_REGION_IDS, null, "missing_image", null, "latest", 30, 30);
+        Model changed = followShortcut(model, "missing_translation");
+        assertThat(changed.getAttribute("visibility")).isEqualTo("all");
+    }
+
+    @Test
+    void defaultListUsesPublicDataStatusCountsButKeepsAllTotalAndHiddenCount() {
+        var all = new AdminDestinationDataStatusCounts();
+        all.setTotal(100);
+        all.setMissingImage(30);
+        all.setHidden(20);
+        var visible = new AdminDestinationDataStatusCounts();
+        visible.setTotal(80);
+        visible.setMissingImage(12);
+        when(destinationService.getAdminDestinationDataStatusCounts(ALL_REGION_IDS, null, null)).thenReturn(all);
+        when(destinationService.getAdminDestinationDataStatusCounts(ALL_REGION_IDS, null, null, true)).thenReturn(visible);
+        Model model = list(null, null);
+        assertThat(shortcut(model, null).count()).isEqualTo(100);
+        assertThat(shortcut(model, "missing_image").count()).isEqualTo(12);
+        assertThat(shortcut(model, "hidden").count()).isEqualTo(20);
+    }
+
+    @SuppressWarnings("unchecked")
+    private AdminDestinationController.DataStatusShortcut shortcut(Model model, String status) {
+        return ((List<AdminDestinationController.DataStatusShortcut>) model.getAttribute("statusShortcuts")).stream()
+                .filter(shortcut -> java.util.Objects.equals(shortcut.status(), status)).findFirst().orElseThrow();
+    }
+
+    private Model followShortcut(Model model, String status) {
+        var params = org.springframework.web.util.UriComponentsBuilder.fromUriString(shortcut(model, status).url())
+                .build().getQueryParams();
+        Model result = new ExtendedModelMap();
+        controller.showDestinationList(null, null, params.getFirst("dataStatus"), null, null, null, null, null,
+                null, null, params.getFirst("page"), result, params.getFirst("visibility"));
+        return result;
+    }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"public,true", "hidden,false"})
@@ -120,11 +208,13 @@ class AdminDestinationListSearchTest {
     }
 
     @Test
-    void hiddenShortcutUsesAggregateCountAndPreservesOtherFiltersWithoutAnotherQuery() {
+    void hiddenShortcutCountsTheSelectedDataStatusAndPreservesOtherFilters() {
         var counts = new AdminDestinationDataStatusCounts();
         counts.setHidden(24);
         when(destinationService.getAdminDestinationDataStatusCounts(List.of(KOREA_ID, 10L), "ATTRACTION", "궁", true))
                 .thenReturn(counts);
+        when(destinationService.countAdminDestinations(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_image", "궁", false))
+                .thenReturn(6);
         Model model = new ExtendedModelMap();
         controller.showDestinationList("domestic", "ATTRACTION", "missing_image", null, null, null,
                 null, null, "궁", "name", "3", model, "public");
@@ -133,12 +223,13 @@ class AdminDestinationListSearchTest {
         var shortcuts = (List<AdminDestinationController.DataStatusShortcut>) model.getAttribute("statusShortcuts");
         var hidden = shortcuts.stream().filter(shortcut -> "hidden".equals(shortcut.status())).findFirst().orElseThrow();
         assertThat(hidden.label()).isEqualTo("숨김");
-        assertThat(hidden.count()).isEqualTo(24);
+        assertThat(hidden.count()).isEqualTo(6);
         assertThat(hidden.url()).contains("visibility=hidden", "scope=domestic", "destinationType=ATTRACTION",
                 "dataStatus=missing_image", "keyword=%EA%B6%81", "sort=name")
                 .doesNotContain("page=", "visibility=public");
         verify(destinationService).getAdminDestinationDataStatusCounts(List.of(KOREA_ID, 10L), "ATTRACTION", "궁", true);
         verify(destinationService).countAdminDestinations(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_image", "궁", true);
+        verify(destinationService).countAdminDestinations(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_image", "궁", false);
         verify(destinationService).getAdminDestinationPage(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_image", "궁", "name", 0, 30, true);
         org.mockito.Mockito.verifyNoMoreInteractions(destinationService);
     }
@@ -239,15 +330,15 @@ class AdminDestinationListSearchTest {
         counts.setMissingCategory(3);
         counts.setMissingTranslation(19);
         counts.setMissingDescription(7);
-        when(destinationService.getAdminDestinationDataStatusCounts(List.of(KOREA_ID, 10L), "ATTRACTION", null))
+        when(destinationService.getAdminDestinationDataStatusCounts(List.of(KOREA_ID, 10L), "ATTRACTION", null, true))
                 .thenReturn(counts);
-        when(destinationService.countAdminDestinations(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_translation", null))
+        when(destinationService.countAdminDestinations(List.of(KOREA_ID, 10L), "ATTRACTION", "missing_translation", null, true))
                 .thenReturn(19);
 
         Model model = list("domestic", null, "ATTRACTION", "missing_translation", null, null);
 
         verify(destinationService).getAdminDestinationPage(
-                List.of(KOREA_ID, 10L), "ATTRACTION", "missing_translation", null, "latest", 0, 30);
+                List.of(KOREA_ID, 10L), "ATTRACTION", "missing_translation", null, "latest", 0, 30, true);
         assertThat(model.getAttribute("dataStatus")).isEqualTo("missing_translation");
         assertThat(model.getAttribute("totalCount")).isEqualTo(19);
         assertThat((String) model.getAttribute("listUrl")).contains("dataStatus=missing_translation");

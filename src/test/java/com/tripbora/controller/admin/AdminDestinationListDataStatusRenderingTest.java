@@ -68,9 +68,26 @@ class AdminDestinationListDataStatusRenderingTest {
     void visibilityDefaultsToAllAndFiltersStartAtPageOne() throws IOException {
         Document page = render(List.of(row(1L, "경복궁")), null);
         assertThat(page.select("#destination-visibility-filter option[selected]")).hasSize(1);
-        assertThat(page.select("#destination-visibility-filter option[selected]").attr("value")).isEmpty();
+        assertThat(page.select("#destination-visibility-filter option[selected]").attr("value")).isEqualTo("all");
+        assertThat(page.select("#destination-visibility-filter").attr("data-implicit-visibility")).isEqualTo("true");
         assertThat(page.select("#admin-destination-filter-form [name=page]")).isEmpty();
         assertThat(page.select(".admin-filter-actions a").attr("href")).isEqualTo("/admin/destinations");
+    }
+
+    @Test
+    void publicAndExplicitAllRestoreDropdownAndClearHiddenBadgeStyle() throws IOException {
+        for (String visibility : List.of("public", "all")) {
+            Document page = render(List.of(row(1L, "경복궁")), "missing_image", visibility);
+            assertThat(page.select("#destination-visibility-filter option[selected]").attr("value"))
+                    .isEqualTo(visibility);
+            assertThat(page.select("#destination-visibility-filter").attr("data-implicit-visibility"))
+                    .isEqualTo("false");
+            assertThat(page.select(".admin-data-status-link.is-active").eachText())
+                    .containsExactly("이미지 없음 12");
+        }
+        Document hidden = render(List.of(row(1L, "경복궁")), "missing_image", "hidden");
+        assertThat(hidden.select(".admin-data-status-link.is-active").eachText())
+                .containsExactly("이미지 없음 12", "숨김 24");
     }
 
     @Test

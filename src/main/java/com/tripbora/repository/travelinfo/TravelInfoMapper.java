@@ -2,6 +2,7 @@ package com.tripbora.repository.travelinfo;
 
 import com.tripbora.dto.AdminTravelInfoListItemDto;
 import com.tripbora.dto.HomeFestivalDto;
+import com.tripbora.dto.HomeFestivalCandidate;
 import com.tripbora.dto.TravelInfoDetailDto;
 import com.tripbora.dto.TravelInfoListItemDto;
 import com.tripbora.model.InfoPeriod;
@@ -19,8 +20,9 @@ import java.util.List;
 @Mapper
 public interface TravelInfoMapper {
 
-    List<HomeFestivalDto> findHomeFestivals(@Param("today") LocalDate today,
-                                          @Param("limit") int limit);
+    List<HomeFestivalCandidate> findHomeFestivalCandidates(@Param("today") LocalDate today);
+
+    List<HomeFestivalDto> findHomeFestivals(@Param("periodIds") List<Long> periodIds);
 
     /** Home Hero. 메인 추천으로 고른 일반 여행정보·여행가이드를 노출 순서대로 최대 limit 개. */
     List<TravelInfoListItemDto> findHomeHeroItems(@Param("limit") int limit);

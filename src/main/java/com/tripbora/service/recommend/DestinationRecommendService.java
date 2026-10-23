@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,10 +56,34 @@ public class DestinationRecommendService {
         return localize(recommendMapper.findBySeason(season, limit), requestedLanguage);
     }
 
-    // 메인 랜드마크 카드 (최대 6곳). 이름·지역 번역은 계절 추천과 같이 한 번에 읽는다.
+    // 후보 ID만 섞은 뒤 최대 18곳의 카드·번역을 각각 일괄 조회한다.
     public List<SeasonDestinationDto> findHomeLandmarks(SupportedLanguage requestedLanguage) {
-        return localize(recommendMapper.findByCategoryName(LANDMARK_CATEGORY_NAME, HOME_LANDMARK_LIMIT),
-                requestedLanguage);
+        List<SeasonDestinationDto> candidates = recommendMapper.findHomeLandmarkCandidates(LANDMARK_CATEGORY_NAME);
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, SeasonDestinationDto> unique = new LinkedHashMap<>();
+        candidates.forEach(candidate -> unique.putIfAbsent(candidate.getId(), candidate));
+        List<Long> domestic = new ArrayList<>();
+        List<Long> overseas = new ArrayList<>();
+        unique.values().forEach(candidate ->
+                (candidate.isDomestic() ? domestic : overseas).add(candidate.getId()));
+        Collections.shuffle(domestic);
+        Collections.shuffle(overseas);
+        List<Long> selected = new ArrayList<>();
+        int half = HOME_LANDMARK_LIMIT / 2;
+        selected.addAll(domestic.subList(0, Math.min(half, domestic.size())));
+        selected.addAll(overseas.subList(0, Math.min(half, overseas.size())));
+        List<Long> remaining = new ArrayList<>(domestic.subList(Math.min(half, domestic.size()), domestic.size()));
+        remaining.addAll(overseas.subList(Math.min(half, overseas.size()), overseas.size()));
+        Collections.shuffle(remaining);
+        selected.addAll(remaining.subList(0, Math.min(HOME_LANDMARK_LIMIT - selected.size(), remaining.size())));
+        // 첫 카드도 고정되지 않도록 국내·해외를 합친 뒤 표시 순서를 다시 섞는다.
+        Collections.shuffle(selected);
+        List<SeasonDestinationDto> cards = new ArrayList<>(recommendMapper.findByCategoryName(
+                LANDMARK_CATEGORY_NAME, HOME_LANDMARK_LIMIT, selected));
+        cards.sort(Comparator.comparingInt(card -> selected.indexOf(card.getId())));
+        return localize(cards, requestedLanguage);
     }
 
     /**

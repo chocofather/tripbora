@@ -90,12 +90,42 @@
     </select>
 
 
+    <!-- 후보 조회와 최종 카드 조회에 같은 공개·카테고리·대표 이미지 조건을 적용한다. -->
+    <sql id="HomeLandmarkEligibility">
+        d.is_public = 1
+        AND EXISTS (
+            SELECT 1 FROM destination_categories dc
+            JOIN categories c ON c.id = dc.category_id
+            WHERE dc.destination_id = d.id AND c.name = #{categoryName}
+        )
+        AND EXISTS (
+            SELECT 1 FROM destination_images di
+            WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
+        )
+    </sql>
+
+    <!-- 상세 데이터나 전체 테이블 랜덤 정렬 없이 적격 후보의 ID·국내 여부만 읽는다. -->
+    <select id="findHomeLandmarkCandidates" resultType="com.tripbora.dto.SeasonDestinationDto">
+        WITH RECURSIVE domestic_regions AS (
+            SELECT id FROM country_categories WHERE code = 'KR'
+            UNION ALL
+            SELECT child.id FROM country_categories child
+            JOIN domestic_regions parent ON child.parent_id = parent.id
+        )
+        SELECT d.id, (domestic.id IS NOT NULL) AS domestic
+        FROM destinations d
+        JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
+        JOIN country_categories cc ON cc.id = d.region_id
+        LEFT JOIN domestic_regions domestic ON domestic.id = d.region_id
+        WHERE <include refid="HomeLandmarkEligibility"/>
+    </select>
+
     <!--
-      메인 랜드마크 카드: 이름으로 고른 카테고리(categories.name 은 UNIQUE)가 등록된 여행지 N개.
+      메인 랜드마크 카드: 적격 후보에서 무작위 선정한 ID의 상세 정보만 일괄 조회한다.
       대표(is_main) 여부와 관계없이 destination_categories 의 모든 연결을 보고, EXISTS 라 여행지는 한 번만 나온다.
       공개 목록처럼 기본(ko) 번역이 있는 여행지만 고르고, 비어 있지 않은 대표 사진이 있어야 한다.
       대표 사진이 여러 장이면 순서(order_index, id)가 가장 앞선 한 장을 쓴다.
-      순서는 인기 여행지 추천과 같은 점수(조회수 + 북마크 수)이고, 같으면 id 순으로 고정한다. (요청마다 바뀌지 않는다)
+      표시 순서는 Service 에서 선정한 무작위 순서로 맞춘다.
     -->
     <select id="findByCategoryName" resultMap="SeasonDestinationDtoMap">
         SELECT
@@ -119,24 +149,16 @@
                  JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
                  JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
-        WHERE EXISTS (
-                  SELECT 1
-                  FROM destination_categories dc
-                           JOIN categories c ON c.id = dc.category_id
-                  WHERE dc.destination_id = d.id AND c.name = #{categoryName}
-              )
-          AND EXISTS (
-                  SELECT 1
-                  FROM destination_images di
-                  WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
-              )
-          AND d.is_public = 1
-        ORDER BY (d.views + (
-                     SELECT COUNT(*)
-                     FROM bookmarks b
-                     WHERE b.target_type = 'DESTINATION' AND b.target_id = d.id
-                 )) DESC,
-                 d.id ASC
+        WHERE <include refid="HomeLandmarkEligibility"/>
+        <choose>
+            <when test="destinationIds != null and !destinationIds.isEmpty()">
+                AND d.id IN
+                <foreach collection="destinationIds" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
         LIMIT #{limit}
     </select>
 

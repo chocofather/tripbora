@@ -395,7 +395,20 @@
         </association>
     </resultMap>
 
-    <!-- Home 전용: DB 시계 대신 애플리케이션 날짜. 복수 기간도 행사당 한 건만 남긴다. -->
+    <!-- Home 전용: 종료하지 않은 기간의 ID·날짜만 비교한다. DB 시계 대신 KST 애플리케이션 날짜. -->
+    <select id="findHomeFestivalCandidates" resultType="com.tripbora.dto.HomeFestivalCandidate">
+        SELECT ti.id AS infoId, period.id AS periodId,
+               period.start_date AS startDate, period.end_date AS endDate
+        FROM travel_info ti
+        JOIN info_categories ic ON ic.id = ti.category_id AND ic.is_visible = 1
+        JOIN festival_info festival ON festival.info_id = ti.id
+        JOIN info_periods period ON period.info_id = ti.id
+        WHERE ti.content_type = 'FESTIVAL'
+          AND period.end_date >= #{today}
+          AND period.start_date &lt;= period.end_date
+    </select>
+
+    <!-- 추천 기간을 고른 후 최대 8개 카드만 일괄 조회한다. 이미지 없는 행사의 placeholder 규칙도 유지한다. -->
     <select id="findHomeFestivals" resultMap="HomeFestivalResultMap">
         <bind name="contentType" value="@com.tripbora.model.TravelInfoContentType@FESTIVAL"/>
         SELECT page.*, <include refid="PublicListThumbnail"/>,
@@ -407,19 +420,19 @@
             FROM travel_info ti
             JOIN info_categories ic ON ic.id = ti.category_id AND ic.is_visible = 1
             JOIN festival_info festival ON festival.info_id = ti.id
-            JOIN info_periods period ON period.id = (
-                SELECT candidate.id FROM info_periods candidate
-                WHERE candidate.info_id = ti.id AND candidate.end_date >= #{today}
-                ORDER BY CASE WHEN candidate.start_date &lt;= #{today} THEN 0 ELSE 1 END,
-                         candidate.start_date ASC, candidate.id ASC LIMIT 1
-            )
+            JOIN info_periods period ON period.info_id = ti.id
             WHERE ti.content_type = 'FESTIVAL'
-            ORDER BY CASE WHEN period.start_date &lt;= #{today} THEN 0 ELSE 1 END,
-                     period.start_date ASC, ti.id ASC LIMIT #{limit}
+            <choose>
+                <when test="periodIds != null and !periodIds.isEmpty()">
+                    AND period.id IN
+                    <foreach collection="periodIds" item="id" open="(" separator="," close=")">
+                        #{id}
+                    </foreach>
+                </when>
+                <otherwise>AND 1 = 0</otherwise>
+            </choose>
         ) page
         JOIN festival_info fi ON fi.info_id = page.id
-        ORDER BY CASE WHEN page.start_date &lt;= #{today} THEN 0 ELSE 1 END,
-                 page.start_date ASC, page.id ASC
     </select>
 
     <!--

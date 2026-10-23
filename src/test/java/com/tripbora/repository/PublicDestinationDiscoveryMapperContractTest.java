@@ -22,7 +22,7 @@ class PublicDestinationDiscoveryMapperContractTest {
                 "DestinationSearchMapper", List.of("searchDestinations", "searchFilteredDestinations"),
                 "GlobalSearchMapper", List.of("search", "count"),
                 "DestinationRecommendMapper", List.of("findByCurationCategoryName", "findBySeason",
-                        "findByCategoryName", "findTrendingByViewDate", "findSeasonPopularByViewDate"),
+                        "findByCategoryName", "findHomeLandmarkCandidates", "findTrendingByViewDate", "findSeasonPopularByViewDate"),
                 "PopularRecommendMapper", List.of("findPopularDomesticDestinations",
                         "findPopularOverseasDestinations", "findPopularThemeDestinations"),
                 "RandomRecommendMapper", List.of("findRandomByRegion", "findRandomByRegionIds",

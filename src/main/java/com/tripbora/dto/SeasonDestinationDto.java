@@ -13,6 +13,8 @@ public class SeasonDestinationDto {
     private Long parentRegionId;
     private String parentRegionName;
     private String season;
+    // 메인 랜드마크 후보의 국내/해외 균형 선정용. 지역 번호 대신 KR 지역 트리로 판별한다.
+    private boolean domestic;
 
     // 태그/카테고리 정보
     private Long categoryId;

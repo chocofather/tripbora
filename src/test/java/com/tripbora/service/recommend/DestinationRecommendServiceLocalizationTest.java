@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,9 +133,11 @@ class DestinationRecommendServiceLocalizationTest {
         palace.setParentRegionName("서울");
         // 카테고리 번호를 코드에 두지 않고 categories.name(UNIQUE) 으로 고른다.
         // 첫 화면 여섯 장 + 레일로 넘겨 볼 카드까지 최대 18곳이다.
-        when(recommendMapper.findByCategoryName("랜드마크", 18)).thenReturn(List.of(bigBen, palace));
+        when(recommendMapper.findHomeLandmarkCandidates("랜드마크")).thenReturn(List.of(bigBen, palace));
+        when(recommendMapper.findByCategoryName(eq("랜드마크"), eq(18), anyList()))
+                .thenReturn(List.of(bigBen, palace));
         when(destinationService.resolveLocalizedContentByDestinationIds(
-                List.of(31L, 15L), SupportedLanguage.ENGLISH))
+                anyList(), eq(SupportedLanguage.ENGLISH)))
                 .thenReturn(Map.of(31L, translation(31L, "Big Ben"),
                         15L, translation(15L, "Gyeongbokgung Palace")));
         Map<Long, String> baseRegionNames = new java.util.LinkedHashMap<>();
@@ -155,14 +158,14 @@ class DestinationRecommendServiceLocalizationTest {
         List<SeasonDestinationDto> result = service.findHomeLandmarks(SupportedLanguage.ENGLISH);
 
         assertThat(result).extracting(SeasonDestinationDto::getName)
-                .containsExactly("Big Ben", "Gyeongbokgung Palace");
+                .containsExactlyInAnyOrder("Big Ben", "Gyeongbokgung Palace");
         assertThat(result).extracting(SeasonDestinationDto::getParentRegionName)
-                .containsExactly("United Kingdom", "Seoul");
+                .containsExactlyInAnyOrder("United Kingdom", "Seoul");
         assertThat(result).extracting(SeasonDestinationDto::getRegionName)
-                .containsExactly("London", "Jongno-gu");
+                .containsExactlyInAnyOrder("London", "Jongno-gu");
         // 카드마다 따로 읽지 않고 여행지 이름·지역 이름을 각각 한 번에 번역한다.
         verify(destinationService).resolveLocalizedContentByDestinationIds(
-                List.of(31L, 15L), SupportedLanguage.ENGLISH);
+                argThat(ids -> ids.size() == 2 && ids.containsAll(List.of(31L, 15L))), eq(SupportedLanguage.ENGLISH));
         verify(referenceNameLocalizationService).localizeCountryCategoryNames(
                 baseRegionNames, SupportedLanguage.ENGLISH);
     }

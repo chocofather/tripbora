@@ -26,10 +26,14 @@ public interface DestinationRecommendMapper {
 
     /**
      * 카테고리 이름(categories.name, UNIQUE)이 등록된 여행지 중 대표 사진이 있는 곳 N개.
-     * 인기 점수(조회수 + 북마크 수) 내림차순, 같으면 id 오름차순이다.
+     * 메인에서 무작위 선정한 ID의 카드 정보를 일괄 조회한다. 공개·이미지 조건도 다시 확인한다.
      */
     List<SeasonDestinationDto> findByCategoryName(@Param("categoryName") String categoryName,
-                                                  @Param("limit") int limit);
+                                                  @Param("limit") int limit,
+                                                  @Param("destinationIds") List<Long> destinationIds);
+
+    // 무작위 정렬 없이 적격 후보 ID와 국내 여부만 읽는다.
+    List<SeasonDestinationDto> findHomeLandmarkCandidates(@Param("categoryName") String categoryName);
 
     /**
      * 메인 '지금 뜨는 여행지': destination_view_daily 의 기간 합계 상위 N곳 (국내 + 해외 전체).

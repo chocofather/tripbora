@@ -3,6 +3,7 @@ package com.tripbora.service.travelinfo;
 import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.dto.FestivalDetailDto;
 import com.tripbora.dto.HomeFestivalDto;
+import com.tripbora.dto.HomeFestivalCandidate;
 import com.tripbora.dto.TravelInfoDetailDto;
 import com.tripbora.dto.TravelInfoListItemDto;
 import com.tripbora.model.FestivalInfo;
@@ -18,12 +19,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class FestivalDetailService {
+
+    private static final int HOME_FESTIVAL_LIMIT = 8;
 
     private final TravelInfoService travelInfoService;
     private final TravelInfoMapper travelInfoMapper;
@@ -33,10 +37,22 @@ public class FestivalDetailService {
 
     @Transactional(readOnly = true)
     public List<HomeFestivalDto> getHomeFestivals(LocalDate today, SupportedLanguage language) {
-        List<HomeFestivalDto> festivals = travelInfoMapper.findHomeFestivals(today, 8);
+        List<HomeFestivalCandidate> candidates = travelInfoMapper.findHomeFestivalCandidates(today);
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        List<HomeFestivalCandidate> selected = HomeFestivalSelection.select(candidates, today, HOME_FESTIVAL_LIMIT);
+        if (selected.isEmpty()) {
+            return List.of();
+        }
+        List<HomeFestivalDto> festivals = travelInfoMapper.findHomeFestivals(
+                selected.stream().map(HomeFestivalCandidate::periodId).toList());
         if (festivals == null || festivals.isEmpty()) {
             return List.of();
         }
+        List<Long> selectedIds = selected.stream().map(HomeFestivalCandidate::infoId).toList();
+        festivals = new ArrayList<>(festivals);
+        festivals.sort(Comparator.comparingInt(festival -> selectedIds.indexOf(festival.getId())));
         travelInfoService.localizePublicList(
                 festivals.stream().map(festival -> (TravelInfoListItemDto) festival).toList(), language);
         var locations = homeFestivalRegionService.resolveLocations(festivals, language);

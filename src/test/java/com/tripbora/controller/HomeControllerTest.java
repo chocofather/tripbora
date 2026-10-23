@@ -376,8 +376,9 @@ class HomeControllerTest {
                     assertThat(document.select(".home-withdrawal-toast").text())
                             .isEqualTo("회원탈퇴 신청이 완료되었습니다. 계정은 30일 동안 보존됩니다.");
                     assertThat(document.select(".home-account-status")).isEmpty();
-                    assertThat(document.select(
-                            "script[src='/js/home-withdrawal-toast.js']")).hasSize(1);
+                    assertThat(document.select("script[src*=home-withdrawal-toast]").eachAttr("src"))
+                            .singleElement().asString()
+                            .matches("/js/home-withdrawal-toast(?:-[0-9a-f]{32})?\\.js");
                 });
     }
 

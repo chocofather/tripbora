@@ -22,6 +22,71 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class KtoTourServiceTest {
 
     @Test
+    void bulkImportKeepsFirstImageWhenAdditionalImageApiFails() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KtoTourService service = service(builder, "sample-key");
+        server.expect(request -> assertThat(request.getURI().getPath()).endsWith("/detailCommon2"))
+                .andRespond(withSuccess(detailBody("""
+                        "title":"경복궁", "firstimage":"https://tong.visitkorea.or.kr/cms/resource/main.jpg",
+                        "firstimage2":"https://tong.visitkorea.or.kr/cms/resource/thumb.jpg", "cpyrhtDivCd":"Type3"
+                        """), MediaType.APPLICATION_JSON));
+        server.expect(request -> {
+            assertThat(request.getURI().getPath()).endsWith("/detailImage2");
+            assertDecodedQuery(request.getURI(), "numOfRows", "20");
+            assertDecodedQuery(request.getURI(), "pageNo", "1");
+            assertDecodedQuery(request.getURI(), "imageYN", "Y");
+        }).andRespond(withServerError());
+
+        assertThat(service.getBulkImportImages("126508"))
+                .extracting("imageUrl", "copyrightDivisionCode", "main")
+                .containsExactly(tuple("https://tong.visitkorea.or.kr/cms/resource/main.jpg", "Type3", true));
+        server.verify();
+    }
+
+    @Test
+    void bulkImportLimitsAdditionalCandidatesEvenIfApiReturnsMoreThanRequested() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KtoTourService service = service(builder, "sample-key");
+        server.expect(request -> { }).andRespond(withSuccess(detailBody("""
+                "firstimage":"https://tong.visitkorea.or.kr/cms/resource/main.jpg", "cpyrhtDivCd":"Type1"
+                """), MediaType.APPLICATION_JSON));
+        String[] images = new String[101];
+        for (int i = 0; i < images.length; i++) {
+            images[i] = """
+                    {"originimgurl":"https://tong.visitkorea.or.kr/cms/resource/%d.jpg", "cpyrhtDivCd":"Type1"}
+                    """.formatted(i);
+        }
+        String response = """
+                {"response":{"header":{"resultCode":"0000"},"body":{"totalCount":101,
+                "items":{"item":[%s]}}}}
+                """.formatted(String.join(",", images));
+        server.expect(request -> assertDecodedQuery(request.getURI(), "numOfRows", "20"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+        var candidates = service.getBulkImportImages("126508");
+        assertThat(candidates).hasSize(21);
+        assertThat(candidates.get(20).imageUrl()).endsWith("/19.jpg");
+        server.verify();
+    }
+
+    @Test
+    void manualImportRetainsOneHundredCandidateRequestAndItsErrorPolicy() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KtoTourService service = service(builder, "sample-key");
+        server.expect(request -> { }).andRespond(withSuccess(detailBody("""
+                "firstimage":"https://tong.visitkorea.or.kr/cms/resource/main.jpg", "cpyrhtDivCd":"Type1"
+                """), MediaType.APPLICATION_JSON));
+        server.expect(request -> assertDecodedQuery(request.getURI(), "numOfRows", "100"))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> service.getImportableImages("126508")).isInstanceOf(KtoTourApiException.class);
+        server.verify();
+    }
+
+    @Test
     void searchesKorService2AndReturnsOnlySupportedDestinationCandidates() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

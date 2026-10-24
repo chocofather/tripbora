@@ -186,6 +186,8 @@ public class KtoTourBulkImportService {
         try {
             Long destinationId = destinationSavePersistenceService.registerDestination(
                     form, userId, contentId, preparedPhotos);
+            log.info("TourAPI 일괄등록 이미지 저장 완료 (contentId={}, destinationId={}, saved={})",
+                    contentId, destinationId, preparedPhotos.size());
             return KtoTourBulkImportResponse.ItemResult.success(contentId, title, destinationId);
         } catch (DuplicateTourApiDestinationException | DuplicateKeyException exception) {
             // 2차 중복 검사 또는 DB 유니크 제약에 걸린 경우. 저장 실패가 아니라 건너뜀으로 센다.

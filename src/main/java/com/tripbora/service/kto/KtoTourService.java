@@ -11,6 +11,7 @@ import com.tripbora.dto.kto.KtoTourSearchItemResponse;
 import com.tripbora.dto.kto.KtoTourSearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -33,6 +34,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+@Slf4j
 @Service
 public class KtoTourService {
 
@@ -56,6 +58,7 @@ public class KtoTourService {
     /** 시/도(17) + 한 시/도의 시/군/구를 한 번에 받기 충분한 크기. */
     private static final int AREA_CODE_PAGE_SIZE = 100;
     private static final int DETAIL_IMAGE_PAGE_SIZE = 100;
+    static final int BULK_IMPORT_ADDITIONAL_IMAGE_LIMIT = 20;
     /** 관광사진 검색: 제목순 결과를 다시 정렬하려고 한 번에 받는 콘텐츠 수. */
     private static final int PHOTO_SEARCH_PAGE_SIZE = 100;
     /** 대표이미지가 있는 콘텐츠만 제목순으로 받는다. */
@@ -253,6 +256,16 @@ public class KtoTourService {
      * 저작권 코드는 그대로 넘기고, 저장 가능 여부 판정은 이미지 import 쪽에서 한다.
      */
     public List<KtoTourImageCandidate> getImportableImages(String contentId) {
+        return getImportableImages(contentId, DETAIL_IMAGE_PAGE_SIZE, false);
+    }
+
+    /** 신규 일괄등록 전용. 수동 검색/선택의 조회 장수와 오류 정책은 변경하지 않는다. */
+    public List<KtoTourImageCandidate> getBulkImportImages(String contentId) {
+        return getImportableImages(contentId, BULK_IMPORT_ADDITIONAL_IMAGE_LIMIT, true);
+    }
+
+    private List<KtoTourImageCandidate> getImportableImages(String contentId, int additionalLimit,
+                                                           boolean bulkImport) {
         String normalizedContentId = normalize(contentId);
         if (normalizedContentId == null) {
             throw KtoTourApiException.upstreamFailure();
@@ -275,7 +288,17 @@ public class KtoTourService {
                     true));
         }
 
-        candidates.addAll(detailImageCandidates(normalizedContentId, mainImageUrl));
+        try {
+            // 일괄등록은 사진별 라이선스 확인 후 URL/해시 중복을 판정하고 제외 수를 기록한다.
+            candidates.addAll(detailImageCandidates(normalizedContentId,
+                    bulkImport ? null : mainImageUrl, additionalLimit));
+        } catch (KtoTourApiException exception) {
+            if (!bulkImport) {
+                throw exception;
+            }
+            log.warn("TourAPI 추가 이미지 조회 실패, 확보한 대표 후보를 유지합니다. (contentId={})",
+                    normalizedContentId);
+        }
         return List.copyOf(candidates);
     }
 
@@ -336,13 +359,19 @@ public class KtoTourService {
     }
 
     private List<KtoTourImageCandidate> detailImageCandidates(String contentId, String mainImageUrl) {
+        return detailImageCandidates(contentId, mainImageUrl, DETAIL_IMAGE_PAGE_SIZE);
+    }
+
+    private List<KtoTourImageCandidate> detailImageCandidates(String contentId, String mainImageUrl,
+                                                             int limit) {
         KtoTourApiResponse imageResponse = request("/detailImage2", builder -> builder
                 .queryParam("contentId", contentId)
                 .queryParam("imageYN", "Y")
                 .queryParam("pageNo", 1)
-                .queryParam("numOfRows", DETAIL_IMAGE_PAGE_SIZE));
+                .queryParam("numOfRows", limit));
         List<KtoTourImageCandidate> candidates = new ArrayList<>();
-        for (KtoTourApiResponse.Item item : readItems(imageResponse.response().body().items())) {
+        for (KtoTourApiResponse.Item item : readItems(imageResponse.response().body().items())
+                .stream().limit(limit).toList()) {
             String originalImageUrl = normalize(item.originimgurl());
             if (originalImageUrl == null || originalImageUrl.equals(mainImageUrl)) {
                 continue;

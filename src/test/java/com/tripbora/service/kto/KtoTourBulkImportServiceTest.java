@@ -5,6 +5,7 @@ import com.tripbora.dto.kto.KtoTourAreaCandidateResponse;
 import com.tripbora.dto.kto.KtoTourAutofillResponse;
 import com.tripbora.dto.kto.KtoTourBulkImportRequest;
 import com.tripbora.dto.kto.KtoTourBulkImportResponse;
+import com.tripbora.dto.kto.KtoTourImageCandidate;
 import com.tripbora.dto.kto.KtoTourRegionMatchResponse;
 import com.tripbora.service.destination.DestinationDuplicateCheck;
 import com.tripbora.service.destination.DestinationDuplicateQuery;
@@ -17,6 +18,8 @@ import com.tripbora.service.destination.DuplicateTourApiDestinationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -283,6 +287,49 @@ class KtoTourBulkImportServiceTest {
         service.importSelected(List.of(item("126508")), 7L);
 
         verify(ktoPhotoImportService).cleanupPreparedPhotos(prepared);
+    }
+
+    @Test
+    void allImageDownloadsFailButDestinationIsRegisteredWithoutPhotos() {
+        prepareDetail("126508", "창덕궁");
+        String imageUrl = "https://tong.visitkorea.or.kr/cms/resource/missing.jpg";
+        when(ktoTourService.getBulkImportImages("126508")).thenReturn(List.of(
+                new KtoTourImageCandidate("126508", "사진", imageUrl, "Type1", true)));
+        KtoPhotoDownloadService downloads = mock(KtoPhotoDownloadService.class);
+        when(downloads.downloadForSelection(imageUrl)).thenThrow(new KtoPhotoDownloadException());
+        KtoTourImageImportService realSelection = new KtoTourImageImportService(ktoTourService, downloads);
+        when(ktoTourImageImportService.preparePhotos("126508", "창덕궁"))
+                .thenAnswer(invocation -> realSelection.preparePhotos("126508", "창덕궁"));
+        when(destinationSavePersistenceService.registerDestination(
+                any(DestinationForm.class), eq(7L), eq("126508"), eq(List.of()))).thenReturn(42L);
+
+        var response = service.importSelected(List.of(item("126508")), 7L);
+
+        assertThat(response.successCount()).isEqualTo(1);
+        assertThat(response.failureCount()).isZero();
+        assertThat(response.results().get(0).destinationId()).isEqualTo(42L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void lateDuplicateDetectionCleansPreparedPhotosWithoutUpdatingExistingDestination(boolean uniqueConstraint) {
+        prepareDetail("126508", "창덕궁");
+        List<PreparedKtoPhoto> prepared = List.of(new PreparedKtoPhoto(
+                "/uploads/destinations/11111111-1111-4111-8111-111111111111.jpg",
+                "https://tong.visitkorea.or.kr/cms/resource/source.jpg",
+                "126508", "사진", null, true, null, "KTO_TOURAPI", "KOGL_TYPE_3"));
+        when(ktoTourImageImportService.preparePhotos("126508", "창덕궁")).thenReturn(prepared);
+        RuntimeException duplicate = uniqueConstraint ? new org.springframework.dao.DuplicateKeyException("duplicate")
+                : new DuplicateTourApiDestinationException("126508");
+        when(destinationSavePersistenceService.registerDestination(
+                any(DestinationForm.class), eq(7L), eq("126508"), eq(prepared))).thenThrow(duplicate);
+
+        var response = service.importSelected(List.of(item("126508")), 7L);
+
+        assertThat(response.duplicateCount()).isEqualTo(1);
+        assertThat(response.successCount()).isZero();
+        verify(ktoPhotoImportService).cleanupPreparedPhotos(prepared);
+        verify(destinationSavePersistenceService, never()).updateDestination(any(), any(), anyList());
     }
 
     /** 관리자 직접 등록 여행지와 이름·위치가 같은 후보는 '중복 확인'으로 따로 세고 미등록 탭에서 뺀다. */

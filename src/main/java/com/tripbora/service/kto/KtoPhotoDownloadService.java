@@ -19,8 +19,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Iterator;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -114,7 +117,12 @@ public class KtoPhotoDownloadService {
     }
 
     public KtoDownloadedPhoto download(String sourceImageUrl) {
-        return download(urlValidator.validate(sourceImageUrl), httpTransport);
+        return download(urlValidator.validate(sourceImageUrl), httpTransport, false).photo();
+    }
+
+    /** 원본을 변환하지 않고 크기와 바이트 해시만 반환하는 일괄등록 전용 경로. */
+    InspectedPhoto downloadForSelection(String sourceImageUrl) {
+        return download(urlValidator.validate(sourceImageUrl), httpTransport, true);
     }
 
     /**
@@ -123,7 +131,7 @@ public class KtoPhotoDownloadService {
      * 리다이렉트는 따라가지 않고 실패로 처리한다.
      */
     public KtoDownloadedPhoto downloadCommonsImage(String imageUrl) {
-        return download(commonsUrlValidator.validate(imageUrl), commonsHttpTransport);
+        return download(commonsUrlValidator.validate(imageUrl), commonsHttpTransport, false).photo();
     }
 
     /**
@@ -131,10 +139,10 @@ public class KtoPhotoDownloadService {
      * pixabay.com·cdn.pixabay.com HTTPS만 허용한다. 크기·형식·경로 검증과 리다이렉트 거부는 관광사진과 같다.
      */
     public KtoDownloadedPhoto downloadPixabayImage(String imageUrl) {
-        return download(pixabayUrlValidator.validate(imageUrl), pixabayHttpTransport);
+        return download(pixabayUrlValidator.validate(imageUrl), pixabayHttpTransport, false).photo();
     }
 
-    private KtoDownloadedPhoto download(URI sourceUri, KtoPhotoHttpTransport transport) {
+    private InspectedPhoto download(URI sourceUri, KtoPhotoHttpTransport transport, boolean inspect) {
         Path temporary = null;
         Path completedFile = null;
         boolean completed = false;
@@ -144,23 +152,27 @@ public class KtoPhotoDownloadService {
             Path destinationDirectory = destinationDirectory();
             temporary = Files.createTempFile(destinationDirectory, ".kto-photo-", ".download");
 
-            long fileSize = copyBounded(response.body(), temporary);
+            MessageDigest digest = inspect ? sha256Digest() : null;
+            long fileSize = copyBounded(response.body(), temporary, digest);
             if (fileSize == 0) {
                 throw new KtoPhotoDownloadException("빈 이미지 파일");
             }
 
-            ImageFormat imageFormat = detectAndValidateImage(temporary, declaredContentType);
+            ValidatedImage validated = detectAndValidateImage(temporary, declaredContentType);
+            ImageFormat imageFormat = validated.format();
             String generatedName = UUID.randomUUID() + "." + imageFormat.extension;
             completedFile = destinationDirectory.resolve(generatedName).normalize();
             ensureContained(destinationDirectory, completedFile);
             moveCompletedFile(temporary, completedFile);
 
             completed = true;
-            return new KtoDownloadedPhoto(
+            KtoDownloadedPhoto photo = new KtoDownloadedPhoto(
                     DESTINATION_URL_PREFIX + generatedName,
                     sourceUri.toString(),
                     imageFormat.contentType,
                     fileSize);
+            return new InspectedPhoto(photo, validated.width(), validated.height(),
+                    digest == null ? null : HexFormat.of().formatHex(digest.digest()));
         } catch (InvalidKtoPhotoUrlException | KtoPhotoDownloadException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {
@@ -239,7 +251,7 @@ public class KtoPhotoDownloadService {
         return "image/jpg".equals(normalized) ? "image/jpeg" : normalized;
     }
 
-    private long copyBounded(InputStream input, Path temporary) throws IOException {
+    private long copyBounded(InputStream input, Path temporary, MessageDigest digest) throws IOException {
         long total = 0;
         byte[] buffer = new byte[BUFFER_SIZE];
         try (OutputStream output = Files.newOutputStream(
@@ -259,11 +271,14 @@ public class KtoPhotoDownloadService {
                     throw new KtoPhotoDownloadException("용량 제한 초과(" + maxFileSize + " bytes 초과)");
                 }
                 output.write(buffer, 0, read);
+                if (digest != null) {
+                    digest.update(buffer, 0, read);
+                }
             }
         }
     }
 
-    private ImageFormat detectAndValidateImage(Path file, String declaredContentType) {
+    private ValidatedImage detectAndValidateImage(Path file, String declaredContentType) {
         try (ImageInputStream imageInput = ImageIO.createImageInputStream(file.toFile())) {
             if (imageInput == null) {
                 throw new KtoPhotoDownloadException("이미지 파일을 읽을 수 없음");
@@ -292,7 +307,7 @@ public class KtoPhotoDownloadService {
                 if (decoded == null) {
                     throw new KtoPhotoDownloadException("이미지 디코딩 실패");
                 }
-                return detected;
+                return new ValidatedImage(detected, width, height);
             } finally {
                 reader.dispose();
             }
@@ -348,6 +363,18 @@ public class KtoPhotoDownloadService {
             // 원래 다운로드 실패를 우선 전달한다.
         }
     }
+
+    private static MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", exception);
+        }
+    }
+
+    record InspectedPhoto(KtoDownloadedPhoto photo, int width, int height, String sha256) { }
+
+    private record ValidatedImage(ImageFormat format, int width, int height) { }
 
     private enum ImageFormat {
         JPEG("jpg", "image/jpeg"),

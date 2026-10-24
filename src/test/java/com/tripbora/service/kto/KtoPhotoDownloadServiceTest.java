@@ -68,6 +68,20 @@ class KtoPhotoDownloadServiceTest {
     }
 
     @Test
+    void selectionInspectionKeepsJpegBytesAndReportsDimensionsAndOriginalFileHash() throws Exception {
+        KtoPhotoDownloadService service = service(
+                responding(200, "image/jpeg", jpeg.length, jpeg), 10 * 1024);
+
+        var inspected = service.downloadForSelection(SOURCE_URL);
+
+        assertThat(inspected.width()).isEqualTo(2);
+        assertThat(inspected.height()).isEqualTo(2);
+        assertThat(inspected.sha256()).isEqualTo(java.util.HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(jpeg)));
+        assertThat(storedPath(inspected.photo())).hasBinaryContent(jpeg);
+    }
+
+    @Test
     void acceptsKtoImageJpgAliasAsCanonicalJpeg() throws Exception {
         KtoPhotoDownloadService service = service(
                 responding(200, "image/jpg", jpeg.length, jpeg), 10 * 1024);

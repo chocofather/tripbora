@@ -9,7 +9,9 @@
             (width < frame.clientWidth || height < frame.clientHeight));
         if (image.srcset && width > 0 && height > 0) {
             // cover 는 가로로 긴 사진을 높이 기준으로 확대하므로 보이는 칸 폭만으로 후보를 고르지 않는다.
-            image.sizes = `${Math.ceil(Math.max(frame.clientWidth, frame.clientHeight * width / height))}px`;
+            const sizes = `${Math.ceil(Math.max(frame.clientWidth, frame.clientHeight * width / height))}px`;
+            // 같은 값도 다시 대입하면 캐시된 이미지의 load 가 재발생해 window.load 를 막는다.
+            if (image.sizes !== sizes) image.sizes = sizes;
         }
     };
     images.forEach(image => {

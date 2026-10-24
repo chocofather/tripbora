@@ -809,6 +809,39 @@
       DestinationDto 에는 description 자리가 아예 없다.
     -->
     <select id="findByRegionIdsPaged" resultType="com.tripbora.model.Destination">
+        <if test="sort == 'default'">
+            <!-- 지역 트리만 재귀 탐색한다. 국내 루트의 자식은 시·도, 해외 대륙의 자식은 국가다.
+                 번호를 하드코딩하지 않고 부모 관계로 그룹을 하위 지역에 전파한다. -->
+            WITH RECURSIVE browse_regions AS (
+                SELECT child.id, child.id AS browse_group
+                FROM country_categories child
+                JOIN country_categories parent ON parent.id = child.parent_id
+                WHERE parent.code = 'KR' OR (parent.depth = 1
+                    AND COALESCE(parent.code, '') &lt;&gt; 'KR' AND COALESCE(child.code, '') &lt;&gt; 'KR')
+                UNION ALL
+                SELECT child.id, parent.browse_group
+                FROM country_categories child
+                JOIN browse_regions parent ON child.parent_id = parent.id
+            ), ranked_ids AS (
+                SELECT d.id, COALESCE(br.browse_group, d.region_id) AS browse_group,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY COALESCE(br.browse_group, d.region_id)
+                        ORDER BY d.id DESC
+                    ) AS browse_rank
+                FROM destinations d
+                LEFT JOIN browse_regions br ON br.id = d.region_id
+                WHERE d.is_public = 1
+                AND EXISTS (SELECT 1 FROM destination_translations dt
+                            WHERE dt.destination_id = d.id AND dt.language_code = 'ko')
+                AND d.region_id IN
+                <foreach item="id" collection="regionIds" open="(" separator="," close=")">#{id}</foreach>
+                <include refid="listCategoryFilter"/>
+            ), browse_page AS (
+                SELECT id, browse_group, browse_rank FROM ranked_ids
+                ORDER BY browse_rank, browse_group, id
+                LIMIT #{size} OFFSET #{offset}
+            )
+        </if>
         SELECT
         d.id,
         dt.name AS name,
@@ -827,6 +860,9 @@
         </if>
         d.views
         FROM destinations d
+        <if test="sort == 'default'">
+            JOIN browse_page bp ON bp.id = d.id
+        </if>
         JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
         JOIN country_categories cc ON d.region_id = cc.id
         LEFT JOIN destination_images card_image ON card_image.id = (
@@ -841,6 +877,12 @@
         AND d.is_public = 1
         <!-- 같은 값이면 id 순으로 고정한다. 그래야 쪽을 넘길 때 같은 여행지가 두 쪽에 나오거나 빠지지 않는다. -->
         <choose>
+            <when test="sort == 'default'">
+                ORDER BY bp.browse_rank, bp.browse_group, d.id
+            </when>
+            <when test="sort == 'latest'">
+                ORDER BY d.created_at DESC, d.id DESC
+            </when>
             <when test="sort == 'views'">
                 ORDER BY d.views DESC, d.id ASC
             </when>
@@ -851,7 +893,7 @@
                 ORDER BY d.id ASC
             </otherwise>
         </choose>
-        LIMIT #{size} OFFSET #{offset}
+        <if test="sort != 'default'">LIMIT #{size} OFFSET #{offset}</if>
     </select>
 
     <!--
@@ -880,6 +922,8 @@
         </foreach>
         <include refid="listCategoryFilter"/>
         AND d.is_public = 1
+        AND EXISTS (SELECT 1 FROM destination_translations dt
+                    WHERE dt.destination_id = d.id AND dt.language_code = 'ko')
     </select>
 
     <!--

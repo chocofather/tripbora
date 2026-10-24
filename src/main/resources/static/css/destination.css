@@ -615,7 +615,10 @@ body:has(> main #region-fragment-container) #destination-list {
 .pagination {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
     justify-content: center;
     gap: 4px;
 }
@@ -623,6 +626,8 @@ body:has(> main #region-fragment-container) #destination-list {
 .pagination a,
 .pagination span {
     display: inline-flex;
+    box-sizing: border-box;
+    flex: 0 0 auto;
     min-width: 34px;
     height: 34px;
     align-items: center;
@@ -639,6 +644,15 @@ body:has(> main #region-fragment-container) #destination-list {
     cursor: pointer;
     outline: none;
     transition: color .16s ease, background-color .16s ease, border-color .16s ease;
+}
+
+.pagination-mobile { display: none; }
+.pagination .page-ellipsis {
+    min-width: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: default;
 }
 
 .pagination a:hover {
@@ -673,6 +687,8 @@ body:has(> main #region-fragment-container) #destination-list {
 }
 
 @media (max-width: 600px) {
+    .pagination-desktop { display: none; }
+    .pagination-mobile { display: flex; }
     .pagination a,
     .pagination span {
         min-width: 30px;
@@ -1003,12 +1019,17 @@ body:has(> main #region-fragment-container) #destination-list {
 
     #region-fragment-container .pagination a,
     #region-fragment-container .pagination span {
-        min-width: 38px;
+        min-width: 30px;
         height: 38px;
-        padding: 0 8px;
+        padding: 0 4px;
         box-sizing: border-box;
         border-radius: 6px;
         font-size: 13px;
+    }
+
+    #region-fragment-container .pagination .page-ellipsis {
+        min-width: 10px;
+        padding: 0;
     }
 
     #region-fragment-container .destination-list-empty {

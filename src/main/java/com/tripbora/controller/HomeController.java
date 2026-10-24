@@ -125,6 +125,8 @@ public class HomeController {
                     destination.setCardImageUrl(image.src());
                     destination.setCardImageSrcset(image.srcset());
                     destination.setCardImageCoverScale(image.coverScale(3, 4));
+                    destination.setSourceImageWidth(image.width());
+                    destination.setSourceImageHeight(image.height());
                 });
         return landmarks == null ? List.of() : landmarks;
     }

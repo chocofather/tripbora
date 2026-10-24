@@ -17,6 +17,17 @@
 
     const update = image => {
         if (image.closest('.destination-card-media')) return;
+        if (image.closest('.home-converge-photo')) {
+            // srcset 썸네일의 픽셀 크기를 원본 저해상도로 오인하지 않도록 원본 치수를 우선한다.
+            const width = Number(image.dataset.sourceWidth) || image.naturalWidth;
+            const height = Number(image.dataset.sourceHeight) || image.naturalHeight;
+            const frame = image.parentElement;
+            const small = width > 0 && height > 0 &&
+                (width < frame.clientWidth || height < frame.clientHeight);
+            image.classList.toggle('is-small-landmark', small);
+            frame.classList.toggle('is-letterbox', small || image.classList.contains('is-no-derivatives'));
+            return;
+        }
         const ratio = image.naturalWidth ? image.naturalHeight / image.naturalWidth : 0;
         if (ratio >= TALL_RATIO) {
             image.dataset.thumbShape = 'tall';
@@ -36,6 +47,12 @@
     // 이 스크립트보다 먼저 받아진 사진
     document.querySelectorAll('img.card-thumb').forEach(image => {
         if (image.complete) update(image);
+    });
+
+    window.addEventListener('resize', () => {
+        document.querySelectorAll('.home-converge-photo img.card-thumb').forEach(image => {
+            if (image.complete) update(image);
+        });
     });
 
 })();

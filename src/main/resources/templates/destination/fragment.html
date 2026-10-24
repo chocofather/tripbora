@@ -87,7 +87,7 @@
 )">
     <!-- 지금 목록의 쪽 크기와 고른 카테고리(하나). 정렬·쪽·지역을 바꿀 때 스크립트가 그대로 이어 보낸다. -->
     <div id="destination-list"
-         th:attr="data-page-size=${pageSize},data-category=${selectedCategoryId}">
+         th:attr="data-page-size=${pageSize},data-category=${selectedCategoryId},data-current-page=${currentPage},data-sort=${sort},data-region-id=${listRegionId ?: ''}">
 
         <div class="destination-list-wrapper">
             <div class="destination-section-heading">
@@ -131,6 +131,10 @@
                         th:attr="aria-pressed=${sort == null or sort == 'default'} ? 'true' : 'false'"
                         data-sort="default"
                         th:text="#{destination.list.sort.default}">기본순</button>
+                <button type="button" class="sort-btn"
+                        th:classappend="${sort == 'latest'} ? ' active' : ''"
+                        th:attr="aria-pressed=${sort == 'latest'}"
+                        data-sort="latest" th:text="#{destination.list.sort.latest}">최신 등록순</button>
                 <button type="button" class="sort-btn"
                         th:classappend="${sort} == 'views' ? ' active' : ''"
                         th:attr="aria-pressed=${sort} == 'views' ? 'true' : 'false'"
@@ -202,23 +206,31 @@
             </div>
 
             <!-- 페이징 -->
-            <div class="pagination-wrapper" th:if="${totalPages > 1}">
-                <nav class="pagination" th:aria-label="#{destination.list.pagination.label}">
+            <div class="pagination-wrapper" th:if="${totalPages > 0}">
+                <nav class="pagination" th:each="pages, window : ${paginationWindows}"
+                     th:classappend="${window.index == 1} ? 'pagination-mobile' : 'pagination-desktop'"
+                     th:aria-label="#{destination.list.pagination.label}">
+                    <a class="page-nav" th:if="${currentPage > 1}"
+                       th:aria-label="#{destination.list.pagination.first}"
+                       th:href="@{/destinations(type=${type},region=${listRegionId},page=1,size=${pageSize},sort=${sort},category=${selectedCategoryId})}">«</a>
+                    <span class="page-nav is-disabled" th:unless="${currentPage > 1}"
+                          th:aria-label="#{destination.list.pagination.first}" aria-disabled="true">«</span>
                     <a th:if="${currentPage > 1}" class="page-nav"
                        th:aria-label="#{destination.list.pagination.previous}"
-                       th:href="@{/destinations/fragment(type=${type},
-                                              region=${selectedSubregionId != null ? selectedSubregionId : selectedCityId},
+                       th:href="@{/destinations(type=${type},
+                                              region=${listRegionId},
                                               page=${currentPage - 1},
                                               size=${pageSize},
                                               sort=${sort},
                                               category=${selectedCategoryId})}">&#8249;</a>
-                    <span th:unless="${currentPage > 1}" class="page-nav is-disabled"
+                    <span th:unless="${currentPage > 1}" class="page-nav is-disabled" th:aria-label="#{destination.list.pagination.previous}"
                           aria-disabled="true">&#8249;</span>
 
-                    <th:block th:each="i : ${#numbers.sequence(1, totalPages)}">
-                        <a th:if="${i != currentPage}" class="page-number"
-                           th:href="@{/destinations/fragment(type=${type},
-                                                region=${selectedSubregionId != null ? selectedSubregionId : selectedCityId},
+                    <th:block th:each="i : ${pages}">
+                        <span th:if="${i == 0}" class="page-ellipsis" aria-hidden="true">…</span>
+                        <a th:if="${i > 0 and i != currentPage}" class="page-number"
+                           th:href="@{/destinations(type=${type},
+                                                region=${listRegionId},
                                                 page=${i},
                                                 size=${pageSize},
                                                 sort=${sort},
@@ -230,14 +242,19 @@
 
                     <a th:if="${currentPage < totalPages}" class="page-nav"
                        th:aria-label="#{destination.list.pagination.next}"
-                       th:href="@{/destinations/fragment(type=${type},
-                                              region=${selectedSubregionId != null ? selectedSubregionId : selectedCityId},
+                       th:href="@{/destinations(type=${type},
+                                              region=${listRegionId},
                                               page=${currentPage + 1},
                                               size=${pageSize},
                                               sort=${sort},
                                               category=${selectedCategoryId})}">&#8250;</a>
-                    <span th:unless="${currentPage < totalPages}" class="page-nav is-disabled"
+                    <span th:unless="${currentPage < totalPages}" class="page-nav is-disabled" th:aria-label="#{destination.list.pagination.next}"
                           aria-disabled="true">&#8250;</span>
+                    <a class="page-nav" th:if="${currentPage < totalPages}"
+                       th:aria-label="#{destination.list.pagination.last}"
+                       th:href="@{/destinations(type=${type},region=${listRegionId},page=${totalPages},size=${pageSize},sort=${sort},category=${selectedCategoryId})}">»</a>
+                    <span class="page-nav is-disabled" th:unless="${currentPage < totalPages}"
+                          th:aria-label="#{destination.list.pagination.last}" aria-disabled="true">»</span>
                 </nav>
             </div>
         </div>

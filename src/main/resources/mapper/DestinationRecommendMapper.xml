@@ -9,6 +9,8 @@
         <id     property="id"           column="destination_id"/>
         <result property="name"         column="name"/>
         <result property="imageUrl"     column="image_url"/>
+        <result property="cardPositionX" column="card_position_x"/>
+        <result property="cardPositionY" column="card_position_y"/>
         <result property="regionId"     column="region_id"/>
         <result property="regionName"   column="region_name"/>
         <result property="parentRegionId"   column="parent_region_id"/>
@@ -104,7 +106,7 @@
         )
     </sql>
 
-    <!-- 상세 데이터나 전체 테이블 랜덤 정렬 없이 적격 후보의 ID·국내 여부만 읽는다. -->
+    <!-- 상세 본문이나 전체 테이블 랜덤 정렬 없이 후보 ID·국내 여부·대표 이미지 변경금지 여부를 읽는다. -->
     <select id="findHomeLandmarkCandidates" resultType="com.tripbora.dto.SeasonDestinationDto">
         WITH RECURSIVE domestic_regions AS (
             SELECT id FROM country_categories WHERE code = 'KR'
@@ -112,7 +114,15 @@
             SELECT child.id FROM country_categories child
             JOIN domestic_regions parent ON child.parent_id = parent.id
         )
-        SELECT d.id, (domestic.id IS NOT NULL) AS domestic
+        SELECT d.id, (domestic.id IS NOT NULL) AS domestic,
+            EXISTS (
+                SELECT 1 FROM destination_images di
+                LEFT JOIN destination_image_sources s ON s.destination_image_id = di.id
+                WHERE di.id = (SELECT main.id FROM destination_images main
+                    WHERE main.destination_id = d.id AND main.is_main = 1 AND TRIM(main.image_url) &lt;&gt; ''
+                    ORDER BY main.order_index, main.id LIMIT 1)
+                AND (CASE WHEN s.destination_image_id IS NOT NULL THEN s.license_type ELSE di.license_type END) = 'KOGL_TYPE_3'
+            ) AS imageNoDerivatives
         FROM destinations d
         JOIN destination_translations dt ON dt.destination_id = d.id AND dt.language_code = 'ko'
         JOIN country_categories cc ON cc.id = d.region_id
@@ -132,13 +142,9 @@
             d.id AS destination_id,
             d.region_id AS region_id,
             dt.name,
-            (
-                SELECT di.image_url
-                FROM destination_images di
-                WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
-                ORDER BY di.order_index ASC, di.id ASC
-                LIMIT 1
-            ) AS image_url,
+            main_image.image_url AS image_url,
+            COALESCE(main_image.card_position_x, 50) AS card_position_x,
+            COALESCE(main_image.card_position_y, 50) AS card_position_y,
             cc.region_name AS region_name,
             pcc.id AS parent_region_id,
             pcc.region_name AS parent_region_name,
@@ -149,6 +155,11 @@
                  JOIN destination_translations dt ON d.id = dt.destination_id AND dt.language_code = 'ko'
                  JOIN country_categories cc ON d.region_id = cc.id
                  LEFT JOIN country_categories pcc ON cc.parent_id = pcc.id
+                 LEFT JOIN destination_images main_image ON main_image.id = (
+                     SELECT di.id FROM destination_images di
+                     WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
+                     ORDER BY di.order_index, di.id LIMIT 1
+                 )
         WHERE <include refid="HomeLandmarkEligibility"/>
         <choose>
             <when test="destinationIds != null and !destinationIds.isEmpty()">

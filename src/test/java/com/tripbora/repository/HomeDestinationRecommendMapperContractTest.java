@@ -219,7 +219,8 @@ class HomeDestinationRecommendMapperContractTest {
         assertThat(select(seasonal, "findHomeLandmarkCandidates"))
                 .contains("WITH RECURSIVE domestic_regions", "code = 'KR'", "child.parent_id = parent.id",
                         "<include refid=\"HomeLandmarkEligibility\"/>", "dt.language_code = 'ko'")
-                .doesNotContain("RAND()", "LIMIT", "SELECT di.image_url");
+                .contains("AS imageNoDerivatives", "KOGL_TYPE_3", "LIMIT 1")
+                .doesNotContain("RAND()", "LIMIT #{limit}", "SELECT di.image_url");
     }
 
     private String resource(String path) throws IOException {

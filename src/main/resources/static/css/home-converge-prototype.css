@@ -183,7 +183,26 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: var(--card-position-x, 50%) var(--card-position-y, 50%);
     transition: filter 0.2s ease;
+}
+
+/* 원본 비율을 보존해야 하는 사진은 아치 안의 사진 액자로 표시한다.
+   카드와 링크를 유지하며 원본 확대·블러 배경 복제는 하지 않는다. */
+.home-converge-photo:has(img.is-no-derivatives),
+.home-converge-photo.is-letterbox {
+    box-sizing: border-box;
+    /* 아치 곡선 아래 안전 영역에 사진 전체를 넣어 상단 모서리도 자르지 않는다. */
+    padding: 28% 8% 8%;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #e6e9ee;
+}
+
+.home-converge-photo img.is-small-landmark,
+.home-converge-photo img.is-no-derivatives {
+    object-fit: scale-down !important;
+    object-position: center !important;
+    background: transparent;
 }
 
 /* 카드 전체가 여행지 상세 링크다. 움직이는 것은 바깥 li 라 링크는 모양만 맡는다. */

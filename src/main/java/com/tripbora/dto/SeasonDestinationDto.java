@@ -15,6 +15,11 @@ public class SeasonDestinationDto {
     private String season;
     // 메인 랜드마크 후보의 국내/해외 균형 선정용. 지역 번호 대신 KR 지역 트리로 판별한다.
     private boolean domestic;
+    // 관리자 대표 이미지 위치. 다른 추천 조회에 컬럼이 없으면 중앙을 유지한다.
+    private int cardPositionX = 50;
+    private int cardPositionY = 50;
+    private Integer sourceImageWidth;
+    private Integer sourceImageHeight;
 
     // 태그/카테고리 정보
     private Long categoryId;

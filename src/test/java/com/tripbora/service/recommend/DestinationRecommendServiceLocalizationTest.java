@@ -171,6 +171,27 @@ class DestinationRecommendServiceLocalizationTest {
     }
 
     @Test
+    void landmarkSelectionPrefersFillableImagesButRetainsOtherCandidatesAndCountryBalance() {
+        var candidates = new java.util.ArrayList<SeasonDestinationDto>();
+        for (long id = 1; id <= 22; id++) {
+            SeasonDestinationDto candidate = new SeasonDestinationDto();
+            candidate.setId(id);
+            candidate.setDomestic(id <= 20);
+            candidate.setImageNoDerivatives(id > 10);
+            candidates.add(candidate);
+        }
+        when(recommendMapper.findHomeLandmarkCandidates("랜드마크")).thenReturn(candidates);
+        when(recommendMapper.findByCategoryName(eq("랜드마크"), eq(18), anyList()))
+                .thenAnswer(call -> candidates.stream().filter(c -> call.<List<Long>>getArgument(2).contains(c.getId())).toList());
+        DestinationRecommendService service = new DestinationRecommendService(
+                recommendMapper, destinationService, referenceNameLocalizationService);
+        var selected = service.findHomeLandmarks(SupportedLanguage.KOREAN);
+        assertThat(selected).hasSize(18).extracting(SeasonDestinationDto::getId).doesNotHaveDuplicates()
+                .contains(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 21L, 22L);
+        assertThat(selected).anyMatch(SeasonDestinationDto::isImageNoDerivatives);
+    }
+
+    @Test
     void trendingAsksForTheLastSevenKstDaysIncludingTodayAndLocalizesParentRegions() {
         SeasonDestinationDto palace = new SeasonDestinationDto();
         palace.setId(15L);

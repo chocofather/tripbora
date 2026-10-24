@@ -70,6 +70,10 @@ public class DestinationRecommendService {
                 (candidate.isDomestic() ? domestic : overseas).add(candidate.getId()));
         Collections.shuffle(domestic);
         Collections.shuffle(overseas);
+        // 변경금지 사진도 후보에 남겨 두고, 아치를 채울 수 있는 대표 사진을 우선한다.
+        Comparator<Long> imagePriority = Comparator.comparing(id -> unique.get(id).isImageNoDerivatives());
+        domestic.sort(imagePriority);
+        overseas.sort(imagePriority);
         List<Long> selected = new ArrayList<>();
         int half = HOME_LANDMARK_LIMIT / 2;
         selected.addAll(domestic.subList(0, Math.min(half, domestic.size())));
@@ -77,6 +81,7 @@ public class DestinationRecommendService {
         List<Long> remaining = new ArrayList<>(domestic.subList(Math.min(half, domestic.size()), domestic.size()));
         remaining.addAll(overseas.subList(Math.min(half, overseas.size()), overseas.size()));
         Collections.shuffle(remaining);
+        remaining.sort(imagePriority);
         selected.addAll(remaining.subList(0, Math.min(HOME_LANDMARK_LIMIT - selected.size(), remaining.size())));
         // 첫 카드도 고정되지 않도록 국내·해외를 합친 뒤 표시 순서를 다시 섞는다.
         Collections.shuffle(selected);

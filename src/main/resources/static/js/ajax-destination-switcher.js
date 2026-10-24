@@ -44,6 +44,8 @@ function getCurrentSort() {
     return document.querySelector('.sort-btn.active')?.dataset.sort || 'default';
 }
 function getCurrentRegionId() {
+    const list = document.getElementById('destination-list');
+    if (list && 'regionId' in list.dataset) return list.dataset.regionId;
     const sub = document.querySelector('.subregion-btn.selected');
     if (sub) return sub.dataset.cityId;
     const sel = document.querySelector('.region-btn.selected');
@@ -66,6 +68,10 @@ function getCurrentPageSize() {
 function syncAddressBar(requestUrl, history = 'replace') {
     if (history === 'none') return;
     const source = new URL(requestUrl, window.location.origin).searchParams;
+    const list = document.getElementById('destination-list');
+    if (list?.dataset.currentPage) source.set('page', list.dataset.currentPage);
+    if (list?.dataset.pageSize) source.set('size', list.dataset.pageSize);
+    if (list?.dataset.sort) source.set('sort', list.dataset.sort);
     const params = new URLSearchParams();
     const skipDefault = {sort: 'default', page: '1', size: '12'};
     ['type', 'region', 'sort', 'page', 'size', 'category'].forEach(name => {
@@ -171,6 +177,7 @@ function bindFragmentPagination() {
         link.onclick = e => {
             e.preventDefault();
             const url = new URL(link.href, window.location.origin);
+            url.pathname = '/destinations/list-fragment';
             url.searchParams.set('sort', getCurrentSort());
             url.searchParams.set('type', getCurrentType());
             fetchListFragmentByUrl(url.toString());

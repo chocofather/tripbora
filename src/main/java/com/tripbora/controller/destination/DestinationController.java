@@ -77,7 +77,8 @@ public class DestinationController {
             Model model) {
 
         Long userId = (userDetails != null) ? userDetails.getId() : null;
-        int offset = (page - 1) * size;
+        size = Math.max(1, Math.min(size, 100));
+        sort = DestinationPagination.sort(sort);
         int totalCount;
         List<Destination> rawList;
 
@@ -178,8 +179,9 @@ public class DestinationController {
 
             List<Long> regionIds = countryCategoryService.getAllRegionIdsUnder(regionId);
             List<Long> categoryIds = applyCategoryFilter(category,regionIds, model);
-            rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, offset, size, sort);
             totalCount = destinationService.countDestinationsByRegionIds(regionIds, categoryIds);
+            page = DestinationPagination.page(page, totalCount, size);
+            rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, (page - 1) * size, size, sort);
 
         } else {
             List<Long> rootRegionIds = "overseas".equals(type)
@@ -189,8 +191,9 @@ public class DestinationController {
                     .flatMap(id -> countryCategoryService.getAllRegionIdsUnder(id).stream())
                     .toList();
             List<Long> categoryIds = applyCategoryFilter(category,allRegionIds, model);
-            rawList = destinationService.getDestinationsByRegionIdsPaged(allRegionIds, categoryIds, offset, size, sort);
             totalCount = destinationService.countDestinationsByRegionIds(allRegionIds, categoryIds);
+            page = DestinationPagination.page(page, totalCount, size);
+            rawList = destinationService.getDestinationsByRegionIdsPaged(allRegionIds, categoryIds, (page - 1) * size, size, sort);
 
             model.addAttribute("selectedCityName", null);
         }
@@ -200,6 +203,7 @@ public class DestinationController {
         List<DestinationDto> destinations = localization.destinations();
         selectedCityName = localization.selectedRegionName();
         int totalPages = (int) Math.ceil((double) totalCount / size);
+        addPagination(model, page, totalPages, regionId);
 
         model.addAttribute("destinations", destinations);
         model.addAttribute("regionDisplayNames", localization.regionDisplayNames());
@@ -526,7 +530,8 @@ public class DestinationController {
             Model model) {
 
         Long userId = (userDetails != null) ? userDetails.getId() : null;
-        int offset = (page - 1) * size;
+        size = Math.max(1, Math.min(size, 100));
+        sort = DestinationPagination.sort(sort);
         int totalCount;
         List<Destination> rawList;
 
@@ -605,14 +610,16 @@ public class DestinationController {
             selectedCityName = null;
         }
         List<Long> categoryIds = applyCategoryFilter(category,regionIds, model);
-        rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, offset, size, sort);
         totalCount = destinationService.countDestinationsByRegionIds(regionIds, categoryIds);
+        page = DestinationPagination.page(page, totalCount, size);
+        rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, (page - 1) * size, size, sort);
 
         DestinationListLocalization localization = localizeDestinationList(
                 cities, subregions, rawList, regionId, selectedCityName, userId);
         List<DestinationDto> destinations = localization.destinations();
         selectedCityName = localization.selectedRegionName();
         int totalPages = (int) Math.ceil((double) totalCount / size);
+        addPagination(model, page, totalPages, regionId);
 
         model.addAttribute("cities", cities);
         model.addAttribute("destinations", destinations);
@@ -644,7 +651,8 @@ public class DestinationController {
             Model model) {
 
         Long userId = (userDetails != null) ? userDetails.getId() : null;
-        int offset = (page - 1) * size;
+        size = Math.max(1, Math.min(size, 100));
+        sort = DestinationPagination.sort(sort);
         int totalCount;
         List<Destination> rawList;
 
@@ -702,14 +710,16 @@ public class DestinationController {
             selectedCityName = null;
         }
         List<Long> categoryIds = applyCategoryFilter(category,regionIds, model);
-        rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, offset, size, sort);
         totalCount = destinationService.countDestinationsByRegionIds(regionIds, categoryIds);
+        page = DestinationPagination.page(page, totalCount, size);
+        rawList = destinationService.getDestinationsByRegionIdsPaged(regionIds, categoryIds, (page - 1) * size, size, sort);
 
         DestinationListLocalization localization = localizeDestinationList(
                 null, subregions, rawList, regionId, selectedCityName, userId);
         List<DestinationDto> destinations = localization.destinations();
         selectedCityName = localization.selectedRegionName();
         int totalPages = (int) Math.ceil((double) totalCount / size);
+        addPagination(model, page, totalPages, regionId);
 
         // cities 필요 없음!
         model.addAttribute("destinations", destinations);
@@ -916,6 +926,13 @@ public class DestinationController {
                 baseNames.putIfAbsent(region.getId(), region.getRegionName());
             }
         }
+    }
+
+    private static void addPagination(Model model, int page, int totalPages, Long regionId) {
+        model.addAttribute("listRegionId", regionId);
+        model.addAttribute("paginationWindows", List.of(
+                DestinationPagination.numbers(page, totalPages, 7),
+                DestinationPagination.numbers(page, totalPages, 3)));
     }
 
     private record DestinationListLocalization(

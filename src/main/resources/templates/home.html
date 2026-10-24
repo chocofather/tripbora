@@ -247,14 +247,15 @@
             <div class="home-converge-photo">
               <!--
                 여행지 업로드 사진은 카드 크기 썸네일을 쓰고, 받지 못하면 원본으로 한 번 되돌린다.
-                세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
+                관리자 대표 이미지 위치를 유지한다. 작은 원본·변경금지 사진은 비율을 보존한 대체 표시를 쓴다.
                 sizes 는 레일 카드 폭(한 화면 6장 → 4장 → 2.3장)에 3:4 칸을 cover 로 채울 때의 사진 폭 배율을 곱한 값이다.
               -->
               <img class="card-thumb"
+                   th:style="|--card-position-x: ${landmark.cardPositionX}%; --card-position-y: ${landmark.cardPositionY}%;|"
                    th:src="${landmark.cardImageUrl != null} ? ${landmark.cardImageUrl} : @{${landmark.imageUrl}}"
                    th:classappend="${landmark.imageNoDerivatives} ? 'is-no-derivatives'"
                    th:with="k=${landmark.cardImageCoverScale}"
-                   th:attr="srcset=${landmark.cardImageSrcset},
+                   th:attr="srcset=${landmark.cardImageSrcset},data-source-width=${landmark.sourceImageWidth},data-source-height=${landmark.sourceImageHeight},
                             sizes=${landmark.cardImageSrcset != null} ? ('(max-width: 680px) calc((43.5vw - 21px) * ' + ${k} + '), (max-width: 960px) calc((25vw - 22px) * ' + ${k} + '), (max-width: 1160px) calc((16.7vw - 23px) * ' + ${k} + '), calc(170px * ' + ${k} + ')') : null,
                             data-original-src=${landmark.cardImageUrl != null} ? @{${landmark.imageUrl}} : null"
                    onerror="if (this.dataset.originalSrc) { this.removeAttribute('srcset'); this.src = this.dataset.originalSrc; delete this.dataset.originalSrc; }"

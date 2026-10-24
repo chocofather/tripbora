@@ -298,6 +298,8 @@ class HomeControllerTest {
         palace.setCardImageSrcset("/destination-thumbnails/v1/480/palace.jpg 480w, "
                 + "/destination-thumbnails/v1/960/palace.jpg 960w");
         palace.setCardImageCoverScale(1.78);
+        palace.setCardPositionX(25);
+        palace.setCardPositionY(15);
         SeasonDestinationDto jeju = landmark(40L, "성산일출봉",
                 "/uploads/destinations/seongsan.jpg", null, "제주");
         List<SeasonDestinationDto> landmarks = List.of(bigBen, palace, jeju);
@@ -333,8 +335,17 @@ class HomeControllerTest {
                     assertThat(images.get(1).attr("src")).isEqualTo("/destination-thumbnails/v1/480/palace.jpg");
                     assertThat(images.get(1).attr("srcset")).contains("960w");
                     assertThat(images.get(1).attr("sizes")).contains("calc(170px * 1.78)");
+                    assertThat(images.get(1).attr("style")).contains("--card-position-x: 25%", "--card-position-y: 15%");
                     assertThat(images.get(1).attr("data-original-src")).isEqualTo("/uploads/destinations/palace.jpg");
                     assertThat(images.get(2).attr("src")).isEqualTo("/uploads/destinations/seongsan.jpg");
+                    var resources = document.select("link[href*='home-converge-prototype'], script[src*='card-thumbnail']");
+                    assertThat(resources).hasSize(2);
+                    for (var resource : resources) {
+                        String url = resource.hasAttr("href") ? resource.attr("href") : resource.attr("src");
+                        assertThat(url).matches("/(css|js)/.+-[0-9a-f]{32}\\.(css|js)");
+                        var response = mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();
+                        assertThat(response.getContentType()).isIn("text/css", "text/javascript", "application/javascript");
+                    }
 
                     // 수동 레일의 이전/다음 버튼: button + aria-label, 넘길 카드가 있을 때만 JS 가 보여 준다.
                     var rail = document.selectFirst(".home-converge-rail");
@@ -346,6 +357,9 @@ class HomeControllerTest {
                             .containsExactly("home-converge-list", "home-converge-list");
                     assertThat(navButtons).allMatch(button -> button.hasAttr("hidden")
                             && "button".equals(button.attr("type")));
+                    java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/reports/destination-ui"));
+                    java.nio.file.Files.writeString(java.nio.file.Path.of("build/reports/destination-ui/home.html"),
+                            result.getResponse().getContentAsString());
                 });
 
         verify(cardThumbnailService).applyCardImages(eq(landmarks), any(), any());

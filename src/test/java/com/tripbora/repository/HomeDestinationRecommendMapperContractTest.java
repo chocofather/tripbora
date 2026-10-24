@@ -191,7 +191,12 @@ class HomeDestinationRecommendMapperContractTest {
                     .contains("ORDER BY di.order_index ASC, di.id ASC")
                     .contains("LIMIT 1")
                     .contains(") AS image_url");
-            assertThat(query.split("FROM destination_images", -1)).as(id).hasSize(2);
+            // 홈의 국내 인기 fallback은 같은 대표 사진에서 관리자 위치 두 축도 읽는다.
+            assertThat(query.split("FROM destination_images", -1)).as(id)
+                    .hasSize(id.equals("findPopularDomesticDestinations") ? 4 : 2);
+            if (id.equals("findPopularDomesticDestinations")) {
+                assertThat(query).contains("di.card_position_x", "di.card_position_y");
+            }
         }
     }
 

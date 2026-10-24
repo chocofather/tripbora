@@ -126,7 +126,23 @@ class AdminFestivalControllerTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-festival-pagination")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-festival-unregistered-only")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("공연")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("계절여행"))));
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("계절여행"))))
+                .andExpect(result -> {
+                    String html = result.getResponse().getContentAsString();
+                    var document = org.jsoup.Jsoup.parse(html);
+                    assertThat(document.select("[data-festival-registration-mode]")).hasSize(2);
+                    assertThat(document.selectFirst("[data-festival-bulk]").hasAttr("hidden")).isTrue();
+                    assertThat(document.selectFirst("form#festival-create-form input[name=_csrf]")).isNotNull();
+                    for (var resource : document.select("link[href*='admin-festival-bulk'], script[src*='admin-festival-bulk']")) {
+                        String url = resource.hasAttr("href") ? resource.attr("href") : resource.attr("src");
+                        assertThat(url).matches("/(css|js)/admin-festival-bulk-[a-f0-9]{32}\\.(css|js)");
+                        var response = mockMvc.perform(get(url).with(user("admin").roles("ADMIN")))
+                                .andExpect(status().isOk()).andReturn().getResponse();
+                        assertThat(response.getContentType()).isIn("text/css", "text/javascript", "application/javascript");
+                    }
+                    java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/reports/festival-bulk"));
+                    java.nio.file.Files.writeString(java.nio.file.Path.of("build/reports/festival-bulk/form.html"), html);
+                });
 
         verifyNoInteractions(travelInfoService);
     }

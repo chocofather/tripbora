@@ -40,6 +40,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import jakarta.servlet.http.Cookie;
 
 import java.time.LocalDate;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,6 +91,57 @@ class HomeControllerTest {
     private CustomLoginSuccessHandler customLoginSuccessHandler;
     @MockitoBean
     private CustomLogoutSuccessHandler customLogoutSuccessHandler;
+
+    @Test
+    void popularImagesKeepPositionsDimensionsAndAnEmptyFrameForUnavailablePhotos() throws Exception {
+        String portrait = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1500'%3E"
+                + "%3Crect width='900' height='1500' fill='%2399bcc9'/%3E"
+                + "%3Ccircle cx='450' cy='200' r='120' fill='%23f7e1a5'/%3E%3C/svg%3E";
+        RecommendDestinationDto positioned = popular(1L, "관리자 위치", portrait, "서울");
+        positioned.setCardPositionX(20);
+        positioned.setCardPositionY(80);
+        positioned.setSourceImageWidth(900);
+        positioned.setSourceImageHeight(1500);
+        positioned.setCardImageUrl("/missing-thumbnail.jpg");
+        positioned.setCardImageSrcset("/missing-thumbnail.jpg 480w");
+        RecommendDestinationDto protectedPhoto = popular(2L, "변경금지", portrait, "서울");
+        protectedPhoto.setImageNoDerivatives(true);
+        RecommendDestinationDto small = popular(3L, "작은 원본", portrait, "서울");
+        small.setSourceImageWidth(90);
+        small.setSourceImageHeight(150);
+        when(popularRecommendService.findDomesticPopular(5, SupportedLanguage.KOREAN)).thenReturn(List.of(
+                positioned, protectedPhoto, small,
+                popular(4L, "이미지 없음", null, "서울"),
+                popular(5L, "원본도 없음", "/missing-original.jpg", "서울")));
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    var document = Jsoup.parse(result.getResponse().getContentAsString());
+                    var media = document.select(".popular-recommend .recommend-card-media");
+                    assertThat(media).hasSize(5);
+                    assertThat(media.get(0).selectFirst("img").attr("style"))
+                            .contains("--card-position-x: 20%", "--card-position-y: 80%");
+                    assertThat(media.get(0).selectFirst("img").attr("data-source-width")).isEqualTo("900");
+                    assertThat(media.get(0).selectFirst("img").attr("data-source-height")).isEqualTo("1500");
+                    assertThat(media.get(0).selectFirst("img").attr("data-original-src")).isEqualTo(portrait);
+                    assertThat(media.get(1).selectFirst("img").hasClass("is-no-derivatives")).isTrue();
+                    assertThat(media.get(1).selectFirst("img").hasAttr("srcset")).isFalse();
+                    assertThat(media.get(3).select("img")).isEmpty();
+                    assertThat(media.get(3).select(".recommend-image-placeholder")).hasSize(1);
+                    String fixture = "<!doctype html><html><head><meta charset='utf-8'>"
+                            + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                            + "<link rel='stylesheet' href='/css/style.css'><link rel='stylesheet' href='/css/home.css'>"
+                            + "<link rel='stylesheet' href='/css/home-mobile.css'>"
+                            + "<link rel='stylesheet' href='/css/home-popular-images.css'>"
+                            + "<script src='/js/card-thumbnail.js' defer></script>"
+                            + "<script src='/js/home-popular-images.js' defer></script></head><body>"
+                            + "<main class='home-page'>" + document.selectFirst(".popular-recommend").outerHtml()
+                            + "</main></body></html>";
+                    Path output = Path.of("build/reports/home-popular-images");
+                    Files.createDirectories(output);
+                    Files.writeString(output.resolve("fixture.html"), fixture);
+                });
+    }
 
     @Test
     void guestHomeRendersFestivalsAndExistingMainSections() throws Exception {

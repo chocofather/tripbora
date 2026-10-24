@@ -164,7 +164,7 @@ class FestivalInfoTranslationMapperContractTest {
     void translationTableMatchesTheLiveDatabaseContract() throws IOException {
         String translations = between(schema(),
                 "CREATE TABLE `festival_info_translations`",
-                "/*!40101 SET character_set_client = @saved_cs_client */;");
+                ") ENGINE=");
 
         assertThat(translations)
                 .contains("`id` bigint NOT NULL AUTO_INCREMENT")

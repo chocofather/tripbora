@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/swiper@9.4.1/swiper-bundle.min.css" />
   <script src="https://unpkg.com/swiper@9.4.1/swiper-bundle.min.js" defer></script>
   <link rel="stylesheet" href="/css/home.css?v=20261013-image-loading" />
+  <link rel="stylesheet" th:href="@{/css/home-popular-images.css}" />
   <!-- 랜드마크 아치 카드 (스크롤 수렴) -->
   <link rel="stylesheet" href="/css/home-converge-prototype.css?v=20260930-4" />
   <link rel="stylesheet" href="/css/home-mobile.css?v=20261009-season" />
@@ -118,24 +119,31 @@
               th:class="${stat.first} ? 'recommend-featured' : 'recommend-item'">
             <a class="recommend-card" th:href="@{/destinations/{id}(id=${destination.id})}">
               <div class="recommend-card-media">
+                <span class="recommend-image-placeholder" aria-hidden="true">
+                  <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="5" y="7" width="30" height="26" rx="3" />
+                    <circle cx="14" cy="15" r="3" />
+                    <path d="m6 29 9-9 7 6 5-5 8 8" />
+                  </svg>
+                </span>
                 <!--
                   여행지 업로드 사진은 서버가 카드 크기로 줄인 썸네일을 쓴다. 그 밖의 주소는 원래대로 둔다.
-                  세로 사진은 card-thumbnail.js 가 자르는 위치를 조금 위로 옮긴다. (card-thumb)
+                  관리자 카드 위치를 적용하고 작은 원본·변경금지 사진은 전체 비율을 유지한다.
                   sizes 는 home.css 의 .recommend-editorial 격자 폭과 같은 값이다.
                   썸네일을 받지 못하면 원본으로 한 번만 되돌린다. (랜드마크 카드와 같은 방식)
                   큰 대표 카드는 Hero 바로 아래라 휴대폰·PC 모두 첫 화면에 걸린다. 미루지 않고 바로 받고, 보조 카드는 미룬다.
                 -->
-                <img class="card-thumb"
+                <img class="card-thumb" th:if="${!#strings.isEmpty(destination.imageUrl)}"
+                     th:style="|--card-position-x: ${destination.cardPositionX}%; --card-position-y: ${destination.cardPositionY}%;|"
                      th:src="${destination.cardImageUrl != null} ? ${destination.cardImageUrl} : @{${destination.imageUrl}}"
                      th:classappend="${destination.imageNoDerivatives} ? 'is-no-derivatives'"
                      th:alt="${destination.name}"
-                     th:attr="srcset=${destination.cardImageSrcset},
+                     th:attr="srcset=${destination.cardImageSrcset},data-source-width=${destination.sourceImageWidth},data-source-height=${destination.sourceImageHeight},
                               sizes=${destination.cardImageSrcset == null} ? null : (${stat.first}
                                   ? '(max-width: 680px) calc(100vw - 28px), (max-width: 960px) calc(100vw - 40px), (max-width: 1160px) calc(50vw - 40px), 540px'
                                   : '(max-width: 680px) calc(50vw - 22px), (max-width: 960px) calc(25vw - 22px), (max-width: 1160px) calc(25vw - 20px), 270px'),
                               data-original-src=${destination.cardImageUrl != null} ? @{${destination.imageUrl}} : null,
                               loading=${stat.first} ? 'eager' : 'lazy'"
-                     onerror="if (this.dataset.originalSrc) { this.removeAttribute('srcset'); this.src = this.dataset.originalSrc; delete this.dataset.originalSrc; }"
                      decoding="async">
               </div>
               <h3 class="recommend-card-name" th:text="${destination.name}" th:title="${destination.name}">경복궁</h3>
@@ -318,6 +326,7 @@
 
   <script src="/js/home-season-preview.js?v=20260929-1" defer></script>
   <script src="/js/home.js?v=20261013-image-loading" defer></script>
+  <script th:src="@{/js/home-popular-images.js}" defer></script>
   <script src="/js/home-festival.js?v=20261002-1" defer></script>
   <script src="/js/slider.js?v=20261003-home-hero" defer></script>
   <script src="/js/home-withdrawal-toast.js" defer></script>

@@ -1,5 +1,5 @@
 /*
-  히어로·행사 소개·행사 정보가 같은 가운데 열을 쓴다.
+  이미지 중심의 넓은 히어로와 기존 폭의 본문을 가운데 정렬한다.
   구분은 박스가 아니라 여백과 얇은 divider 로만 만든다.
   색은 여행지 상세와 같은 중립 톤을 쓰고, 강조는 링크에만 아주 조금 준다.
 */
@@ -10,18 +10,23 @@
     --festival-border: #e3e6ef;
     --festival-border-soft: #eef0f4;
     --festival-muted: #6b7686;
-    width: min(1080px, calc(100% - 40px));
+    width: min(1240px, calc(100% - 40px));
     margin: 28px auto 72px;
     color: #172033;
 }
 
 .festival-detail-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
-    gap: clamp(26px, 3.2vw, 42px);
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    gap: 32px;
     align-items: start;
-    padding-bottom: clamp(28px, 3vw, 38px);
-    border-bottom: 1px solid var(--festival-border);
+}
+
+/* 본문 내부의 폭·구분선은 유지하고 상단 구분은 섹션 여백만 사용한다. */
+.festival-detail-section,
+.festival-detail-footer {
+    max-width: 1080px;
+    margin-inline: auto;
 }
 
 .festival-detail-media,
@@ -35,7 +40,7 @@
 
 .festival-detail-image-frame {
     position: relative;
-    aspect-ratio: 4 / 3;
+    height: clamp(520px, 40vw, 580px);
     overflow: hidden;
     border-radius: 12px;
     background: #f4f6f9;
@@ -75,6 +80,16 @@
     width: 100%;
     height: 100%;
     max-width: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* 변경금지 사진은 잘림 없이 전체를 표시하며 원본 파일은 그대로 사용한다. */
+.festival-detail-gallery-slide.is-no-derivatives {
+    background: #fff;
+}
+
+.festival-detail-gallery-slide.is-no-derivatives .festival-detail-gallery-open img {
     object-fit: contain;
 }
 
@@ -148,9 +163,11 @@
 .festival-detail-attribution {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 4px 7px;
     margin: 10px 2px 0;
     overflow-wrap: anywhere;
+    text-align: right;
     color: var(--festival-muted);
     font-size: 12px;
     line-height: 1.5;
@@ -158,7 +175,7 @@
 
 /* 이미지와 한 덩어리로 읽히도록 배경도 테두리도 두지 않는다 */
 .festival-detail-heading {
-    padding-top: clamp(2px, 1vw, 10px);
+    padding-top: 0;
 }
 
 .festival-detail-category {
@@ -177,7 +194,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: flex-start;
-    gap: 12px;
+    gap: 10px;
 }
 
 .festival-detail-title {
@@ -185,7 +202,7 @@
 }
 
 .festival-detail h1 {
-    margin: 12px 0 0;
+    margin: 8px 0 0;
     overflow-wrap: anywhere;
     font-size: clamp(30px, 3.5vw, 40px);
     font-weight: 800;
@@ -201,7 +218,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: 12px;
+    margin-top: 8px;
     padding: 0 11px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
@@ -242,8 +259,8 @@
 
 .festival-detail-summary {
     display: grid;
-    gap: 8px;
-    margin-top: 18px;
+    gap: 6px;
+    margin-top: 14px;
     color: #374151;
 }
 
@@ -546,21 +563,26 @@
     color: #303b4a;
 }
 
-/* 태블릿 가로: 히어로 2열은 유지하되 요약 열을 조금 좁힌다 */
-@media (max-width: 1023px) {
-    .festival-detail {
-        width: min(100% - 40px, 900px);
-    }
-
+/* 태블릿 가로에서는 이미지 60%, 요약 40%를 사용한다. */
+@media (max-width: 1100px) {
     .festival-detail-hero {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
         gap: 24px;
-        align-items: stretch;
-        padding-bottom: 26px;
     }
 
     .festival-detail-image-frame {
-        aspect-ratio: 16 / 10;
+        height: 480px;
+    }
+}
+
+@media (max-width: 900px) {
+    .festival-detail-hero {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    .festival-detail-image-frame {
+        height: clamp(400px, 65vw, 520px);
     }
 }
 
@@ -568,6 +590,10 @@
     .festival-detail {
         width: min(100% - 32px, 680px);
         margin-top: 20px;
+    }
+
+    .festival-detail-image-frame {
+        height: clamp(320px, 92vw, 480px);
     }
 
     .festival-detail-content [class*="ql-indent-"] {

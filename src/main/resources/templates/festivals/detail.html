@@ -5,7 +5,7 @@
   <link rel="stylesheet" crossorigin
         href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css">
   <link rel="stylesheet" href="/css/quill-content.css?v=20261003-image-layout">
-  <link rel="stylesheet" href="/css/festival-detail.css">
+  <link rel="stylesheet" th:href="@{/css/festival-detail.css}">
 </th:block>
 <th:block th:fragment="body">
   <article class="festival-detail" aria-labelledby="festival-detail-title">
@@ -19,7 +19,7 @@
             <!-- 라이선스는 코드로 오고, 보여 줄 이름은 여기서 현재 언어로 고른다. -->
             <figure class="festival-detail-gallery-slide"
                     th:each="image, imageStat : ${festival.galleryImages}"
-                    th:classappend="${imageStat.first} ? ' is-active'"
+                    th:classappend="${(imageStat.first ? ' is-active' : '') + (image.licenseCode == 'KOGL_TYPE_3' ? ' is-no-derivatives' : '')}"
                     th:with="licenseName=${image.licenseCode == null} ? null
                              : #{'travelInfo.festival.image.license.' + ${image.licenseCode}}"
                     th:attr="data-source-name=${image.sourceName},
@@ -227,6 +227,6 @@
             data-festival-modal-next>&#10095;</button>
   </dialog>
   <script src="/js/travel-info-bookmark.js" defer></script>
-  <script src="/js/festival-gallery.js" defer></script>
+  <script th:src="@{/js/festival-gallery.js}" defer></script>
 </th:block>
 </html>

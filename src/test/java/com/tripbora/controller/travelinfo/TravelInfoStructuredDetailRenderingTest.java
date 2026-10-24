@@ -62,6 +62,51 @@ class TravelInfoStructuredDetailRenderingTest {
     private MockMvc mockMvc;
 
     @Test
+    void festivalGalleryProtectsTypeThreeAndKeepsOriginalRatioZoom() throws Exception {
+        TravelInfoDetailDto detail = base();
+        detail.setContentType(TravelInfoContentType.FESTIVAL);
+        detail.setTitle("서울 가을 문화예술 축제와 함께하는 특별한 밤");
+        detail.setPeriods(java.util.List.of(new com.tripbora.dto.TravelInfoPeriodDto(
+                java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31))));
+        var festivalInfo = new com.tripbora.model.FestivalInfo();
+        festivalInfo.setEventPlace("서울광장 및 문화예술 행사장");
+        festivalInfo.setAddress("서울특별시 중구 세종대로 110 서울광장 일대, 야외 무대 및 시민 체험 공간");
+        java.util.List<com.tripbora.model.InfoImage> images = new java.util.ArrayList<>();
+        for (int index = 0; index < 3; index++) {
+            var image = new com.tripbora.model.InfoImage();
+            image.setImageUrl("/uploads/festival-gallery-" + index + ".jpg");
+            image.setLicenseType(index == 1 ? "KOGL_TYPE_3" : "KOGL_TYPE_1");
+            image.setSourceName("한국관광공사");
+            images.add(image);
+        }
+        when(festivalDetailService.getPublicDetail(10L)).thenReturn(new com.tripbora.dto.FestivalDetailDto(
+                detail, festivalInfo, images));
+        String html = mockMvc.perform(get("/festivals/10"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Document document = Jsoup.parse(html);
+        Elements slides = document.select("[data-festival-gallery-slide]");
+        assertThat(slides).hasSize(3);
+        assertThat(slides.get(0).hasClass("is-active")).isTrue();
+        assertThat(slides.get(0).hasClass("is-no-derivatives")).isFalse();
+        assertThat(slides.get(1).hasClass("is-no-derivatives")).isTrue();
+        assertThat(document.select("[data-festival-gallery-open]")).hasSize(3);
+        assertThat(document.select("#festival-image-modal")).hasSize(1);
+        for (String asset : java.util.List.of("/css/festival-detail.css", "/js/festival-gallery.js")) {
+            String url = document.select("link[href], script[src]").stream()
+                    .map(element -> element.hasAttr("href") ? element.attr("href") : element.attr("src"))
+                    .filter(value -> value.startsWith(asset.substring(0, asset.lastIndexOf('.'))))
+                    .findFirst().orElseThrow();
+            assertThat(url).matches("/(css|js)/.+-[a-f0-9]{32}\\.(css|js)");
+            var response = mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();
+            assertThat(response.getContentType()).isIn("text/css", "text/javascript", "application/javascript");
+            assertThat(response.getContentAsString()).doesNotContain("<!DOCTYPE html>");
+        }
+        java.nio.file.Path report = java.nio.file.Path.of("build/reports/festival-gallery");
+        java.nio.file.Files.createDirectories(report);
+        java.nio.file.Files.writeString(report.resolve("detail.html"), html);
+    }
+
+    @Test
     void structuredArticleRendersBlocksInsteadOfTheDerivedSearchHtml() throws Exception {
         Document document = render(structured(StructuredContentSamples.palaceTour()), "ko");
 

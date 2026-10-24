@@ -52,6 +52,19 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FestivalRegistrationServiceTest {
+    @Test
+    void previewValidationRejectsOverlongForeignTitleAndFestivalAddressBeforeAnyImageWork() {
+        FestivalCreateForm form = validForm();
+        allowFestivalCategory();
+        var title = form.getTranslations().stream().filter(slot -> "en".equals(slot.getLanguageCode())).findFirst().orElseThrow();
+        title.setTitle("x".repeat(256));
+        assertThatThrownBy(() -> service.validateForCreate(form, 7L)).isInstanceOf(FestivalValidationException.class);
+        title.setTitle("English festival");
+        form.getFestivalInfoTranslations().stream().filter(slot -> "en".equals(slot.getLanguageCode()))
+                .findFirst().orElseThrow().setAddress("x".repeat(501));
+        assertThatThrownBy(() -> service.validateForCreate(form, 7L)).isInstanceOf(FestivalValidationException.class);
+        verifyNoInteractions(ktoFestivalService, festivalImageDownloadService, travelInfoMapper);
+    }
 
     @Mock
     private TravelInfoMapper travelInfoMapper;
@@ -76,6 +89,59 @@ class FestivalRegistrationServiceTest {
                 travelInfoMapper, festivalInfoMapper, infoCategoryMapper, new PostContentSanitizer(),
                 ktoFestivalService, festivalImageDownloadService, travelInfoService,
                 festivalInfoService);
+    }
+
+    @Test
+    void preflightChecksLengthsWithoutImageOrPersistenceSideEffects() {
+        allowFestivalCategory();
+        FestivalCreateForm form = validForm();
+        form.setKtoFestivalContentId("12345");
+        service.validateForCreate(form, 7L);
+        verify(festivalInfoMapper).countOccurrence("KTO_TOURAPI", "12345", 2026);
+        form.setAddress("a".repeat(501));
+        assertThatThrownBy(() -> service.validateForCreate(form, 7L))
+                .isInstanceOf(FestivalValidationException.class);
+        verifyNoInteractions(ktoFestivalService, festivalImageDownloadService, travelInfoMapper);
+        verify(festivalInfoMapper, never()).insert(any());
+    }
+
+    @Test
+    void strictRegistrationRequiresContentIdAndThumbnailSelectionBeforeImageLookup() {
+        allowFestivalCategory();
+        FestivalCreateForm form = validForm();
+        assertThatThrownBy(() -> service.createWithRequiredThumbnail(form, 7L))
+                .isInstanceOf(FestivalValidationException.class);
+        form.setKtoFestivalContentId("12345");
+        assertThatThrownBy(() -> service.createWithRequiredThumbnail(form, 7L))
+                .isInstanceOf(FestivalValidationException.class);
+        verifyNoInteractions(ktoFestivalService, festivalImageDownloadService, travelInfoMapper);
+    }
+
+    @Test
+    void strictSelectedPosterDownloadFailureRollsBackAndDeletesOtherDownloadedImagesBeforeInsert() {
+        allowFestivalCategory();
+        FestivalCreateForm form = validForm();
+        form.setKtoFestivalContentId("12345");
+        form.setKtoThumbnailImageSelection("DETAIL:poster");
+        String mainUrl = "https://tong.visitkorea.or.kr/cms/resource/35/main.jpg";
+        String posterUrl = "https://tong.visitkorea.or.kr/cms/resource/35/poster.jpg";
+        KtoDownloadedFestivalImage main = downloaded("main.jpg", mainUrl);
+        when(ktoFestivalService.getImageDetail("12345"))
+                .thenReturn(imageDetail("12345", mainUrl, "Type1"));
+        when(ktoFestivalService.getAdditionalImages("12345")).thenReturn(List.of(
+                additionalImage("12345", posterUrl, "포스터", "poster", "Type1")));
+        when(festivalImageDownloadService.download(mainUrl)).thenReturn(main);
+        when(festivalImageDownloadService.download(posterUrl)).thenThrow(new KtoPhotoDownloadException("실패"));
+        RecordingTransactionManager transactionManager = new RecordingTransactionManager();
+
+        assertThatThrownBy(() -> transactionalProxy(service, transactionManager)
+                .createWithRequiredThumbnail(form, 7L)).isInstanceOf(FestivalValidationException.class);
+
+        assertThat(transactionManager.rolledBack).isTrue();
+        assertThat(transactionManager.committed).isFalse();
+        verify(festivalImageDownloadService).deleteDownloadedFestivalImage(main);
+        verifyNoInteractions(travelInfoMapper);
+        verify(festivalInfoMapper, never()).insert(any());
     }
 
     @Test
@@ -323,7 +389,7 @@ class FestivalRegistrationServiceTest {
         when(festivalInfoMapper.insert(any())).thenReturn(1);
         when(travelInfoMapper.insertInfoImage(any())).thenReturn(1);
 
-        service.create(form, 7L);
+        service.createWithRequiredThumbnail(form, 7L);
 
         ArgumentCaptor<InfoImage> captor = ArgumentCaptor.forClass(InfoImage.class);
         verify(travelInfoMapper, org.mockito.Mockito.times(2)).insertInfoImage(captor.capture());
@@ -332,6 +398,9 @@ class FestivalRegistrationServiceTest {
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(mainUrl, true, false),
                         org.assertj.core.groups.Tuple.tuple(posterUrl, false, true));
+        verify(travelInfoService).saveTranslations(62L, "서울 빛 축제", "<p>행사 소개</p>", form.getTranslations());
+        verify(festivalInfoService).saveTranslations(org.mockito.ArgumentMatchers.eq(62L), any(),
+                org.mockito.ArgumentMatchers.eq(form.getFestivalInfoTranslations()));
     }
 
     @Test

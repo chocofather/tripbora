@@ -45,7 +45,7 @@ class FestivalPublicUiContractTest {
                 .contains("overflow-wrap: anywhere")
                 .contains("grid-template-columns: repeat(2, minmax(0, 1fr))")
                 // 데스크톱 / 태블릿 / 모바일 세 구간을 모두 잡는다.
-                .contains("@media (max-width: 1023px)")
+                .contains("@media (max-width: 1100px)", "@media (max-width: 900px)")
                 .contains("@media (max-width: 767px)")
                 .contains("@media (max-width: 520px)")
                 .contains("grid-template-columns: minmax(0, 1fr)")
@@ -58,15 +58,16 @@ class FestivalPublicUiContractTest {
     }
 
     @Test
-    void festivalSectionsShareOneCentredColumnAndAreSeparatedByRhythmNotBoxes()
+    void festivalHeroUsesWiderCentredColumnAndBodyKeepsItsExistingWidth()
             throws IOException {
         String template = resource("/templates/festivals/detail.html");
         String css = resource("/static/css/festival-detail.css");
 
-        // 히어로·소개·행사정보가 같은 가운데 열을 쓴다. 안쪽에 좁은 열을 또 두지 않는다.
+        // 상단은 이미지 비중을 높이고 소개·행사정보는 기존 본문 폭을 유지한다.
         assertThat(template).doesNotContain("festival-detail-body");
         assertThat(css)
-                .contains("width: min(1080px, calc(100% - 40px))")
+                .contains("width: min(1240px, calc(100% - 40px))")
+                .contains("max-width: 1080px")
                 .doesNotContain(".festival-detail-body")
                 // 소개 본문은 섹션 폭을 그대로 쓴다.
                 .contains(".festival-detail-content {")

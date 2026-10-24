@@ -11,6 +11,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FestivalInfoMapperContractTest {
 
     @Test
+    void festivalPersistenceUsesExistingSchemaWithoutCoordinateColumns() throws IOException {
+        assertThat(mapper()).doesNotContain("latitude", "longitude");
+        assertThat(com.tripbora.model.FestivalInfo.class.getDeclaredFields())
+                .extracting(java.lang.reflect.Field::getName).doesNotContain("latitude", "longitude");
+        assertThat(com.tripbora.dto.FestivalCreateForm.class.getDeclaredFields())
+                .extracting(java.lang.reflect.Field::getName).doesNotContain("latitude", "longitude");
+    }
+
+    @Test
     void resultMapIncludesEveryFestivalInfoColumn() throws IOException {
         String mapper = mapper();
         String resultMap = between(mapper, "<resultMap id=\"FestivalInfoResultMap\"", "</resultMap>");

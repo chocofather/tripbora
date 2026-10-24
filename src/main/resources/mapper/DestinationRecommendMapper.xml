@@ -191,6 +191,12 @@
                 ORDER BY di.order_index ASC, di.id ASC
                 LIMIT 1
             ) AS image_url,
+            COALESCE((SELECT di.card_position_x FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
+                ORDER BY di.order_index ASC, di.id ASC LIMIT 1), 50) AS card_position_x,
+            COALESCE((SELECT di.card_position_y FROM destination_images di
+                WHERE di.destination_id = d.id AND di.is_main = 1 AND TRIM(di.image_url) &lt;&gt; ''
+                ORDER BY di.order_index ASC, di.id ASC LIMIT 1), 50) AS card_position_y,
             cc.region_name AS region_name,
             pcc.id AS parent_region_id,
             pcc.region_name AS parent_region_name,

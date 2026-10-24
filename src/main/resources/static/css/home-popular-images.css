@@ -1,0 +1,38 @@
+/* 인기 카드에만 적용한다. 프레임은 기존 격자 비율을 그대로 유지한다. */
+.popular-recommend .recommend-card-media img {
+    object-fit: cover;
+    object-position: var(--card-position-x, 50%) var(--card-position-y, 50%) !important;
+}
+
+.popular-recommend .recommend-card-media img.is-small-popular,
+.popular-recommend .recommend-card-media img.is-no-derivatives {
+    object-fit: contain !important;
+    object-position: center !important;
+    transform: none !important;
+    background: #eef0f2;
+}
+
+.popular-recommend .recommend-card-media img.is-small-popular {
+    object-fit: scale-down !important;
+}
+
+.popular-recommend .recommend-card-media img.is-image-unavailable {
+    visibility: hidden;
+}
+
+.popular-recommend .recommend-image-placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #a5aeb8;
+}
+
+.popular-recommend .recommend-image-placeholder svg {
+    width: 40px;
+    height: 40px;
+}
+
+.popular-recommend .recommend-card-media img {
+    z-index: 1;
+}

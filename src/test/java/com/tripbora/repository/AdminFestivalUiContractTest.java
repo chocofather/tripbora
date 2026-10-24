@@ -108,7 +108,7 @@ class AdminFestivalUiContractTest {
         String css = resource("/static/css/admin-travel-info.css");
 
         assertThat(form)
-                .contains("th:if=\"${!editMode}\" src=\"/js/admin-festival-autofill.js\"")
+                .contains("th:if=\"${!editMode}\" th:src=\"@{/js/admin-festival-autofill.js}\"")
                 .contains("th:if=\"${editMode and !#lists.isEmpty(festivalImages)}\"")
                 .contains("th:each=\"image : ${festivalImages}\"")
                 .contains("th:field=\"*{thumbnailImageId}\"")

@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clearCandidateResults() {
         results.replaceChildren();
+        document.dispatchEvent(new CustomEvent('festival:candidates-rendered', {detail: {items: []}}));
         pagination.replaceChildren();
         pagination.hidden = true;
     }
@@ -256,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             items.forEach(item => results.append(createCandidate(item)));
         }
         renderPagination(pageNo, numOfRows, totalCount);
+        document.dispatchEvent(new CustomEvent('festival:candidates-rendered', {detail: {items}}));
     }
 
     function renderPagination(pageNo, numOfRows, totalCount) {
@@ -346,23 +348,28 @@ document.addEventListener('DOMContentLoaded', () => {
             editLink.href = `/admin/festivals/${item.registeredFestivalId}/edit`;
             editLink.textContent = '수정';
             card.append(media, body, editLink);
+            if (window.TripBoraFestivalBulk) window.TripBoraFestivalBulk.attach(card, item);
             return card;
         }
         if (item.registrationStatus === 'UNKNOWN') {
             card.append(media, body);
+            if (window.TripBoraFestivalBulk) window.TripBoraFestivalBulk.attach(card, item);
             return card;
         }
         const selectButton = document.createElement('button');
         selectButton.type = 'button';
         selectButton.className = 'admin-btn is-small is-primary';
         selectButton.textContent = '선택';
+        selectButton.dataset.festivalSingleSelect = '';
         selectButton.disabled = !hasText(item.contentId);
         selectButton.addEventListener('click', () => loadDetail(item));
         card.append(media, body, selectButton);
+        if (window.TripBoraFestivalBulk) window.TripBoraFestivalBulk.attach(card, item);
         return card;
     }
 
     async function loadDetail(item) {
+        if (window.TripBoraFestivalBulk?.isBulk()) return;
         if (!hasText(item.contentId)) return;
         const requestGeneration = ++detailRequestGeneration;
         clearImagePicker();

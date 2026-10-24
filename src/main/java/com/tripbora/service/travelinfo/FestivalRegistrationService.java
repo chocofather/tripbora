@@ -1,6 +1,7 @@
 package com.tripbora.service.travelinfo;
 
 import com.tripbora.dto.FestivalCreateForm;
+import com.tripbora.config.i18n.SupportedLanguage;
 import com.tripbora.model.FestivalInfo;
 import com.tripbora.model.InfoCategory;
 import com.tripbora.model.InfoImage;
@@ -36,6 +37,11 @@ import java.util.Set;
 @Service
 @Slf4j
 public class FestivalRegistrationService {
+
+    private static final Set<String> TRANSLATION_CODES = SupportedLanguage.all().stream()
+            .filter(language -> language != SupportedLanguage.KOREAN)
+            .map(SupportedLanguage::getLanguageTag)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     private static final String ADMIN_SOURCE_TYPE = "ADMIN";
     private static final String KTO_SOURCE_TYPE = "KTO_TOURAPI";
@@ -80,6 +86,19 @@ public class FestivalRegistrationService {
 
     @Transactional
     public FestivalRegistrationResult create(FestivalCreateForm form, Long userId) {
+        return createInternal(form, userId, false);
+    }
+
+    @Transactional
+    public FestivalRegistrationResult createWithRequiredThumbnail(FestivalCreateForm form, Long userId) {
+        return createInternal(form, userId, true);
+    }
+
+    public void validateForCreate(FestivalCreateForm form, Long userId) {
+        prepareCreate(form, userId);
+    }
+
+    private ValidatedCreate prepareCreate(FestivalCreateForm form, Long userId) {
         if (form == null) {
             throw new FestivalValidationException(null, "축제·행사 정보를 입력해 주세요.");
         }
@@ -118,11 +137,35 @@ public class FestivalRegistrationService {
             throw duplicateTourApiFestival();
         }
 
+        validateDetailFields(form);
+        return new ValidatedCreate(title, category, externalContentId, thumbnailSelection, sourceType, eventYear);
+    }
+
+    private FestivalRegistrationResult createInternal(FestivalCreateForm form, Long userId,
+                                                        boolean requiredThumbnail) {
+        ValidatedCreate validated = prepareCreate(form, userId);
+        String title = validated.title();
+        InfoCategory category = validated.category();
+        String externalContentId = validated.externalContentId();
+        String thumbnailSelection = validated.thumbnailSelection();
+        String sourceType = validated.sourceType();
+        int eventYear = validated.eventYear();
+        if (requiredThumbnail && externalContentId == null) {
+            throw new FestivalValidationException("ktoFestivalContentId", "TourAPI 축제를 선택해 주세요.");
+        }
+        if (requiredThumbnail && thumbnailSelection == null) {
+            throw invalidThumbnailSelection();
+        }
         PreparedFestivalImages preparedImages = prepareTourApiImages(
                 externalContentId, title, thumbnailSelection);
         boolean lifecycleRegistered = registerRollbackCleanup(preparedImages.downloadedImages());
 
         try {
+            if (requiredThumbnail && preparedImages.images().stream()
+                    .noneMatch(image -> image.thumbnail() && image.downloadedImage() != null
+                            && optionalText(image.downloadedImage().localImageUrl()) != null)) {
+                throw invalidThumbnailSelection();
+            }
             TravelInfo travelInfo = new TravelInfo();
             travelInfo.setTitle(title);
             String baseContent = postContentSanitizer.sanitize(form.getContent());
@@ -184,6 +227,47 @@ public class FestivalRegistrationService {
             }
             throw exception;
         }
+    }
+
+    private void validateDetailFields(FestivalCreateForm form) {
+        optionalText(form.getEventPlace(), "eventPlace", 255);
+        optionalText(form.getAddress(), "address", 500);
+        optionalText(form.getPlayTime(), "playTime", 500);
+        optionalText(form.getSponsor1(), "sponsor1", 255);
+        optionalText(form.getSponsor1Tel(), "sponsor1Tel", 100);
+        optionalText(form.getSponsor2(), "sponsor2", 255);
+        optionalText(form.getSponsor2Tel(), "sponsor2Tel", 100);
+        optionalText(form.getContactTel(), "contactTel", 100);
+        optionalText(form.getHomepageUrl(), "homepageUrl", 1000);
+        if (form.getStartDate().getYear() < 1900 || form.getStartDate().getYear() > 2999) {
+            throw new FestivalValidationException("startDate", "개최 시작 연도는 1900~2999년이어야 합니다.");
+        }
+        // 번역도 같은 VARCHAR 제약을 가진다. 자동입력 미리보기에서 실패 원인을 먼저 알린다.
+        if (form.getTranslations() != null) {
+            for (int index = 0; index < form.getTranslations().size(); index++) {
+                var translation = form.getTranslations().get(index);
+                if (translation == null || translation.getLanguageCode() == null
+                        || !TRANSLATION_CODES.contains(translation.getLanguageCode())) continue;
+                optionalText(translation.getTitle(), "translations[" + index + "].title", 255);
+            }
+        }
+        if (form.getFestivalInfoTranslations() != null) {
+            for (int index = 0; index < form.getFestivalInfoTranslations().size(); index++) {
+                var translation = form.getFestivalInfoTranslations().get(index);
+                if (translation == null || translation.getLanguageCode() == null
+                        || !TRANSLATION_CODES.contains(translation.getLanguageCode())) continue;
+                String prefix = "festivalInfoTranslations[" + index + "].";
+                optionalText(translation.getEventPlace(), prefix + "eventPlace", 255);
+                optionalText(translation.getAddress(), prefix + "address", 500);
+                optionalText(translation.getPlayTime(), prefix + "playTime", 500);
+                optionalText(translation.getSponsor1(), prefix + "sponsor1", 255);
+                optionalText(translation.getSponsor2(), prefix + "sponsor2", 255);
+            }
+        }
+    }
+
+    private record ValidatedCreate(String title, InfoCategory category, String externalContentId,
+                                   String thumbnailSelection, String sourceType, int eventYear) {
     }
 
     private PreparedFestivalImages prepareTourApiImages(String externalContentId,

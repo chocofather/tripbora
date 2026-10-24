@@ -68,7 +68,7 @@ class AdminFestivalForeignAutofillUiContractTest {
                 .doesNotContain("window.addEventListener('load'");
         // 수정 화면에는 국문 자동입력 패널이 없어 신호 자체가 오지 않는다.
         assertThat(resource(FESTIVAL_FORM))
-                .contains("th:if=\"${!editMode}\" src=\"/js/admin-festival-autofill.js\"");
+                .contains("th:if=\"${!editMode}\" th:src=\"@{/js/admin-festival-autofill.js}\"");
     }
 
     @Test

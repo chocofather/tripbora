@@ -1,0 +1,63 @@
+.festival-registration-modes, .festival-bulk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.festival-registration-modes [aria-pressed="true"] { border-color: #334155; background: #e2e8f0; color: #0f172a; }
+.festival-bulk-check { display: none; }
+.is-festival-bulk .festival-bulk-check { display: flex; align-items: center; gap: 6px; }
+.is-festival-bulk [data-festival-single-select], .is-festival-bulk [data-festival-image-picker],
+.is-festival-bulk > .admin-travel-info-section:not([data-admin-festival-autofill]),
+.is-festival-bulk > .admin-travel-info-submit-actions { display: none !important; }
+.festival-bulk[hidden], .festival-bulk [hidden] { display: none !important; }
+.festival-bulk { min-width: 0; }
+.festival-bulk p, .festival-bulk strong, .festival-bulk a { overflow-wrap: anywhere; }
+.festival-bulk-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.festival-bulk-row { min-width: 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.festival-bulk-row p { margin: 6px 0; }
+.festival-bulk-row > img { display: block; max-width: 100%; width: 100px; height: 130px; object-fit: contain; margin: 8px 0; }
+.festival-bulk-row .admin-btn { margin: 4px 6px 4px 0; }
+.festival-bulk-confirmation { padding: 12px; margin: 12px 0; border: 1px solid #94a3b8; background: #f8fafc; border-radius: 8px; }
+.festival-bulk-dialog { box-sizing: border-box; width: min(1180px, 95vw); max-width: 95vw; max-height: 90vh; max-height: 90dvh; padding: 16px; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+.festival-bulk-dialog[open] { display: flex; flex-direction: column; gap: 12px; height: 90vh; height: 90dvh; }
+.festival-bulk-poster-header, .festival-bulk-poster-footer { flex-shrink: 0; }
+.festival-bulk-poster-header .festival-bulk-actions { flex-wrap: nowrap; justify-content: space-between; margin-bottom: 8px; }
+.festival-bulk-poster-header h3 { min-width: 0; margin: 0; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.festival-bulk-poster-header [data-bulk-poster-close] { flex-shrink: 0; }
+.festival-bulk-poster-header p { margin: 0 0 8px; font-size: 13px; }
+.festival-bulk-poster-steps { display: flex; gap: 6px; overflow-x: auto; padding: 3px; }
+.festival-bulk-poster-steps .admin-btn { flex: 0 0 auto; min-width: 36px; min-height: 36px; }
+.festival-bulk-poster-steps [aria-current="step"] { border-color: #7c3aed; outline: 1px solid #7c3aed; }
+.festival-bulk-poster-steps .is-complete { background: #f5f3ff; color: #6d28d9; }
+.festival-bulk-poster-steps .is-error { border-style: dashed; border-color: #b45309; }
+.festival-bulk-poster-content { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 3px; }
+.festival-bulk-poster-content > [data-bulk-poster-status] { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+.festival-bulk-poster-footer { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+.festival-bulk-poster-footer .admin-btn { flex: 1; min-width: 0; min-height: 42px; white-space: normal; }
+.festival-bulk-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+.festival-bulk-dialog .admin-kto-festival-image-option:has(input:checked) { border-color: #7c3aed; outline: 1px solid #7c3aed; }
+.festival-bulk-dialog .admin-kto-festival-image-option:focus-within { outline: 2px solid #7c3aed; outline-offset: 2px; }
+.festival-bulk-dialog .admin-kto-festival-image-option input { accent-color: #7c3aed; }
+.festival-bulk-dialog .admin-kto-festival-image-option { align-content: start; }
+.festival-bulk-dialog .admin-kto-festival-image-option > img { width: 100%; height: auto; aspect-ratio: 3 / 4; object-fit: contain; object-position: center; background: #f8fafc; }
+.festival-bulk-dialog .admin-kto-festival-image-option-body { grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; padding: 8px 10px; }
+.festival-bulk-dialog .admin-kto-festival-image-option-body > strong,
+.festival-bulk-dialog .admin-kto-festival-image-option-select { grid-column: 1 / -1; }
+.festival-bulk-dialog .admin-kto-festival-image-option-body > strong { font-size: 13px; line-height: 1.4; }
+.festival-bulk-dialog .admin-kto-festival-image-option-meta,
+.festival-bulk-dialog .admin-kto-festival-image-option-body > a { font-size: 12px; line-height: 1.4; }
+.festival-bulk-dialog .admin-kto-festival-image-option > button { min-height: 34px; margin: 0 8px 8px; }
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0; }
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid > p { margin: 0; font-size: 12px; line-height: 1.4; }
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid > a,
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid > p,
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid > button { grid-column: 1 / -1; }
+.festival-bulk-dialog .admin-kto-festival-image-picker-grid > button { justify-self: start; }
+.festival-bulk-large-image { display: block; width: 100%; max-height: 65vh; object-fit: contain; margin-top: 12px; }
+@media (min-width: 1280px) {
+    .festival-bulk-dialog .admin-kto-festival-image-picker-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .festival-bulk-dialog .admin-kto-festival-image-picker-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 430px) {
+    .is-festival-bulk .admin-kto-festival-candidate { flex-wrap: wrap; }
+    .festival-bulk-dialog { padding: 12px; }
+    .festival-bulk-actions .admin-btn { white-space: normal; }
+}

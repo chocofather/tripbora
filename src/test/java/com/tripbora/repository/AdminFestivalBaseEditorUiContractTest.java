@@ -28,7 +28,7 @@ class AdminFestivalBaseEditorUiContractTest {
         assertThat(form).contains("<script src=\"/js/admin-festival-form.js\" defer></script>");
         // TourAPI 자동입력만 등록 화면 전용으로 남는다
         assertThat(form)
-                .contains("th:if=\"${!editMode}\" src=\"/js/admin-festival-autofill.js\"")
+                .contains("th:if=\"${!editMode}\" th:src=\"@{/js/admin-festival-autofill.js}\"")
                 .doesNotContain("th:if=\"${!editMode}\" src=\"/js/admin-festival-form.js\"");
         // 편집기 초기화 스크립트가 자동입력보다 먼저 실린다
         assertThat(form.indexOf("/js/admin-festival-form.js"))

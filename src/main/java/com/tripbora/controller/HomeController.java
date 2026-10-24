@@ -147,6 +147,8 @@ public class HomeController {
                 (destination, image) -> {
                     destination.setCardImageUrl(image.src());
                     destination.setCardImageSrcset(image.srcset());
+                    destination.setSourceImageWidth(image.width());
+                    destination.setSourceImageHeight(image.height());
                 });
         return destinations;
     }
@@ -166,6 +168,8 @@ public class HomeController {
                 (destination, image) -> {
                     destination.setCardImageUrl(image.src());
                     destination.setCardImageSrcset(image.srcset());
+                    destination.setSourceImageWidth(image.width());
+                    destination.setSourceImageHeight(image.height());
                 });
         return destinations == null ? List.of()
                 : destinations.stream().map(HomeController::editorialCard).toList();
@@ -181,6 +185,10 @@ public class HomeController {
         card.setCardImageUrl(popular.getCardImageUrl());
         card.setCardImageSrcset(popular.getCardImageSrcset());
         card.setImageNoDerivatives(popular.isImageNoDerivatives());
+        card.setCardPositionX(popular.getCardPositionX());
+        card.setCardPositionY(popular.getCardPositionY());
+        card.setSourceImageWidth(popular.getSourceImageWidth());
+        card.setSourceImageHeight(popular.getSourceImageHeight());
         return card;
     }
 

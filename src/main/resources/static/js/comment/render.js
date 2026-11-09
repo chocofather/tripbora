@@ -64,7 +64,7 @@ function highlightMentions(content) {
 }
 
 /**
- * 댓글 첨부 사진(최대 3장) 마크업.
+ * 댓글 첨부 사진(최대 5장) 마크업.
  * 클릭 시 모달은 .comment-image 를 기준으로 잡히므로 클래스는 그대로 둔다.
  */
 function renderCommentImages(comment) {
@@ -73,6 +73,7 @@ function renderCommentImages(comment) {
     const items = imageUrls
         .map((url, index) =>
             `<img src="${url}" class="comment-image content-comment-image"
+                  data-review-id="${comment.id}" data-review-image-id="${comment.photos?.[index]?.id ?? ''}"
                   alt="${detailMessage('commentImageAlt', index + 1)}">`)
         .join('');
     return `<div class="comment-images content-comment-images">${items}</div>`;
@@ -94,9 +95,11 @@ export function groupByParent(comments) {
  * 단일 댓글 LI 생성
  */
 export function createCommentItem(comment, depth = 0, parentNickname = '') {
+    const reviewsOnly = Boolean(document.querySelector('[data-reviews-only]'));
     const li = document.createElement('li');
     li.className = 'comment-item content-comment-item' + (depth > 0 ? ' reply' : '');
     li.dataset.id = comment.id;
+    if (comment.parentCommentId == null && Number.isInteger(comment.rating)) li.dataset.rating = String(comment.rating);
     if (comment.writer?.id != null) li.dataset.userId = String(comment.writer.id);
     if (depth === 1) {
         li.dataset.parentId = comment.parentCommentId;
@@ -124,13 +127,13 @@ export function createCommentItem(comment, depth = 0, parentNickname = '') {
                    data-id="${comment.id}" aria-pressed="${Boolean(comment.likedByMe)}">
                 <img src="${comment.likedByMe ? likedIcon : unlikedIcon}" alt="" aria-hidden="true"
                      class="likeicon content-comment-like-icon">
-                <span class="content-comment-sr-only">${detailMessage('commentLike')}</span>
+                <span>${detailMessage('commentLike')}</span>
                 <span class="content-comment-like-count">${comment.likes ?? 0}</span>
             </button>`
         : `<span class="content-comment-like-readonly content-comment-like">
                 <img src="${comment.likedByMe ? likedIcon : unlikedIcon}" alt="" aria-hidden="true"
                      class="likeicon content-comment-like-icon">
-                <span class="content-comment-sr-only">${detailMessage('commentLike')}</span>
+                <span>${detailMessage('commentLike')}</span>
                 <span class="content-comment-like-count">${comment.likes ?? 0}</span>
             </span>`;
     const translationControl = comment.translationAvailable === true
@@ -158,15 +161,20 @@ export function createCommentItem(comment, depth = 0, parentNickname = '') {
                 ${edited ? `<span class="edited-tag content-comment-edited">${detailMessage('commentEdited')}</span>` : ''}
             </span>
         </div>
+        ${comment.parentCommentId == null && Number.isInteger(comment.rating) && comment.rating >= 1 && comment.rating <= 5
+            ? `<p class="review-rating-display" aria-label="${comment.rating} / 5"><span aria-hidden="true">${'★'.repeat(comment.rating)}${'☆'.repeat(5 - comment.rating)}</span><span>${comment.rating} / 5</span></p>`
+            : comment.parentCommentId == null ? `<p class="review-legacy-badge">${detailMessage('reviewLegacy')}</p>` : ''}
         <p class="comment-content content-comment-text">${highlightMentions(comment.content)}</p>
         <p class="content-comment-translation-status" hidden></p>
         ${renderCommentImages(comment)}
         <div class="comment-actions content-comment-actions">
             ${likeControl}
             ${translationControl}
-            ${isLoggedIn ? `<button type="button" class="reply-btn content-comment-action">${detailMessage('commentReply')}</button>` : ''}
-            ${comment.myComment || comment.admin ? `
+            ${isLoggedIn && !reviewsOnly ? `<button type="button" class="reply-btn content-comment-action">${detailMessage('commentReply')}</button>` : ''}
+            ${comment.myComment ? `
                 <button type="button" class="edit-btn content-comment-action">${detailMessage('commentEdit')}</button>
+            ` : ''}
+            ${comment.myComment || comment.admin ? `
                 <button type="button" class="delete-btn content-comment-action">${detailMessage('commentDelete')}</button>
             ` : ''}
         </div>
@@ -199,6 +207,11 @@ export function createCommentItem(comment, depth = 0, parentNickname = '') {
  */
 export function appendComments(comments, container) {
     if (!Array.isArray(comments)) return;
+    if (container.closest('[data-reviews-only]')) {
+        comments.filter(comment => comment.parentCommentId == null)
+            .forEach(comment => container.appendChild(createCommentItem(comment)));
+        return;
+    }
 
     // 각 댓글/대댓글 별로 올바른 위치에 append
     comments.forEach(comment => {
@@ -210,7 +223,7 @@ export function appendComments(comments, container) {
             if (!replyUl) {
                 replyUl = document.createElement('ul');
                 replyUl.className = 'reply-list content-comment-replies';
-                parentLi.appendChild(replyUl);
+                ensureReplyDisclosure(parentLi).appendChild(replyUl);
             }
             replyUl.appendChild(createCommentItem(comment, 1, comment.writer?.nickname || ''));
         } else {
@@ -218,12 +231,42 @@ export function appendComments(comments, container) {
             container.appendChild(createCommentItem(comment, 0, ''));
         }
     });
+    container.querySelectorAll('.review-replies').forEach(details => {
+        details.querySelector('summary').textContent = detailMessage('reviewReplies', details.querySelectorAll('.reply-list > .comment-item').length);
+    });
+}
+
+function ensureReplyDisclosure(parentLi) {
+    let details = parentLi.querySelector(':scope > .review-replies');
+    if (!details) {
+        details = document.createElement('details');
+        details.className = 'review-replies';
+        details.appendChild(document.createElement('summary'));
+        parentLi.appendChild(details);
+    }
+    return details;
+}
+
+export function revealReviewTarget(container, commentId) {
+    const target = container.querySelector(`.comment-item[data-id="${commentId}"]`);
+    let ancestor = target?.parentElement;
+    while (ancestor && ancestor !== container) {
+        if (ancestor.matches('details.review-replies')) ancestor.open = true;
+        ancestor = ancestor.parentElement;
+    }
 }
 
 /**
  * 전체 초기화 후 모든 댓글/답글 트리 렌더
  */
 export function renderComments(comments, container) {
+    if (container.closest('[data-reviews-only]')) {
+        container.replaceChildren();
+        appendComments(comments, container);
+        return;
+    }
+    const openRoots = new Set(Array.from(container.querySelectorAll('.review-replies[open]'))
+        .map(details => details.parentElement.dataset.id));
     // (1) container가 반드시 <ul>인지 체크
     if (!(container instanceof HTMLUListElement)) {
         console.error('container must be a <ul>!');
@@ -241,6 +284,9 @@ export function renderComments(comments, container) {
     );
     const grouped = groupByParent(filtered);
     (grouped.null || []).forEach(root => renderFlatTree(grouped, root, 0, container));
+    container.querySelectorAll('.review-replies').forEach(details => {
+        if (openRoots.has(details.parentElement.dataset.id)) details.open = true;
+    });
 }
 
 function renderFlatTree(grouped, comment, depth, parentUl, parentNickname = '') {
@@ -251,38 +297,44 @@ function renderFlatTree(grouped, comment, depth, parentUl, parentNickname = '') 
     if (children.length) {
         const childUl = document.createElement('ul');
         childUl.className = 'reply-list content-comment-replies';
-        li.appendChild(childUl);
+        const disclosure = depth === 0 ? ensureReplyDisclosure(li) : li;
+        if (depth === 0) disclosure.querySelector('summary').textContent = detailMessage('reviewReplies', children.length);
+        disclosure.appendChild(childUl);
         children.forEach(child =>
             renderFlatTree(grouped, child, (depth > 0 ? 1 : depth + 1), childUl, comment.writer?.nickname || '')
         );
     }
 }
 
+export function renderReviewStatistics(statistics) {
+    const summary = document.getElementById('review-summary');
+    if (!summary) return;
+    const count = Number(statistics?.ratingCount) || 0;
+    const average = statistics?.averageRating == null ? null : Number(statistics.averageRating);
+    const hasRating = count > 0 && Number.isFinite(average);
+    const averageEl = document.getElementById('review-average');
+    averageEl.textContent = hasRating
+        ? new Intl.NumberFormat(document.documentElement.lang || 'ko', {minimumFractionDigits: 1, maximumFractionDigits: 1}).format(average)
+        : detailMessage('reviewNoRating');
+    averageEl.classList.toggle('is-unrated', !hasRating);
+    document.getElementById('review-average-stars').style.width = `${hasRating ? Math.min(5, Math.max(0, average)) * 20 : 0}%`;
+    document.getElementById('review-rating-count').textContent = detailMessage('reviewRatingCount', count);
+    summary.querySelectorAll('[data-rating-score]').forEach(row => {
+        const score = Number(row.dataset.ratingScore);
+        const value = Number(statistics?.distribution?.[score - 1]) || 0;
+        const meter = row.querySelector('meter');
+        meter.max = Math.max(count, 1);
+        meter.value = value;
+        row.querySelector('.review-distribution-count').textContent = String(value);
+    });
+    summary.setAttribute('aria-busy', 'false');
+    summary.dataset.loaded = 'true';
+}
+
 
 /**
  * 기타(이미지, 단순리스트 등은 동일)
  */
-
-export function renderThumbnails(thumbnails, containerSelector, openModalFn) {
-    if (!Array.isArray(thumbnails)) {
-        console.error('renderThumbnails: thumbnails is not an array', thumbnails);
-        return;
-    }
-    const container = document.querySelector(containerSelector);
-    if (!container) {
-        console.error('renderThumbnails: container not found', containerSelector);
-        return;
-    }
-    container.innerHTML = '';
-    thumbnails.forEach((t, idx) => {
-        const img = document.createElement('img');
-        img.src = t.imageUrl;
-        img.className = 'photo-thumbnail';
-        img.alt = detailMessage('commentPhotoReviewAlt');
-        img.addEventListener('click', () => openModalFn(idx, thumbnails));
-        container.appendChild(img);
-    });
-}
 
 export function renderCommentList(comments) {
     const container = document.getElementById('comment-list');

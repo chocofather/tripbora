@@ -69,14 +69,13 @@ class DestinationCommentSecurityTest {
     void hiddenDestinationRejectsEveryPublicCommentReadRoute() throws Exception {
         doThrow(new com.tripbora.service.destination.DestinationNotFoundException())
                 .when(destinationCommentService).requireDestinationAccessible(10L, false);
-        for (String path : List.of("/comments/list", "/comments/list/page", "/comments/images",
+        for (String path : List.of("/comments/list", "/comments/list/page",
                 "/comments/35/location")) {
             mockMvc.perform(get(path).param("destinationId", "10"))
                     .andExpect(status().isNotFound());
         }
         verify(destinationCommentService, never()).getCommentDtosWithWriter(10L, null, "oldest");
         verify(destinationCommentService, never()).getCommentsPaged(10L, null, 0, 5, "latest");
-        verify(destinationCommentService, never()).getCommentImageDtos(10L);
         verify(destinationCommentService, never()).getCommentLocation(10L, 35L);
     }
 
@@ -91,7 +90,7 @@ class DestinationCommentSecurityTest {
             user.setId(7L);
             user.setUserRole(role);
             CustomUserDetails principal = new CustomUserDetails(user);
-            for (String path : List.of("/comments/list", "/comments/list/page", "/comments/images",
+            for (String path : List.of("/comments/list", "/comments/list/page",
                     "/comments/35/location")) {
                 mockMvc.perform(get(path).param("destinationId", "10")
                                 .with(authentication(new UsernamePasswordAuthenticationToken(
@@ -100,7 +99,7 @@ class DestinationCommentSecurityTest {
                                 ? status().is2xxSuccessful() : status().isNotFound());
             }
         }
-        verify(destinationCommentService, org.mockito.Mockito.times(4))
+        verify(destinationCommentService, org.mockito.Mockito.times(3))
                 .requireDestinationAccessible(10L, true);
     }
 
@@ -129,7 +128,7 @@ class DestinationCommentSecurityTest {
                 .andExpect(status().isNotFound());
         verify(destinationCommentService, never()).create(
                 eq(10L), eq(7L), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -172,7 +171,7 @@ class DestinationCommentSecurityTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<MultipartFile>> captor = ArgumentCaptor.forClass(List.class);
         verify(destinationCommentService)
-                .create(eq(10L), eq(7L), eq("사진 3장"), captor.capture(), isNull());
+                .create(eq(10L), eq(7L), eq("사진 3장"), captor.capture(), isNull(), isNull(), isNull());
         assertThat(captor.getValue())
                 .extracting(MultipartFile::getOriginalFilename)
                 .containsExactly("a.jpg", "b.jpg", "c.jpg");
@@ -187,7 +186,7 @@ class DestinationCommentSecurityTest {
         user.setUserRole(UserRole.USER);
         CustomUserDetails principal = new CustomUserDetails(user);
         when(destinationCommentService.create(eq(10L), eq(7L), eq("위장 파일"),
-                org.mockito.ArgumentMatchers.anyList(), isNull()))
+                org.mockito.ArgumentMatchers.anyList(), isNull(), isNull(), isNull()))
                 .thenThrow(new com.tripbora.service.file.UnsupportedImageFormatException(
                         com.tripbora.service.file.FileUploadService.UNSUPPORTED_IMAGE_MESSAGE));
 

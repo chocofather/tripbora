@@ -34,6 +34,12 @@
     </li>
     <li>
       <a class="mypage-navigation-link"
+         th:classappend="${activeMenu == 'review-images'} ? ' is-active' : ''"
+         th:attr="aria-current=${activeMenu == 'review-images'} ? 'page' : null"
+         th:href="@{/mypage/review-images}">리뷰 사진 관리</a>
+    </li>
+    <li>
+      <a class="mypage-navigation-link"
          th:classappend="${activeMenu == 'bookmarks'} ? ' is-active' : ''"
          th:attr="aria-current=${activeMenu == 'bookmarks'} ? 'page' : null"
          th:href="@{/mypage/bookmarks}"

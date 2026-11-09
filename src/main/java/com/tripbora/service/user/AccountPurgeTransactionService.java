@@ -87,6 +87,9 @@ public class AccountPurgeTransactionService {
             return PurgeOutcome.skipped();
         }
 
+        // 사진 관리도 같은 users 행을 먼저 잠그므로 심사·재동의와 최종 탈퇴가 직렬화된다.
+        accountPurgeMapper.revokeReviewImageConsents(userId);
+
         AccountPurgeJob job = openJob(userId);
 
         // 1) 지우기 전에 후처리에 필요한 값부터 옮겨 둔다.

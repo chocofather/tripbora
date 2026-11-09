@@ -44,7 +44,7 @@ class NavigationRequestCacheTest {
         ajax.addHeader("X-Requested-With", "XMLHttpRequest");
         assertThat(matcher.matches(ajax)).isFalse();
 
-        MockHttpServletRequest fetch = get("/comments/images");
+        MockHttpServletRequest fetch = get("/comments/list/page");
         fetch.addHeader("Sec-Fetch-Dest", "empty");
         assertThat(matcher.matches(fetch)).isFalse();
 

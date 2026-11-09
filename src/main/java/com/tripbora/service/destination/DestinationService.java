@@ -255,10 +255,21 @@ public class DestinationService {
         return getDestinationDetailWithInfo(id, requestedLanguage, true);
     }
 
+    /** 공개 상세는 이미지 전체 JOIN/조회 없이 대표 사진 한 개만 읽는다. */
+    public DestinationDetailDto getPublicDestinationDetailWithInfo(Long id, SupportedLanguage language) {
+        return getDestinationDetailWithInfo(id, language, true, true);
+    }
+
     private DestinationDetailDto getDestinationDetailWithInfo(Long id,
                                                                SupportedLanguage requestedLanguage,
                                                                boolean localizeSubtypeInfo) {
-        Destination destination = destinationMapper.findDestinationDetail(id);
+        return getDestinationDetailWithInfo(id, requestedLanguage, localizeSubtypeInfo, false);
+    }
+
+    private DestinationDetailDto getDestinationDetailWithInfo(Long id, SupportedLanguage requestedLanguage,
+                                                               boolean localizeSubtypeInfo, boolean publicDetail) {
+        Destination destination = publicDetail ? destinationMapper.findPublicDestinationDetail(id)
+                : destinationMapper.findDestinationDetail(id);
         if (destination == null) return null;
 
         List<DestinationTranslation> translations =
@@ -272,7 +283,8 @@ public class DestinationService {
         dto.setDestination(destination);
 
         // 이미지 리스트
-        dto.setImages(destinationMapper.findImagesByDestinationId(id));
+        dto.setImages(publicDetail ? destinationMapper.findPublicRepresentativeImage(id)
+                : destinationMapper.findImagesByDestinationId(id));
         dto.setCategoryIds(destinationMapper.findCategoryIdsByDestinationId(id));
         dto.setMainCategoryId(destinationMapper.findMainCategoryId(id));
 

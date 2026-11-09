@@ -5,6 +5,88 @@
 
 <mapper namespace="com.tripbora.repository.user.UserPolicyConsentMapper">
 
+    <!-- users 행 잠금 뒤 실행하는 최신 읽기. 가입 및 마이페이지의 동일 이력을 재사용한다. -->
+    <select id="findLatestForUpdate" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT id, user_id, policy_version_id, agreed, decision_action, locale, consent_source, created_at
+        FROM user_policy_consents
+        WHERE user_id = #{userId} AND policy_version_id = #{policyVersionId}
+        ORDER BY id DESC LIMIT 1 FOR UPDATE
+    </select>
+
+    <!-- 공통 회원 동의 판정. 원본 DB 벽시각은 정책 DATETIME과 비교하고 created_at은 그대로 보존한다. -->
+    <sql id="ConsentEvidenceColumns">
+        c.id, c.user_id, c.policy_version_id, c.agreed, c.decision_action,
+        c.locale, c.consent_source, c.created_at,
+        CAST(c.created_at AS DATETIME(6)) AS decision_wall_time
+    </sql>
+
+    <select id="findLatestAgreementForType" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT <include refid="ConsentEvidenceColumns"/>
+        FROM user_policy_consents c
+        JOIN policy_versions v ON v.id = c.policy_version_id
+        WHERE c.user_id = #{userId} AND v.policy_type = #{policyType}
+          AND c.created_at &lt;= #{asOf} AND c.agreed = 1
+          AND (c.decision_action = 'AGREE' OR c.decision_action IS NULL)
+        ORDER BY c.id DESC LIMIT 1
+    </select>
+
+    <select id="findLatestForType" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT <include refid="ConsentEvidenceColumns"/>
+        FROM user_policy_consents c
+        JOIN policy_versions v ON v.id = c.policy_version_id
+        WHERE c.user_id = #{userId} AND v.policy_type = #{policyType}
+          AND c.created_at &lt;= #{asOf}
+        ORDER BY c.id DESC LIMIT 1
+    </select>
+
+    <select id="findLatestForBasis" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT <include refid="ConsentEvidenceColumns"/>
+        FROM user_policy_consents c
+        JOIN policy_versions v ON v.id = c.policy_version_id
+        WHERE c.user_id = #{userId} AND v.policy_type = #{policyType}
+          AND COALESCE(v.consent_basis_version_id, v.id) = #{basisId}
+          AND c.created_at &lt;= #{asOf}
+        ORDER BY c.id DESC LIMIT 1
+    </select>
+
+    <select id="findLatestStopForType" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT <include refid="ConsentEvidenceColumns"/>
+        FROM user_policy_consents c
+        JOIN policy_versions v ON v.id = c.policy_version_id
+        WHERE c.user_id = #{userId} AND v.policy_type = #{policyType}
+          AND c.created_at &lt;= #{asOf}
+          AND (c.decision_action = 'WITHDRAW' OR (c.decision_action IS NULL AND c.agreed = 0))
+        ORDER BY c.id DESC LIMIT 1
+    </select>
+
+    <select id="findLatestAgreementOnOtherBasis" resultType="com.tripbora.model.UserPolicyConsent">
+        SELECT <include refid="ConsentEvidenceColumns"/>
+        FROM user_policy_consents c
+        JOIN policy_versions v ON v.id = c.policy_version_id
+        WHERE c.user_id = #{userId} AND v.policy_type = #{policyType}
+          AND COALESCE(v.consent_basis_version_id, v.id) != #{basisId}
+          AND c.created_at &lt;= #{asOf} AND c.agreed = 1
+          AND (c.decision_action IS NULL OR c.decision_action = 'AGREE')
+          AND NOT EXISTS (
+              SELECT 1 FROM user_policy_consents newer
+              JOIN policy_versions newer_version ON newer_version.id = newer.policy_version_id
+              WHERE newer.user_id = c.user_id AND newer_version.policy_type = v.policy_type
+                AND COALESCE(newer_version.consent_basis_version_id, newer_version.id)
+                    = COALESCE(v.consent_basis_version_id, v.id)
+                AND newer.id &gt; c.id AND newer.created_at &lt;= #{asOf}
+          )
+        ORDER BY c.id DESC LIMIT 1
+    </select>
+
+    <update id="revokeGalleryImages">
+        UPDATE destination_comment_images i
+        JOIN destination_comments c ON c.id = i.comment_id
+        SET i.gallery_status = 'REVOKED', i.gallery_consent_withdrawn_at = CURRENT_TIMESTAMP
+        WHERE c.user_id = #{userId}
+          AND i.gallery_license_policy_id IS NULL
+          AND i.gallery_status IN ('PENDING', 'APPROVED', 'REJECTED')
+    </update>
+
     <!--
       동의/거절 결정 한 건. created_at 은 DB 기본값을 쓴다.
       기존 행을 찾아 고치지 않는다. 같은 정책을 다시 결정하면 새 행이 쌓이는 append-only 기록이다.
@@ -13,9 +95,9 @@
     <insert id="insertConsent" parameterType="com.tripbora.model.UserPolicyConsent"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_policy_consents
-            (user_id, policy_version_id, agreed, locale, consent_source)
+            (user_id, policy_version_id, agreed, decision_action, locale, consent_source)
         VALUES
-            (#{userId}, #{policyVersionId}, #{agreed}, #{locale}, #{consentSource})
+            (#{userId}, #{policyVersionId}, #{agreed}, #{decisionAction}, #{locale}, #{consentSource})
     </insert>
 
     <!--

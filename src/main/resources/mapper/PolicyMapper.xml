@@ -4,6 +4,10 @@
 
 <mapper namespace="com.tripbora.repository.policy.PolicyMapper">
 
+    <select id="databaseWallTime" resultType="java.time.LocalDateTime">
+        SELECT CURRENT_TIMESTAMP(6)
+    </select>
+
     <resultMap id="PolicyVersionResultMap" type="com.tripbora.model.PolicyVersion">
         <id property="id" column="id"/>
         <result property="policyType" column="policy_type"/>
@@ -11,6 +15,7 @@
         <result property="requiresConsent" column="requires_consent"/>
         <result property="required" column="is_required"/>
         <result property="requiresReconsent" column="requires_reconsent"/>
+        <result property="consentBasisVersionId" column="consent_basis_version_id"/>
         <result property="effectiveAt" column="effective_at"/>
         <result property="publishedAt" column="published_at"/>
         <result property="active" column="is_active"/>
@@ -39,7 +44,7 @@
     -->
     <select id="findActiveVersions" resultMap="PolicyVersionResultMap">
         SELECT v.id, v.policy_type, v.version, v.requires_consent, v.is_required,
-               v.requires_reconsent, v.effective_at, v.published_at, v.is_active
+               v.requires_reconsent, v.consent_basis_version_id, v.effective_at, v.published_at, v.is_active
         FROM policy_versions v
         WHERE v.policy_type IN
         <foreach collection="policyTypes" item="policyType" open="(" separator="," close=")">
@@ -58,6 +63,30 @@
                 AND (newer.effective_at &gt; v.effective_at
                      OR (newer.effective_at = v.effective_at AND newer.id &gt; v.id))
           )
+    </select>
+
+    <select id="findVersionById" resultMap="PolicyVersionResultMap">
+        SELECT id, policy_type, version, requires_consent, is_required, requires_reconsent,
+               consent_basis_version_id, effective_at, published_at, is_active
+        FROM policy_versions WHERE id = #{id}
+    </select>
+
+    <!-- 비활성화된 실질 개정도 건너뛰지 않는다. null 기준은 보수적으로 별도 범위다. -->
+    <select id="hasInterveningMaterialVersion" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM policy_versions middle
+            JOIN policy_versions basis ON basis.id = #{basisId}
+            JOIN policy_versions displayed ON displayed.id = #{versionId}
+            WHERE middle.policy_type = basis.policy_type
+              AND middle.published_at IS NOT NULL
+              AND (middle.effective_at &gt; basis.effective_at
+                   OR (middle.effective_at = basis.effective_at AND middle.id &gt; basis.id))
+              AND (middle.effective_at &lt; displayed.effective_at
+                   OR (middle.effective_at = displayed.effective_at AND middle.id &lt; displayed.id))
+              AND (middle.requires_reconsent = 1 OR middle.consent_basis_version_id IS NULL
+                   OR middle.consent_basis_version_id = middle.id
+                   OR middle.consent_basis_version_id != basis.id)
+        )
     </select>
 
     <!--

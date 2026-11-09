@@ -20,7 +20,8 @@ class DestinationImageAttributionUiContractTest {
         assertThat(page.select("[data-destination-image-attribution]")).hasSize(1);
         assertThat(source)
                 .contains("th:if=\"${hasImageAttribution}\"")
-                .contains("data-source-name=${img.sourceName}")
+                .contains("data-source-name=${img.travelerPhoto ?")
+                .contains(": img.sourceName}")
                 .contains("data-license-label=${img.licenseDisplay}")
                 .contains("data-photographer=${img.photographer}")
                 .contains("data-license-url=${img.safeLicenseUrl}")

@@ -89,6 +89,16 @@
         // 상세페이지
         Destination findDestinationDetail(Long id);
 
+        Destination findPublicDestinationDetail(Long id);
+        boolean isPublicDestination(@Param("destinationId") Long destinationId);
+        List<DestinationImage> findPublicRepresentativeImage(@Param("destinationId") Long destinationId);
+        List<DestinationImage> findGalleryCandidates(@Param("destinationId") Long destinationId,
+                @Param("anchor") com.tripbora.dto.DestinationGalleryPosition anchor,
+                @Param("reverse") boolean reverse, @Param("limit") int limit);
+        boolean hasGalleryCandidates(@Param("destinationId") Long destinationId,
+                @Param("anchor") com.tripbora.dto.DestinationGalleryPosition anchor,
+                @Param("reverse") boolean reverse);
+
         // 이미지 url 리스트 조회 (nested select 용)
         List<DestinationImage> findImagesByDestinationId(Long destinationId);
 

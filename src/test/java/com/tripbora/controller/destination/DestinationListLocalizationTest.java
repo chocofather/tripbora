@@ -56,7 +56,7 @@ class DestinationListLocalizationTest {
                 countryCategoryService, destinationCommentService,
                 referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
         seoul = region(38L, "서울", 3, 7L);
         jongno = region(235L, "종로구", 4, 38L);
         destination = new Destination();

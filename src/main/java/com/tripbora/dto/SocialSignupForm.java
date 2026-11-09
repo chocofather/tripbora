@@ -18,6 +18,9 @@ public class SocialSignupForm {
      */
     private List<Long> agreedPolicyVersionIds = new ArrayList<>();
 
+    /** 열람 전용을 포함해 가입 화면에 표시한 정책 버전 전체. */
+    private List<Long> shownPolicyVersionIds = new ArrayList<>();
+
     /**
      * 연령 확인용 생년월일(yyyy-MM-dd). 판정에만 쓰고 저장하지 않는다.
      * 신규 users 를 만드는 Google/Kakao/Naver 가입에 모두 필요하다.

@@ -51,7 +51,7 @@ class DestinationDescriptionParagraphsTest {
         controller = new DestinationController(destinationService, destinationImageService,
                 countryCategoryService, destinationCommentService, referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
 
         CountryCategory region = new CountryCategory();
         region.setId(10L);
@@ -91,7 +91,7 @@ class DestinationDescriptionParagraphsTest {
         assertThat(renderDescription(
                 "Sentence one.\r\nSentence two.\r\n\r\nSecond paragraph."))
                 .containsExactly("Sentence one. Sentence two.", "Second paragraph.");
-        verify(destinationService).getDestinationDetailWithInfo(7L, SupportedLanguage.ENGLISH);
+        verify(destinationService).getPublicDestinationDetailWithInfo(7L, SupportedLanguage.ENGLISH);
     }
 
     @Test
@@ -119,7 +119,7 @@ class DestinationDescriptionParagraphsTest {
         dto.setDestination(destination);
         SupportedLanguage language = SupportedLanguage.fromLocale(LocaleContextHolder.getLocale())
                 .orElse(SupportedLanguage.KOREAN);
-        when(destinationService.getDestinationDetailWithInfo(7L, language)).thenReturn(dto);
+        when(destinationService.getPublicDestinationDetailWithInfo(7L, language)).thenReturn(dto);
 
         Model model = new ExtendedModelMap();
         controller.destinationDetail(7L, null, new org.springframework.mock.web.MockHttpSession(), model);

@@ -11,6 +11,7 @@ import java.sql.Timestamp;
 public class DestinationComment {
     private Long id; // 여행지 댓글 번호
     private Long parentCommentId; // 부모 댓글 번호
+    private Integer rating; // 과거 댓글·답글은 NULL, 리뷰는 1~5
     private String content; // 내용
     private String sourceLanguage = "und"; // 로컬 감지 원문 언어
     private Integer likes; // 좋아요수

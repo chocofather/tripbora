@@ -4,6 +4,12 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.tripbora.repository.translation.SharedTranslationCacheMapper">
+    <update id="invalidateUnchangedReady">
+        UPDATE shared_translation_cache SET status = 'FAILED', translated_text = NULL,
+            retry_after = NULL, updated_at = CURRENT_TIMESTAMP(6)
+        WHERE <include refid="ExactKey"/> AND status = 'READY'
+          AND BINARY translated_text = BINARY #{translatedText}
+    </update>
     <resultMap id="cacheMap" type="com.tripbora.model.translation.SharedTranslationCache">
         <id property="id" column="id"/>
         <result property="sourceHash" column="source_hash" jdbcType="BINARY"/>

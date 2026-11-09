@@ -76,7 +76,7 @@ class DestinationDetailNotFoundTest {
                 destinationCommentService,
                 referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setCustomArgumentResolvers(anonymousPrincipalResolver())
                 .build();
@@ -102,7 +102,7 @@ class DestinationDetailNotFoundTest {
 
     @Test
     void deletedOrUnknownDestinationAnswersNotFound() throws Exception {
-        when(destinationService.getDestinationDetailWithInfo(eq(404L), any(SupportedLanguage.class)))
+        when(destinationService.getPublicDestinationDetailWithInfo(eq(404L), any(SupportedLanguage.class)))
                 .thenReturn(null);
 
         mockMvc.perform(get("/destinations/404"))
@@ -111,7 +111,7 @@ class DestinationDetailNotFoundTest {
 
     @Test
     void unknownDestinationIsNotCountedAsAView() throws Exception {
-        when(destinationService.getDestinationDetailWithInfo(eq(404L), any(SupportedLanguage.class)))
+        when(destinationService.getPublicDestinationDetailWithInfo(eq(404L), any(SupportedLanguage.class)))
                 .thenReturn(null);
 
         mockMvc.perform(get("/destinations/404"))
@@ -157,7 +157,7 @@ class DestinationDetailNotFoundTest {
     private void stubHiddenDestination() {
         DestinationDetailDto hidden = detailDto();
         hidden.getDestination().setPublicVisible(false);
-        when(destinationService.getDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
+        when(destinationService.getPublicDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
                 .thenReturn(hidden);
     }
 
@@ -202,7 +202,7 @@ class DestinationDetailNotFoundTest {
     }
 
     private void stubExistingDestination() {
-        when(destinationService.getDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
+        when(destinationService.getPublicDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
                 .thenReturn(detailDto());
         when(countryCategoryService.getById(101L)).thenReturn(region(101L, "종로구", 10L));
         when(countryCategoryService.getById(10L)).thenReturn(region(10L, "서울", null));

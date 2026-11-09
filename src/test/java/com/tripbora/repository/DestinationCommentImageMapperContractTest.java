@@ -39,21 +39,6 @@ class DestinationCommentImageMapperContractTest {
     }
 
     @Test
-    void galleryQueryExcludesDeletedAndModeratedComments() throws IOException {
-        String select = between(mapperXml(), "<select id=\"findGalleryByDestinationId\"", "</select>");
-
-        assertThat(select)
-                .contains("FROM destination_comment_images i")
-                .contains("JOIN destination_comments c ON c.id = i.comment_id")
-                .contains("c.destination_id = #{destinationId}")
-                // 삭제·관리자 조치 댓글(deleted = 1)의 사진은 제외
-                .contains("AND c.deleted = 0")
-                // 최신 댓글 먼저, 같은 댓글 안에서는 display_order 1→2→3
-                .contains("ORDER BY c.created_at DESC, i.comment_id DESC, i.display_order")
-                .contains("LIMIT #{limit}");
-    }
-
-    @Test
     void deletionLifecycleQueryReadsEveryImageUrlWithoutUserFacingFilters() throws IOException {
         String select = between(mapperXml(),
                 "<select id=\"findAllImageUrlsByDestinationId\"", "</select>");
@@ -89,9 +74,10 @@ class DestinationCommentImageMapperContractTest {
         assertThat(resource("/mapper/DestinationCommentMapper.xml"))
                 .doesNotContain("findImagePathById")
                 .doesNotContain("updateImagePath");
-        // 저장되지 않던 수정 폼의 사진 입력(edit-image-*)도 뺐다
+        // 단일 image_url 교체 경로 대신 본문+복수 첨부의 원자적 수정 경로를 쓴다.
         assertThat(resource("/static/js/comment/events.js"))
-                .doesNotContain("edit-image-");
+                .contains("updateCommentWithImages")
+                .doesNotContain("updateCommentImage");
     }
 
     @Test
@@ -126,8 +112,7 @@ class DestinationCommentImageMapperContractTest {
                 .contains("CREATE TABLE `destination_comment_images`")
                 .contains("UNIQUE KEY `uq_destination_comment_images_order` (`comment_id`,`display_order`)")
                 .contains("REFERENCES `destination_comments` (`id`) ON DELETE CASCADE")
-                .contains("`display_order` >= 1")
-                .contains("`display_order` <= 3");
+                .contains("`display_order` between 1 and 3");
         // destination_comments 에는 더 이상 사진 컬럼이 없다 (실제 DB 에서 DROP 완료)
         assertThat(between(schema, "CREATE TABLE `destination_comments`", "ENGINE=InnoDB"))
                 .doesNotContain("image_url");

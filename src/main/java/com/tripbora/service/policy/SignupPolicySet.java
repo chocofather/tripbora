@@ -1,5 +1,6 @@
 package com.tripbora.service.policy;
 
+import com.tripbora.model.PolicyType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -9,8 +10,8 @@ import java.util.Set;
 /**
  * 한 번의 가입에 쓰이는 정책 묶음. 화면 렌더링과 서버 검증이 같은 인스턴스를 본다.
  *
- * <p>아직 활성화하지 않은 정책은 애초에 들어오지 않는다. 그래서 활성화 전에는 비어 있고,
- * 그 상태에서는 필수 동의도 없어 기존 가입 흐름이 그대로 동작한다.
+ * <p>활성화하지 않은 정책은 들어오지 않는다. 가입 결정은 표시 버전 검증과 함께
+ * 필수 정책 구성이 정상인지 확인한 뒤에만 만든다.
  */
 public record SignupPolicySet(List<SignupPolicy> policies) {
 
@@ -34,6 +35,33 @@ public record SignupPolicySet(List<SignupPolicy> policies) {
     /** 동의 대상이 아니라 열람만 제공하는 정책(개인정보처리방침 등). */
     public List<SignupPolicy> viewOnlyPolicies() {
         return policies.stream().filter(policy -> !policy.requiresConsent()).toList();
+    }
+
+    /** 필수 정책 구성과 화면에 표시했던 전체 버전을 확인한 후에만 결정을 만든다. */
+    public List<PolicyConsentDecision> decide(Collection<Long> agreedPolicyVersionIds,
+                                              Collection<Long> shownPolicyVersionIds) {
+        for (PolicyType requiredType : List.of(PolicyType.TERMS_OF_SERVICE, PolicyType.PRIVACY_COLLECTION)) {
+            List<SignupPolicy> matching = policies.stream()
+                    .filter(policy -> policy.type() == requiredType).toList();
+            if (matching.size() != 1 || !matching.get(0).mandatory()) {
+                throw new PolicySnapshotException(true);
+            }
+        }
+        Set<Long> current = new HashSet<>();
+        for (SignupPolicy policy : policies) {
+            if (policy.policyVersionId() == null || policy.policyVersionId() <= 0
+                    || !current.add(policy.policyVersionId())) {
+                throw new PolicySnapshotException(true);
+            }
+        }
+        if (shownPolicyVersionIds == null || !current.equals(new HashSet<>(shownPolicyVersionIds))) {
+            throw new PolicySnapshotException(false);
+        }
+        if (agreedPolicyVersionIds != null && agreedPolicyVersionIds.stream()
+                .anyMatch(id -> id == null || !current.contains(id))) {
+            throw new PolicySnapshotException(false);
+        }
+        return decide(agreedPolicyVersionIds);
     }
 
     /**

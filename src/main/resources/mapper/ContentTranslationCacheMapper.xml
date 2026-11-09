@@ -4,6 +4,15 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.tripbora.repository.translation.ContentTranslationCacheMapper">
+    <!-- 요청한 키의 원문 반환 READY만 CAS로 갱신한다. 활성 lease와 다른 본문은 건드리지 않는다. -->
+    <update id="invalidateUnchangedReady">
+        UPDATE content_translation_cache SET status = 'FAILED', translated_text = NULL,
+            retry_after = NULL, updated_at = CURRENT_TIMESTAMP(6)
+        WHERE content_type = #{contentType} AND content_id = #{contentId}
+          AND source_field = #{sourceField} AND target_language = #{targetLanguage}
+          AND source_hash = #{sourceHash} AND status = 'READY'
+          AND BINARY translated_text = BINARY #{translatedText}
+    </update>
     <resultMap id="cacheMap" type="com.tripbora.model.translation.ContentTranslationCache">
         <id property="id" column="id"/>
         <result property="contentType" column="content_type"/>

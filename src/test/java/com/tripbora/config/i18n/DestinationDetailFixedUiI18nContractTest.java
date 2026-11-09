@@ -72,7 +72,7 @@ class DestinationDetailFixedUiI18nContractTest {
     void galleryDialogsAndCloseControlsExposeLocalizedAccessibleNames() throws IOException {
         Document detail = Jsoup.parse(resource("/templates/destination/detail.html"));
 
-        for (String selector : new String[]{"#image-modal", "#photo-modal"}) {
+        for (String selector : new String[]{"#image-modal"}) {
             Element dialog = detail.selectFirst(selector);
             assertThat(dialog).as(selector).isNotNull();
             assertThat(dialog.attr("role")).isEqualTo("dialog");
@@ -81,7 +81,7 @@ class DestinationDetailFixedUiI18nContractTest {
                     .startsWith("#{destination.detail.gallery.");
         }
 
-        for (String selector : new String[]{"#image-modal .close-btn", "#photo-modal .photo-close"}) {
+        for (String selector : new String[]{"#image-modal .close-btn"}) {
             Element closeButton = detail.selectFirst(selector);
             assertThat(closeButton).as(selector).isNotNull();
             assertThat(closeButton.tagName()).isEqualTo("button");

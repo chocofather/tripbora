@@ -27,6 +27,216 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SharedTranslationDeduplicationTest {
+    @Test void legacyCanonicalExactResultCanServeFirstWhitespaceVariantWithoutCallingProvider() {
+        var old=new SharedTranslationCache();old.setSourceHash(ContentTranslationService.sourceHash("The food was delicious."));old.setSourceLanguage("en");old.setTargetLanguage("ko");old.setProvider("GOOGLE");old.setTranslationProfile("google-v3-general-v1");old.setTranslatedText("기존 번역");
+        var shared=new FakeSharedCacheMapper();shared.insertReadyIfAbsent(old);
+        var calls=new AtomicInteger();var usage=new CountingUsageGate();
+        var svc=service(registry(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"  The\tfood  was delicious. ","en"))),new FakeContentCacheMapper(),shared,countingClient(calls,r->new MachineTranslation("새 번역",null)),usage,new CountingRateLimiter(),"google-v3-general-v1");
+        assertThat(svc.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).translatedText()).isEqualTo("기존 번역");
+        assertThat(calls).hasValue(0);assertThat(usage.calls).isZero();
+    }
+    @Test void legacyExactReadyIsPreservedAndPromotedWithoutProviderOrUsage() {
+        String raw="  The food was delicious.  ";
+        var old=new SharedTranslationCache();old.setSourceHash(ContentTranslationService.sourceHash(raw));old.setSourceLanguage("en");old.setTargetLanguage("ko");old.setProvider("GOOGLE");old.setTranslationProfile("google-v3-general-v1");old.setTranslatedText("음식이 맛있었습니다.");
+        var shared=new FakeSharedCacheMapper();shared.insertReadyIfAbsent(old);
+        var calls=new AtomicInteger();var usage=new CountingUsageGate();
+        var svc=service(registry(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,raw,"en"),2L,source(TranslatableContentType.POST_COMMENT,2L,"The\tfood was delicious.","en"))),new FakeContentCacheMapper(),shared,
+                countingClient(calls,r->new MachineTranslation("새 번역",null)),usage,new CountingRateLimiter(),"google-v3-general-v1");
+        assertThat(svc.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).translatedText()).isEqualTo("음식이 맛있었습니다.");
+        assertThat(svc.translate(TranslatableContentType.POST_COMMENT,2L,"ko","ip",2L).translatedText()).isEqualTo("음식이 맛있었습니다.");
+        assertThat(calls).hasValue(0);assertThat(usage.calls).isZero();
+        assertThat(shared.find(old.getSourceHash(),"en","ko","GOOGLE","google-v3-general-v1").getStatus()).isEqualTo("READY");
+        assertThat(shared.find(ContentTranslationService.sourceHash("The food was delicious."),"en","ko","GOOGLE","google-v3-general-v1-ws-v1").getStatus()).isEqualTo("READY");
+    }
+    @Test void legacyActiveLeaseAndFailureCooldownAreNotBypassed() {
+        for(String status:List.of("PROCESSING","FAILED")) {
+            String raw="The food was delicious.";
+            var old=new SharedTranslationCache();old.setSourceHash(ContentTranslationService.sourceHash(raw));old.setSourceLanguage("en");old.setTargetLanguage("ko");old.setProvider("GOOGLE");old.setTranslationProfile("google-v3-general-v1");old.setLeaseToken("legacy-owner");old.setLeaseExpiresAt(Timestamp.from(Instant.now().plusSeconds(30)));old.setRetryAfter(old.getLeaseExpiresAt());
+            var shared=new FakeSharedCacheMapper();shared.insertProcessing(old);old.setStatus(status);
+            var calls=new AtomicInteger();var usage=new CountingUsageGate();
+            var svc=service(registry(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,raw,"en"))),new FakeContentCacheMapper(),shared,countingClient(calls,r->new MachineTranslation("번역",null)),usage,new CountingRateLimiter(),"google-v3-general-v1");
+            assertThat(svc.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).status()).isEqualTo("PROCESSING");
+            assertThat(calls).hasValue(0);assertThat(usage.calls).isZero();assertThat(old.getLeaseToken()).isEqualTo("legacy-owner");
+        }
+    }
+    @Test void crLfIsSharedButSingleNewlinesParagraphsAndWordBoundariesStaySeparate() {
+        String[] text={"The food was delicious.\r\nThe staff were kind.","The food was delicious.\nThe staff were kind.",
+                "The food was delicious. The staff were kind.","The food was delicious.\n\nThe staff were kind.","now here","nowhere"};
+        Map<Long,TranslationSourceSnapshot> sources=new ConcurrentHashMap<>();
+        for(int i=0;i<text.length;i++)sources.put((long)i+1,source(TranslatableContentType.DESTINATION_COMMENT,(long)i+1,text[i],"en"));
+        var ctx=context(sources);
+        for(long id=1;id<=text.length;id++)ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,id,"ko","ip",id);
+        assertThat(ctx.providerCalls()).hasValue(5);assertThat(ctx.usage().calls).isEqualTo(5);
+    }
+    @Test void normalizedConcurrentVariantsHaveOneLeaseOwnerAndOneUsageReservation() throws Exception {
+        var ctx=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"The food was delicious.","en"),
+                2L,source(TranslatableContentType.POST_COMMENT,2L,"  The\tfood  was delicious.  ","en")),true,false);
+        var executor=Executors.newSingleThreadExecutor();
+        try {
+            var first=executor.submit(()->ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L));
+            assertThat(ctx.providerStarted().await(2,TimeUnit.SECONDS)).isTrue();
+            assertThat(ctx.service().translate(TranslatableContentType.POST_COMMENT,2L,"ko","ip",2L).status()).isEqualTo("PROCESSING");
+            ctx.releaseProvider().countDown();assertThat(first.get(2,TimeUnit.SECONDS).status()).isEqualTo("READY");
+            assertThat(ctx.service().translate(TranslatableContentType.POST_COMMENT,2L,"ko","ip",2L).cached()).isTrue();
+            assertThat(ctx.providerCalls()).hasValue(1);assertThat(ctx.usage().calls).isEqualTo(1);
+        } finally {ctx.releaseProvider().countDown();executor.shutdownNow();}
+    }
+    @Test void normalizedFailureBacksOffAcrossDifferentRawTexts() {
+        var ctx=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"The food was delicious.","en"),
+                2L,source(TranslatableContentType.DESTINATION_COMMENT,2L,"The\tfood  was delicious.","en")),false,true);
+        assertThatThrownBy(()->ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L)).isInstanceOf(MachineTranslationException.class);
+        assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,2L,"ko","ip",2L).status()).isEqualTo("PROCESSING");
+        assertThat(ctx.providerCalls()).hasValue(1);assertThat(ctx.usage().calls).isEqualTo(1);
+    }
+    @Test void originalTextAndUsageLengthAreNeverNormalizedBeforeProvider() {
+        String raw="  The\tfood  was delicious.  ";var calls=new AtomicInteger();var usage=new CountingUsageGate();
+        var svc=service(registry(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,raw,"en"))),new FakeContentCacheMapper(),new FakeSharedCacheMapper(),
+                countingClient(calls,r->{assertThat(r.text()).isEqualTo(raw);return new MachineTranslation("번역 결과",null);}),usage,new CountingRateLimiter(),"google-v3-general-v1");
+        svc.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        assertThat(calls).hasValue(1);assertThat(usage.calls).isEqualTo(1);assertThat(usage.lastText).isEqualTo(raw);
+    }
+    @Test void koreanEnglishJapaneseChineseAndMixedProseReuseOnlyWhitespaceVariants() {
+        for(String[] row:new String[][]{{"정말 맛있는 음식입니다.","ko","en"},{"The food was delicious.","en","ko"},
+                {"とても 美味しいお店です。","ja","en"},{"这里 食物非常好吃。","zh-CN","en"},
+                {"這裡 食物非常好吃。","zh-TW","en"},{"정말 맛있어요. Very good!","ko","ja"}}) {
+            var ctx=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,row[0],row[1]),
+                    2L,source(TranslatableContentType.POST_COMMENT,2L,"  "+row[0].replace(" ","\t  ")+"  ",row[1])));
+            ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,row[2],"ip",1L);
+            assertThat(ctx.service().translate(TranslatableContentType.POST_COMMENT,2L,row[2],"ip",2L).cached()).isTrue();
+            assertThat(ctx.providerCalls()).hasValue(1);assertThat(ctx.usage().calls).isEqualTo(1);
+        }
+    }
+    @Test void whitespaceOnlyMixedProviderResultDoesNotBecomeNormalizedReady() {
+        String raw="정말  맛있어요. Very  good!";
+        var calls=new AtomicInteger();var usage=new CountingUsageGate();
+        var svc=service(registry(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,raw,"ko"),
+                        2L,source(TranslatableContentType.POST_COMMENT,2L,"정말 맛있어요. Very good!","ko"))),
+                new FakeContentCacheMapper(),new FakeSharedCacheMapper(),countingClient(calls,r->new MachineTranslation("정말 맛있어요. Very good!",null)),usage,new CountingRateLimiter(),"google-v3-general-v1");
+        assertThatThrownBy(()->svc.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L)).isInstanceOf(MachineTranslationException.class);
+        assertThat(svc.translate(TranslatableContentType.POST_COMMENT,2L,"ko","ip",2L).status()).isEqualTo("PROCESSING");
+        assertThat(calls).hasValue(1);assertThat(usage.calls).isEqualTo(1);
+    }
+    @Test void whitespaceEditRevalidatesRawHashButSemanticEditNeedsNewTranslation() {
+        Map<Long,TranslationSourceSnapshot> sources=new ConcurrentHashMap<>();
+        sources.put(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"The food was delicious.","en"));
+        var ctx=context(sources);
+        ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        String changed="  The\tfood  was delicious.  ";
+        sources.put(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,changed,"en"));
+        assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).cached()).isTrue();
+        assertThat(ctx.contentCaches().find("DESTINATION_COMMENT",1L,"content","ko").getSourceHash()).containsExactly(ContentTranslationService.sourceHash(changed));
+        assertThat(ctx.providerCalls()).hasValue(1);
+        sources.put(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"The food was bad.","en"));
+        assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).cached()).isFalse();
+        assertThat(ctx.providerCalls()).hasValue(2);assertThat(ctx.usage().calls).isEqualTo(2);
+    }
+    @Test void proseWhitespaceVariantsShareOneProviderCallAndKeepEachRawContentHash() {
+        Map<Long,TranslationSourceSnapshot> sources=new ConcurrentHashMap<>();
+        String[] variants={"The food was delicious.","  The food was delicious.  ","The  food was delicious.","The\tfood was delicious."};
+        for(int i=0;i<variants.length;i++)sources.put((long)i+1,source(TranslatableContentType.DESTINATION_COMMENT,(long)i+1,variants[i],"en"));
+        var ctx=context(sources);
+        for(long id=1;id<=variants.length;id++) {
+            var result=ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,id,"ko","ip",id);
+            assertThat(result.cached()).isEqualTo(id!=1);
+            assertThat(ctx.contentCaches().find("DESTINATION_COMMENT",id,"content","ko").getSourceHash())
+                    .containsExactly(ContentTranslationService.sourceHash(variants[(int)id-1]));
+        }
+        assertThat(ctx.providerCalls()).hasValue(1);assertThat(ctx.usage().calls).isEqualTo(1);
+    }
+    @Test void pureKoreanRepeatedRequestsNeverCallProviderOrReserveUsage() {
+        var ctx=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,"정말 맛있고 직원분이 친절합니다.","ko")));
+        for(int i=0;i<3;i++)ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        assertThat(ctx.providerCalls()).hasValue(0);assertThat(ctx.usage().calls).isZero();
+    }
+    @Test void mixedQuotaFailuresUseExistingDailyAndMonthlyGuardsBeforeProvider() {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        for(RuntimeException failure:List.of(new TranslationDailyLimitException(),new TranslationMonthlyLimitException())) {
+            var sourceMap=Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko"));
+            var registry=registry(sourceMap);var content=new FakeContentCacheMapper();var shared=new FakeSharedCacheMapper();var calls=new AtomicInteger();var reservations=new AtomicInteger();
+            var service=new ContentTranslationService(registry,content,shared,countingClient(calls,r->new MachineTranslation("번역",null)),new CountingRateLimiter(),properties(),new TranslationCacheFinalizer(registry,content),
+                    (s,ip,id)->{reservations.incrementAndGet();throw failure;},new TranslationProviderMetadata("google-v3-general-v1"));
+            assertThatThrownBy(()->service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L)).isSameAs(failure);
+            assertThat(service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).status()).isEqualTo("PROCESSING");
+            assertThat(calls).hasValue(0);assertThat(reservations).hasValue(1);
+        }
+    }
+    @Test void mixedTextIsSharedAcrossContentTypesAndEditsDoNotReturnTheOldResult() {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        Map<Long,TranslationSourceSnapshot> sources=new ConcurrentHashMap<>();
+        sources.put(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko"));
+        sources.put(2L,source(TranslatableContentType.POST_COMMENT,2L,text,"ko"));
+        var ctx=context(sources);
+        ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        assertThat(ctx.service().translate(TranslatableContentType.POST_COMMENT,2L,"ko","ip",2L).cached()).isTrue();
+        assertThat(ctx.providerCalls()).hasValue(1);
+        sources.put(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text+" The staff were very kind.","ko"));
+        assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).translatedText()).endsWith("The staff were very kind.");
+        assertThat(ctx.providerCalls()).hasValue(2);
+        sources.remove(1L);
+        assertThatThrownBy(()->ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L)).isInstanceOf(TranslationNotFoundException.class);
+        assertThat(ctx.providerCalls()).hasValue(2);
+    }
+    @Test void mixedRequestsUseOneWholeTextProviderCallForEachExpectedLanguagePair() {
+        String[][] rows={{"정말 좋은 식당입니다. The food was very delicious.","ko","ko","en"},
+                {"정말 좋은 식당입니다. The food was very delicious.","ko","ja","und"},
+                {"とても美味しいお店です。 The food was very delicious.","ja","ko","und"},
+                {"とても美味しいお店です。 The food was very delicious.","ja","en","ja"},
+                {"这里的食物非常好吃 정말 좋은 식당입니다.","zh-CN","en","und"}};
+        for(var row:rows) {
+            var sources=Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,row[0],row[1]));
+            var calls=new AtomicInteger();var usage=new CountingUsageGate();
+            var service=service(registry(sources),new FakeContentCacheMapper(),new FakeSharedCacheMapper(),
+                    countingClient(calls,request->{assertThat(request.text()).isEqualTo(row[0]);assertThat(request.source()).isEqualTo(row[3]);return new MachineTranslation("번역 결과",null);}),usage,new CountingRateLimiter(),"google-v3-general-v1");
+            assertThat(service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,row[2],"ip",1L).translatedText()).isEqualTo("번역 결과");
+            service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,row[2],"ip",1L);
+            assertThat(calls).hasValue(1);assertThat(usage.calls).isEqualTo(1);
+        }
+    }
+    @Test void legacyUnchangedContentAndSharedEntriesAreRefreshedWithSameSourceHash() {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        var content=new FakeContentCacheMapper();var shared=new FakeSharedCacheMapper();var calls=new AtomicInteger();
+        var source=source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko");
+        var bad=new ContentTranslationCache();bad.setContentType("DESTINATION_COMMENT");bad.setContentId(1L);bad.setSourceField("content");bad.setTargetLanguage("ko");bad.setSourceHash(ContentTranslationService.sourceHash(text));bad.setTranslatedText(text);content.upsertReady(bad);
+        var old=new SharedTranslationCache();old.setSourceHash(ContentTranslationService.sourceHash(text));old.setSourceLanguage("ko");old.setTargetLanguage("ko");old.setProvider("GOOGLE");old.setTranslationProfile("google-v3-general-v1");old.setTranslatedText(text);shared.insertReadyIfAbsent(old);
+        var service=service(registry(Map.of(1L,source)),content,shared,countingClient(calls,r->new MachineTranslation("정말 좋은 식당이며 음식이 아주 맛있었습니다.",null)),new CountingUsageGate(),new CountingRateLimiter(),"google-v3-general-v1");
+        assertThat(service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).translatedText()).doesNotContain("The food");
+        assertThat(service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).cached()).isTrue();
+        assertThat(calls).hasValue(1);
+        assertThat(content.find("DESTINATION_COMMENT",1L,"content","ko").getSourceHash()).containsExactly(ContentTranslationService.sourceHash(text));
+    }
+    @Test void unchangedProviderResultBacksOffRatherThanCachingSuccessOrRetrying() {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        var calls=new AtomicInteger();var sources=Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko"));
+        var service=service(registry(sources),new FakeContentCacheMapper(),new FakeSharedCacheMapper(),
+                countingClient(calls,r->new MachineTranslation(r.text(),null)),new CountingUsageGate(),new CountingRateLimiter(),"google-v3-general-v1");
+        assertThatThrownBy(()->service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L)).isInstanceOf(MachineTranslationException.class);
+        for(int i=0;i<5;i++)assertThat(service.translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L).status()).isEqualTo("PROCESSING");
+        assertThat(calls).hasValue(1);
+    }
+    @Test void concurrentMixedRequestsForSameAndDifferentReviewsHaveOneProviderOwner() throws Exception {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        var ctx=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko"),2L,source(TranslatableContentType.DESTINATION_COMMENT,2L,text,"ko")),true,false);
+        var executor=Executors.newFixedThreadPool(2);
+        try {
+            var first=executor.submit(()->ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L));
+            assertThat(ctx.providerStarted().await(2,TimeUnit.SECONDS)).isTrue();
+            for(long id:new long[]{1,2})assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,id,"ko","ip",id).status()).isEqualTo("PROCESSING");
+            ctx.releaseProvider().countDown();assertThat(first.get(2,TimeUnit.SECONDS).status()).isEqualTo("READY");
+            assertThat(ctx.service().translate(TranslatableContentType.DESTINATION_COMMENT,2L,"ko","ip",2L).cached()).isTrue();
+            assertThat(ctx.providerCalls()).hasValue(1);assertThat(ctx.usage().calls).isEqualTo(1);
+        } finally {ctx.releaseProvider().countDown();executor.shutdownNow();}
+    }
+    @Test void mixedKoreanReviewIsTranslatedEvenWhenTargetMatchesDominantLanguageAndThenCached() {
+        String text="정말 좋은 식당입니다. The food was very delicious.";
+        var context=context(Map.of(1L,source(TranslatableContentType.DESTINATION_COMMENT,1L,text,"ko"),
+                2L,source(TranslatableContentType.DESTINATION_COMMENT,2L,text,"ko")));
+        var first=context.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        var repeat=context.service().translate(TranslatableContentType.DESTINATION_COMMENT,1L,"ko","ip",1L);
+        var shared=context.service().translate(TranslatableContentType.DESTINATION_COMMENT,2L,"ko","ip",2L);
+        assertThat(first.cached()).isFalse();assertThat(repeat.cached()).isTrue();assertThat(shared.cached()).isTrue();
+        assertThat(first.translatedText()).isEqualTo("ko:"+text);
+        assertThat(context.providerCalls()).hasValue(1);assertThat(context.usage().calls).isEqualTo(1);
+    }
     private static final Timestamp VERSION =
             Timestamp.from(Instant.parse("2026-09-09T01:00:00Z"));
 
@@ -113,7 +323,7 @@ class SharedTranslationDeduplicationTest {
     }
 
     @Test
-    void whitespaceCasePunctuationAndDifferentTextRemainExact() {
+    void whitespaceIsSharedButCasePunctuationAndDifferentTextRemainExact() {
         TestContext context = context(Map.of(
                 1L, source(TranslatableContentType.DESTINATION_COMMENT, 1L, "hello", "en"),
                 2L, source(TranslatableContentType.DESTINATION_COMMENT, 2L, "Hello", "en"),
@@ -127,8 +337,8 @@ class SharedTranslationDeduplicationTest {
                     TranslatableContentType.DESTINATION_COMMENT, id, "ko", "10.0.0." + id, id);
         }
 
-        assertThat(context.providerCalls()).hasValue(6);
-        assertThat(context.usage().calls).isEqualTo(6);
+        assertThat(context.providerCalls()).hasValue(5);
+        assertThat(context.usage().calls).isEqualTo(5);
     }
 
     @Test
@@ -605,10 +815,12 @@ class SharedTranslationDeduplicationTest {
 
     private static final class CountingUsageGate implements TranslationUsageReservationGate {
         private int calls;
+        private String lastText;
 
         @Override
         public synchronized void reserve(String sourceText, String ipAddress, Long userId) {
             calls++;
+            lastText=sourceText;
         }
     }
 
@@ -631,6 +843,11 @@ class SharedTranslationDeduplicationTest {
 
     private static final class FakeContentCacheMapper implements ContentTranslationCacheMapper {
         private final Map<ContentKey, ContentTranslationCache> caches = new ConcurrentHashMap<>();
+        @Override public synchronized int invalidateUnchangedReady(String type, Long id, String field, String target, byte[] hash, String text) {
+            var cache=find(type,id,field,target);
+            if(cache==null || !"READY".equals(cache.getStatus()) || !Arrays.equals(hash,cache.getSourceHash()) || !text.equals(cache.getTranslatedText())) return 0;
+            cache.setStatus("FAILED");cache.setTranslatedText(null);cache.setRetryAfter(null);return 1;
+        }
 
         @Override
         public synchronized ContentTranslationCache find(
@@ -728,6 +945,11 @@ class SharedTranslationDeduplicationTest {
 
     private static final class FakeSharedCacheMapper implements SharedTranslationCacheMapper {
         private final Map<SharedKey, SharedTranslationCache> caches = new ConcurrentHashMap<>();
+        @Override public synchronized int invalidateUnchangedReady(byte[] hash,String source,String target,String provider,String profile,String text) {
+            var cache=find(hash,source,target,provider,profile);
+            if(cache==null || !"READY".equals(cache.getStatus()) || !text.equals(cache.getTranslatedText())) return 0;
+            cache.setStatus("FAILED");cache.setTranslatedText(null);cache.setRetryAfter(null);return 1;
+        }
 
         @Override
         public synchronized SharedTranslationCache find(

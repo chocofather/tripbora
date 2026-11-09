@@ -8,6 +8,7 @@
     <resultMap id="DestinationCommentMap" type="com.tripbora.model.DestinationComment">
         <id property="id" column="id"/>
         <result property="parentCommentId" column="parent_comment_id"/>
+        <result property="rating" column="rating"/>
         <result property="content" column="content"/>
         <result property="sourceLanguage" column="source_language"/>
         <result property="likes" column="likes"/>
@@ -23,6 +24,7 @@
     <resultMap id="commentWithWriterMap" type="com.tripbora.model.DestinationComment">
         <id     property="id"         column="c_id"/>
         <result property="content"    column="content"/>
+        <result property="rating" column="rating"/>
         <result property="sourceLanguage" column="source_language"/>
         <result property="createdAt"  column="created_at"/>
         <result property="updatedAt"  column="updated_at"/>
@@ -58,15 +60,49 @@
         <include refid="ModeratedExists"/> AS moderated,
     </sql>
 
+    <!-- users 잠금 후에도 REPEATABLE READ snapshot을 재사용하지 않는 current read. -->
+    <select id="findBlockingReviewId" resultType="long">
+        SELECT c.id
+        FROM destination_comments c
+        LEFT JOIN content_moderations cm
+          ON cm.target_type = 'DESTINATION_COMMENT' AND cm.target_id = c.id AND cm.status = 'ACTIVE'
+        WHERE c.user_id = #{userId} AND c.destination_id = #{destinationId}
+          AND c.parent_comment_id IS NULL AND c.rating IS NOT NULL
+          AND (c.deleted = 0 OR cm.id IS NOT NULL)
+        <if test="excludeId != null">AND c.id != #{excludeId}</if>
+        ORDER BY c.id LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="countVisibleReviews" resultType="int">
+        SELECT COUNT(*) FROM destination_comments c
+        WHERE c.destination_id = #{destinationId} AND c.parent_comment_id IS NULL
+          AND c.deleted = 0 AND NOT <include refid="ModeratedExists"/>
+    </select>
+
+    <select id="findReviewStatistics" resultType="com.tripbora.dto.DestinationReviewStatistics">
+        SELECT COUNT(*) AS review_count,
+               COUNT(c.rating) AS rating_count,
+               AVG(c.rating) AS average_rating,
+               COALESCE(SUM(c.rating = 1), 0) AS rating1_count,
+               COALESCE(SUM(c.rating = 2), 0) AS rating2_count,
+               COALESCE(SUM(c.rating = 3), 0) AS rating3_count,
+               COALESCE(SUM(c.rating = 4), 0) AS rating4_count,
+               COALESCE(SUM(c.rating = 5), 0) AS rating5_count
+        FROM destination_comments c
+        WHERE c.destination_id = #{destinationId} AND c.parent_comment_id IS NULL
+          AND c.deleted = 0 AND NOT <include refid="ModeratedExists"/>
+    </select>
+
     <!-- 댓글 등록 -->
     <insert id="insert" parameterType="DestinationComment" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO destination_comments (
             destination_id, user_id, content, source_language, likes, deleted,
-            created_at, updated_at, parent_comment_id
+            created_at, updated_at, parent_comment_id, rating
         )
         VALUES (
                    #{destinationId}, #{userId}, #{content}, #{sourceLanguage}, #{likes}, #{deleted},
-                   #{createdAt}, #{updatedAt}, #{parentCommentId}
+                   #{createdAt}, #{updatedAt}, #{parentCommentId}, #{rating}
                )
     </insert>
 
@@ -156,6 +192,7 @@
     <update id="updateContent" parameterType="com.tripbora.model.DestinationComment">
         UPDATE destination_comments
         SET content = #{content},
+            rating = #{rating},
             source_language = #{sourceLanguage},
             updated_at = #{updatedAt}
         WHERE id = #{id}
@@ -202,7 +239,10 @@
          AND target_root.deleted = 0
         WHERE preceding.destination_id = #{destinationId}
           AND preceding.parent_comment_id IS NULL
-          AND preceding.deleted = 0
+          AND (preceding.deleted = 0 OR EXISTS (
+              SELECT 1 FROM content_moderations cm
+              WHERE cm.target_type = 'DESTINATION_COMMENT' AND cm.target_id = preceding.id AND cm.status = 'ACTIVE'
+          ))
           AND (
               (target_root.created_at IS NULL AND preceding.created_at IS NOT NULL)
               OR preceding.created_at &gt; target_root.created_at
@@ -217,6 +257,7 @@
     <select id="findByDestinationIdWithWriter" resultMap="commentWithWriterMap">
     SELECT
         c.id as c_id,
+        c.rating,
         CASE WHEN c.deleted = 1 THEN NULL ELSE c.content END AS content,
         c.source_language,
         c.created_at,
@@ -243,6 +284,7 @@
     <select id="findByDestinationIdOrderByCreatedAtDesc" resultMap="commentWithWriterMap">
         SELECT
             c.id as c_id,
+            c.rating,
             CASE WHEN c.deleted = 1 THEN NULL ELSE c.content END AS content,
             c.source_language,
             c.created_at,
@@ -269,6 +311,7 @@
     <select id="findByDestinationIdOrderByLikesDesc" resultMap="commentWithWriterMap">
         SELECT
             c.id as c_id,
+            c.rating,
             CASE WHEN c.deleted = 1 THEN NULL ELSE c.content END AS content,
             c.source_language,
             c.created_at,
@@ -309,7 +352,7 @@
     <!-- 오래된 순 -->
     <select id="findPagedByCreatedAtAsc" resultMap="commentWithWriterMap">
         SELECT
-            c.id as c_id, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
+            c.id as c_id, c.rating, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
             c.parent_comment_id, c.user_id,
             u.id as u_id, u.nickname, u.profile_image, u.status AS u_status
         FROM destination_comments c
@@ -323,7 +366,7 @@
     <!-- 최신순 -->
     <select id="findPagedByCreatedAtDesc" resultMap="commentWithWriterMap">
         SELECT
-            c.id as c_id, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
+            c.id as c_id, c.rating, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
             c.parent_comment_id, c.user_id,
             u.id as u_id, u.nickname, u.profile_image, u.status AS u_status
         FROM destination_comments c
@@ -337,7 +380,7 @@
     <!-- 좋아요순 -->
     <select id="findPagedByLikesDesc" resultMap="commentWithWriterMap">
         SELECT
-            c.id as c_id, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
+            c.id as c_id, c.rating, c.content, c.source_language, c.created_at, c.updated_at, c.likes,
             c.parent_comment_id, c.user_id,
             u.id as u_id, u.nickname, u.profile_image, u.status AS u_status
         FROM destination_comments c
@@ -352,6 +395,9 @@
     <select id="findPagedParentComments" resultMap="commentWithWriterMap">
         SELECT
         c.id as c_id,
+        c.rating,
+        CASE WHEN c.deleted = 0 AND NOT <include refid="ModeratedExists"/>
+             THEN c.rating ELSE NULL END AS sort_rating,
         CASE WHEN c.deleted = 1 THEN NULL ELSE c.content END AS content,
         c.source_language,
         c.created_at, c.updated_at, c.likes,
@@ -374,6 +420,12 @@
             <when test="sort == 'likes'">
                 ORDER BY c.likes DESC, c.created_at DESC, c.id DESC
             </when>
+            <when test="sort == 'rating_desc'">
+                ORDER BY sort_rating IS NULL, sort_rating DESC, c.created_at DESC, c.id DESC
+            </when>
+            <when test="sort == 'rating_asc'">
+                ORDER BY sort_rating IS NULL, sort_rating ASC, c.created_at DESC, c.id DESC
+            </when>
             <otherwise>
                 ORDER BY c.created_at DESC, c.id DESC
             </otherwise>
@@ -385,6 +437,7 @@
     <select id="findRepliesForParents" resultMap="commentWithWriterMap">
         SELECT
         c.id as c_id,
+        c.rating,
         CASE WHEN c.deleted = 1 THEN NULL ELSE c.content END AS content,
         c.source_language,
         c.created_at, c.updated_at, c.likes,

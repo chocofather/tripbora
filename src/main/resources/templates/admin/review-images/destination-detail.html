@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'review-images')}">
+<th:block th:fragment="headFragment">
+<link rel="stylesheet" th:href="@{/css/review-image-management.css}">
+<script th:src="@{/js/admin-review-photo-analysis.js}" defer></script>
+</th:block>
+<th:block th:fragment="body">
+<section class="admin-page-section" data-photo-queue data-photo-workflow
+         th:attr="data-base=@{/admin/review-images/destinations/{id}(id=${destinationId})},data-public=@{/destinations/{id}(id=${destinationId})},data-section=${section},data-status=${status},data-page=${page}">
+<header class="admin-page-header"><div class="admin-page-heading"><h1 class="admin-page-title">리뷰 사진 관리</h1><p class="admin-page-description">여행지 메인 갤러리 활용 심사 · 원본 리뷰 사진은 유지됩니다.</p></div></header>
+<nav class="review-management-tabs" aria-label="사진 관리 구분"><a th:href="@{/admin/review-images}">승인 대기함</a><a th:href="@{/admin/review-images/destinations}" aria-current="page">여행지별 관리</a></nav>
+<div class="review-workflow-heading"><div><a th:href="@{/admin/review-images/destinations}">← 여행지 목록</a><h2 th:text="${destination.destinationName}"></h2><p th:text="|${destination.regionName ?: ''} · 여행지 #${destinationId}|"></p></div><a class="admin-btn" th:href="@{/destinations/{id}(id=${destinationId})}" target="_blank" rel="noopener">공개 상세 보기</a></div>
+<p th:if="${notice}" th:text="${notice}" role="status"></p><p th:if="${error}" th:text="${error}" role="alert"></p>
+<form method="post" th:action="@{/admin/review-images/destinations/{id}/batch(id=${destinationId})}" data-workflow-csrf hidden></form>
+<nav class="review-workflow-sections" aria-label="자동 분류">
+<button type="button" data-section="clean"><span>중복 후보 없음</span><strong data-count="clean">—</strong></button>
+<button type="button" data-section="groups"><span>동일·유사 사진</span><strong data-count="groups">—</strong></button>
+<button type="button" data-section="limited"><span>검사 대기·제한</span><strong data-count="limited">—</strong></button>
+</nav>
+<div class="review-workflow-filter"><label>심사 상태 <select class="admin-select" data-workflow-status><option value="PENDING">미처리 사진 중심</option><option value="ALL">모든 상태</option><option value="APPROVED">승인 완료</option><option value="REJECTED">반려</option><option value="REVOKED">철회·승인 취소</option><option value="NONE">미동의</option></select></label><button type="button" class="admin-btn" data-workflow-all>상태별 전체 사진</button><span data-workflow-total role="status"></span></div>
+<div data-clean-toolbar class="review-workflow-toolbar"><label><input type="checkbox" data-clean-all> 현재 페이지 대기 사진 선택·해제</label><button type="button" class="admin-btn is-primary" data-clean-approve disabled>선택 사진 승인</button><button type="button" class="admin-btn" data-clean-reject disabled>선택 사진 반려</button><span data-batch-blocked role="status"></span></div>
+<p data-workflow-description class="review-analysis-note"></p>
+<p data-workflow-notice role="status"></p><p data-workflow-error role="alert"></p>
+<div data-workflow-grid class="review-workflow-grid" aria-live="polite"></div>
+<nav class="review-image-pagination" aria-label="사진·그룹 페이지"><button type="button" class="admin-btn" data-workflow-prev>이전</button><span data-workflow-page></span><button type="button" class="admin-btn" data-workflow-next>다음</button></nav>
+<noscript>사진 분류와 심사를 사용하려면 JavaScript를 활성화해 주세요.</noscript>
+
+<dialog data-compare-dialog class="review-workflow-dialog" aria-labelledby="comparison-title">
+<div class="review-workflow-heading"><h2 id="comparison-title" data-compare-title>사진 선택 심사</h2><button type="button" class="admin-btn" data-compare-close>닫기</button></div>
+<p data-compare-description class="review-analysis-note"></p><strong data-compare-statistics></strong>
+<div class="review-workflow-toolbar" data-compare-controls hidden><span>승인 가능한 사진을 선택하세요. 선택하지 않은 대기 사진은 반려됩니다.</span><button type="button" class="admin-btn" data-use-all>승인 가능 사진 모두 사용</button><button type="button" class="admin-btn" data-use-none>사용 선택 해제</button></div>
+<p data-compare-chunk class="review-analysis-note"></p>
+<section data-compare-empty hidden><h3>현재 심사 가능한 사진이 없습니다</h3><p data-compare-empty-reasons></p><button type="button" class="admin-btn" data-compare-back>목록으로 돌아가기</button></section>
+<div data-compare-grid>
+<section data-compare-reviewable-section hidden aria-labelledby="reviewable-photos-title"><h3 id="reviewable-photos-title">심사 가능한 사진 <span data-compare-reviewable-count></span></h3><div data-compare-reviewable-grid class="review-workflow-grid"></div></section>
+<section data-compare-reference-section hidden aria-labelledby="reference-photos-title" class="review-comparison-references"><h3 id="reference-photos-title">참고 사진 <span data-compare-reference-count></span></h3><p class="review-analysis-note">동일·유사 비교 참고용입니다. 선택·승인·반려·승인 취소 대상에 포함되지 않습니다.</p><div data-compare-reference-grid class="review-workflow-grid"></div></section>
+</div>
+<div class="review-workflow-decision" data-compare-decision><p data-compare-selection role="status"></p><p id="compare-disabled-reason" data-compare-blocked role="status" hidden></p><button type="button" class="admin-btn is-primary" data-compare-decide aria-describedby="compare-disabled-reason" disabled>선택 사진 승인 · 나머지 반려</button><button type="button" class="admin-btn" data-compare-reject-all disabled>그룹 전체 반려</button></div>
+<p data-compare-error role="alert"></p><nav class="review-image-pagination" aria-label="그룹 내부 페이지"><button type="button" class="admin-btn" data-compare-prev>이전 묶음</button><span data-compare-page></span><button type="button" class="admin-btn" data-compare-next>다음 묶음</button></nav>
+</dialog>
+<dialog data-detail-dialog class="review-workflow-detail" aria-labelledby="photo-detail-title">
+<div class="review-workflow-heading"><h2 id="photo-detail-title">사진 정보</h2><button type="button" class="admin-btn" data-detail-close>닫기</button></div>
+<a data-detail-original target="_blank" rel="noopener"><img data-detail-image alt="리뷰 사진 원본 확대"></a><p data-detail-info></p><a class="admin-btn" data-detail-review>원본 리뷰</a>
+<details data-manual-actions><summary>개별 심사·갤러리 순서</summary><div data-detail-actions class="review-workflow-toolbar"></div></details><p data-detail-error role="alert"></p>
+</dialog>
+</section>
+</th:block></html>

@@ -15,7 +15,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DestinationCommentImageUiContractTest {
 
     @Test
-    void commentFormSendsUpToThreeFilesUnderTheImagesName() throws IOException {
+    void previewIsIndependentAndControlsKeepCountPhotoSubmitOrder() throws IOException {
+        var document = org.jsoup.Jsoup.parse(readFile("src/main/resources/templates/destination/detail.html"));
+        var form = document.selectFirst("#comment-form");
+        assertThat(form.selectFirst(".textarea-wrapper").select(".comment-image-preview")).isEmpty();
+        var preview = form.selectFirst("#comment-image-preview");
+        assertThat(preview.parent()).isSameAs(form);
+        assertThat(preview.hasAttr("hidden")).isTrue();
+        assertThat(preview.previousElementSibling().hasClass("textarea-wrapper")).isTrue();
+        var controls = form.selectFirst(".comment-controls");
+        assertThat(controls.select(".comment-length, .image-upload-label, .submit-btn")
+                .stream().map(element -> element.className()).toList())
+                .containsExactly("comment-length", "image-upload-label", "submit-btn");
+        assertThat(resource("/static/js/comment/events.js")).doesNotContain("ensureDecision", "tripboraGalleryConsent");
+    }
+
+    @Test
+    void commentFormSendsUpToFiveFilesUnderTheImagesName() throws IOException {
         String detail = readFile("src/main/resources/templates/destination/detail.html");
         String input = between(detail, "id=\"comment-image-input\"", ">");
 
@@ -35,11 +51,11 @@ class DestinationCommentImageUiContractTest {
     }
 
     @Test
-    void submitIsBlockedBeforeSendingMoreThanThreeImages() throws IOException {
+    void submitIsBlockedBeforeSendingMoreThanFiveImages() throws IOException {
         String events = resource("/static/js/comment/events.js");
 
         assertThat(events)
-                .contains("const MAX_COMMENT_IMAGES = 3")
+                .contains("const MAX_COMMENT_IMAGES = 5")
                 .contains("detailMessage('commentImageLimit', MAX_COMMENT_IMAGES)")
                 .contains("input[type=\"file\"][name=\"images\"]");
         // 댓글/답글 두 경로 모두 전송 전에 확인한다
@@ -60,8 +76,9 @@ class DestinationCommentImageUiContractTest {
                 // 같은 파일은 다시 담지 않는다
                 .contains("${file.name}|${file.size}|${file.lastModified}")
                 .contains("keys.has(fileKey(file))")
-                // 3장까지만 남기고 초과분은 안내 후 버린다
-                .contains("selected = merged.slice(0, MAX_COMMENT_IMAGES)")
+                // 수정 중 유지하는 기존 사진까지 합쳐 5장으로 제한한다
+                .contains("const available = MAX_COMMENT_IMAGES - retained.length")
+                .contains("selected = merged.slice(0, available)")
                 .contains("alert(detailMessage('commentImageLimit', MAX_COMMENT_IMAGES))")
                 // 개별 삭제 / 등록 후 초기화
                 .contains("selected.splice(index, 1)")
@@ -133,12 +150,11 @@ class DestinationCommentImageUiContractTest {
     }
 
     @Test
-    void galleryViewAllWorksWhenTheTranslatedLabelInsideTheLinkIsClicked() throws IOException {
+    void removedPhotoGalleryHasNoRemainingEventHandlers() throws IOException {
         String events = resource("/static/js/comment/events.js");
 
         assertThat(events)
-                .contains("e.target.closest?.('.view-all')")
-                .doesNotContain("e.target.matches('.view-all')");
+                .doesNotContain(".view-all", "photo-modal", "fetchThumbnails");
     }
 
     private String resource(String path) throws IOException {

@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tripbora.repository.comment.ReviewPhotoAnalysisMapper">
+    <!-- 별도 schema 없이 기존 destination+SHA/band index로 직접 후보만 조사한다. -->
+    <sql id="WorkflowAnalyzed">
+        ${photo}.analysis_destination_id=${comment}.destination_id
+        AND ${photo}.analysis_state IN ('READY','HASH_ONLY')
+        AND ${photo}.file_sha256 REGEXP '^[0-9a-fA-F]{64}$'
+    </sql>
+    <sql id="WorkflowReady">
+        ${photo}.analysis_state='READY' AND ${photo}.analysis_destination_id=${comment}.destination_id
+        AND ${photo}.file_sha256 REGEXP '^[0-9a-fA-F]{64}$'
+        AND ${photo}.perceptual_hash IS NOT NULL
+        AND ${photo}.hash_band_0 IS NOT NULL AND ${photo}.hash_band_1 IS NOT NULL
+        AND ${photo}.hash_band_2 IS NOT NULL AND ${photo}.hash_band_3 IS NOT NULL
+        AND ${photo}.hash_band_0=(${photo}.perceptual_hash &amp; 65535)
+        AND ${photo}.hash_band_1=((${photo}.perceptual_hash &gt;&gt; 16) &amp; 65535)
+        AND ${photo}.hash_band_2=((${photo}.perceptual_hash &gt;&gt; 32) &amp; 65535)
+        AND ${photo}.hash_band_3=((${photo}.perceptual_hash &gt;&gt; 48) &amp; 65535)
+    </sql>
+    <sql id="WorkflowRestrictionReason">
+        <include refid="com.tripbora.repository.comment.DestinationCommentImageMapper.canonicalPhotoRestrictionReason"/>
+    </sql>
+    <sql id="WorkflowEligible">
+        <include refid="com.tripbora.repository.comment.DestinationCommentImageMapper.canonicalPhotoConsent"/>
+        AND <include refid="com.tripbora.repository.comment.DestinationCommentImageMapper.canonicalPhotoPublicConditions"/>
+    </sql>
+    <sql id="WorkflowSimilarRelation">
+        candidate.file_sha256 != anchor.file_sha256
+        AND candidate.analysis_state='READY' AND anchor.analysis_state='READY'
+        AND candidate.perceptual_hash IS NOT NULL AND anchor.perceptual_hash IS NOT NULL
+        AND (candidate.hash_band_0=anchor.hash_band_0 OR candidate.hash_band_1=anchor.hash_band_1
+          OR candidate.hash_band_2=anchor.hash_band_2 OR candidate.hash_band_3=anchor.hash_band_3)
+        AND BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) &lt;= 3
+    </sql>
+    <sql id="WorkflowReviewable">
+        ${photo}.gallery_status IN ('PENDING','APPROVED')
+    </sql>
+    <sql id="WorkflowDuplicate">
+        EXISTS (SELECT 1 FROM destination_comment_images candidate
+          JOIN destination_comments candidate_comment ON candidate_comment.id=candidate.comment_id
+          WHERE candidate.analysis_destination_id=c.destination_id AND candidate_comment.destination_id=c.destination_id
+            AND candidate.id != i.id
+            AND <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="candidate_comment"/></include>
+            AND (candidate.file_sha256=i.file_sha256 OR
+              (i.analysis_state='READY' AND candidate.analysis_state='READY'
+               AND candidate.file_sha256 != i.file_sha256
+               AND (candidate.hash_band_0=i.hash_band_0 OR candidate.hash_band_1=i.hash_band_1
+                 OR candidate.hash_band_2=i.hash_band_2 OR candidate.hash_band_3=i.hash_band_3)
+               AND BIT_COUNT(candidate.perceptual_hash ^ i.perceptual_hash) &lt;= 3)))
+    </sql>
+    <sql id="WorkflowExactCount">
+        SELECT COUNT(*) FROM destination_comment_images candidate
+        JOIN destination_comments candidate_comment ON candidate_comment.id=candidate.comment_id
+        WHERE candidate.analysis_destination_id=c.destination_id AND candidate_comment.destination_id=c.destination_id
+          AND candidate.id != i.id AND candidate.file_sha256=i.file_sha256
+          AND <include refid="WorkflowAnalyzed"><property name="photo" value="i"/><property name="comment" value="c"/></include>
+          AND <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="candidate_comment"/></include>
+    </sql>
+    <sql id="WorkflowSimilarCount">
+        SELECT COUNT(*) FROM destination_comment_images candidate
+        JOIN destination_comments candidate_comment ON candidate_comment.id=candidate.comment_id
+        WHERE candidate.analysis_destination_id=c.destination_id AND candidate_comment.destination_id=c.destination_id
+          AND candidate.id != i.id AND candidate.file_sha256 != i.file_sha256
+          AND <include refid="WorkflowReady"><property name="photo" value="i"/><property name="comment" value="c"/></include>
+          AND <include refid="WorkflowReady"><property name="photo" value="candidate"/><property name="comment" value="candidate_comment"/></include>
+          AND (candidate.hash_band_0=i.hash_band_0 OR candidate.hash_band_1=i.hash_band_1
+            OR candidate.hash_band_2=i.hash_band_2 OR candidate.hash_band_3=i.hash_band_3)
+          AND BIT_COUNT(candidate.perceptual_hash ^ i.perceptual_hash) &lt;= 3
+    </sql>
+    <sql id="WorkflowClassified">
+        WITH workflow_raw AS (
+          SELECT i.*,c.destination_id,c.user_id,c.content,
+            (<include refid="WorkflowAnalyzed"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS analyzed,
+            (<include refid="WorkflowReady"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS ready,
+            (<include refid="WorkflowEligible"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS eligible,
+            (<include refid="WorkflowDuplicate"/>) AS has_duplicate
+          FROM destination_comment_images i JOIN destination_comments c ON c.id=i.comment_id
+          WHERE c.destination_id=#{destinationId}
+          <if test="status != 'ALL'">AND i.gallery_status=#{status}</if>
+        ), workflow_classified AS (
+          SELECT workflow_raw.*, CASE
+            WHEN gallery_status NOT IN ('PENDING','APPROVED') THEN 'limited'
+            WHEN COALESCE(analyzed,0)=1 AND has_duplicate=1 THEN 'groups'
+            WHEN COALESCE(ready,0)=1 AND COALESCE(eligible,0)=1 AND gallery_status='PENDING' THEN 'clean'
+            ELSE 'limited' END AS section
+          FROM workflow_raw
+        )
+    </sql>
+    <select id="workflowCounts" resultType="map">
+        <include refid="WorkflowClassified"/>
+        SELECT COALESCE(SUM(section='clean'),0) AS clean, COALESCE(SUM(section='groups'),0) AS `groups`,
+          COALESCE(SUM(section='limited'),0) AS limited FROM workflow_classified
+    </select>
+    <select id="workflowPhotos" resultType="com.tripbora.dto.ReviewImageAdminDto">
+        <include refid="WorkflowClassified"/>
+        , workflow_page AS (
+          SELECT * FROM workflow_classified
+          <if test="section != 'all'">WHERE section=#{section}</if>
+          ORDER BY id LIMIT #{limit} OFFSET #{offset}
+        )
+        SELECT i.id,i.comment_id,i.image_url,i.gallery_status,i.review_reason,i.created_at,
+          i.destination_id,i.user_id,i.content,owner.nickname,i.analysis_state,i.pixel_width,
+          i.pixel_height,i.mean_brightness,i.sharpness,i.quality_flags,i.gallery_priority,i.gallery_priority_version,
+          i.eligible,
+          (<include refid="WorkflowRestrictionReason"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS eligibility_reason,
+          (<include refid="WorkflowExactCount"/>) AS exact_count,
+          (<include refid="WorkflowSimilarCount"/>) AS similar_count
+        FROM workflow_page i JOIN destination_comments c ON c.id=i.comment_id LEFT JOIN users owner ON owner.id=i.user_id
+        ORDER BY i.id
+    </select>
+    <select id="workflowSelection" resultType="com.tripbora.dto.ReviewPhotoWorkflowPhoto">
+        SELECT i.id,i.comment_id,c.user_id,i.gallery_status,i.file_sha256 AS sha256,
+          i.analysis_state,i.analysis_destination_id,i.perceptual_hash,i.hash_band_0,i.hash_band_1,i.hash_band_2,i.hash_band_3,
+          (<include refid="WorkflowEligible"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS eligible,
+          (<include refid="WorkflowRestrictionReason"><property name="photo" value="i"/><property name="comment" value="c"/></include>) AS eligibility_reason,
+          (<include refid="WorkflowDuplicate"/>) AS `duplicate`
+        FROM destination_comment_images i JOIN destination_comments c ON c.id=i.comment_id
+        WHERE c.destination_id=#{destinationId} AND i.id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach>
+        ORDER BY i.id <if test="lock">FOR UPDATE</if>
+    </select>
+    <!-- SQL에서 group anchor를 먼저 page 처리하며, 유사 그룹은 직접 별(star)을 유지한다. -->
+    <select id="workflowGroups" resultType="com.tripbora.dto.ReviewPhotoWorkflowGroup">
+        SELECT * FROM (
+          SELECT anchor.id AS anchor_id,'exact' AS kind,anchor.file_sha256 AS group_key,
+            COUNT(*) AS total,SUM(candidate.gallery_status='PENDING') AS pending,SUM(candidate.gallery_status='APPROVED') AS approved,
+            SUM(CASE WHEN <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include> THEN 1 ELSE 0 END) AS reviewable,
+            SUM(CASE WHEN candidate.gallery_status='PENDING' AND <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include> THEN 1 ELSE 0 END) AS reviewable_pending
+          FROM destination_comment_images anchor JOIN destination_comments ac ON ac.id=anchor.comment_id
+          JOIN destination_comment_images candidate ON candidate.analysis_destination_id=ac.destination_id AND candidate.file_sha256=anchor.file_sha256
+          JOIN destination_comments c ON c.id=candidate.comment_id AND c.destination_id=ac.destination_id
+          WHERE ac.destination_id=#{destinationId}
+            AND <include refid="WorkflowAnalyzed"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+            AND <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            AND anchor.id=(SELECT MIN(first_photo.id) FROM destination_comment_images first_photo
+              JOIN destination_comments first_comment ON first_comment.id=first_photo.comment_id
+              WHERE first_photo.analysis_destination_id=ac.destination_id AND first_comment.destination_id=ac.destination_id
+                AND first_photo.file_sha256=anchor.file_sha256
+                AND <include refid="WorkflowAnalyzed"><property name="photo" value="first_photo"/><property name="comment" value="first_comment"/></include>)
+          GROUP BY anchor.id,anchor.file_sha256
+          HAVING COUNT(*) &gt; 1 AND SUM(CASE WHEN
+            <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            AND <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            <if test="status != 'ALL'">AND candidate.gallery_status=#{status}</if>
+            THEN 1 ELSE 0 END) &gt; 0
+          UNION ALL
+          SELECT anchor.id AS anchor_id,'similar' AS kind,CAST(anchor.id AS CHAR) AS group_key,
+            COUNT(*) AS total,SUM(candidate.gallery_status='PENDING') AS pending,SUM(candidate.gallery_status='APPROVED') AS approved,
+            SUM(CASE WHEN <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include> THEN 1 ELSE 0 END) AS reviewable,
+            SUM(CASE WHEN candidate.gallery_status='PENDING' AND <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include> THEN 1 ELSE 0 END) AS reviewable_pending
+          FROM destination_comment_images anchor JOIN destination_comments ac ON ac.id=anchor.comment_id
+          JOIN destination_comment_images candidate ON candidate.analysis_destination_id=ac.destination_id
+          JOIN destination_comments c ON c.id=candidate.comment_id AND c.destination_id=ac.destination_id
+          WHERE ac.destination_id=#{destinationId}
+            AND <include refid="WorkflowReady"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+            AND <include refid="WorkflowReady"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            AND (candidate.id=anchor.id OR (<include refid="WorkflowSimilarRelation"/>))
+          GROUP BY anchor.id
+          HAVING SUM(candidate.id &gt; anchor.id) &gt; 0 AND SUM(CASE WHEN
+            <include refid="WorkflowReviewable"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            <if test="status != 'ALL'">AND candidate.gallery_status=#{status}</if>
+            THEN 1 ELSE 0 END) &gt; 0
+        ) workflow_groups ORDER BY reviewable_pending DESC,reviewable DESC,anchor_id,kind LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <!-- 최대 20개 anchor 각각 네 장만 UNION: preview N+1과 그룹 전체 materialization 방지. -->
+    <select id="workflowPreviews" resultType="com.tripbora.dto.ReviewPhotoWorkflowPreview">
+        <foreach collection="groups" item="group" separator=" UNION ALL ">
+          (SELECT anchor.id AS anchor_id,#{group.kind} AS kind,candidate.id,candidate.comment_id,candidate.image_url,
+            candidate.gallery_status,c.user_id,owner.nickname,(candidate.file_sha256=anchor.file_sha256) AS exact,
+            (<include refid="WorkflowEligible"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>) AS eligible,
+            (<include refid="WorkflowRestrictionReason"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>) AS eligibility_reason,
+            BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) AS distance
+           FROM destination_comment_images anchor JOIN destination_comments ac ON ac.id=anchor.comment_id
+           JOIN destination_comment_images candidate ON candidate.analysis_destination_id=ac.destination_id
+           JOIN destination_comments c ON c.id=candidate.comment_id AND c.destination_id=ac.destination_id
+           LEFT JOIN users owner ON owner.id=c.user_id
+           WHERE anchor.id=#{group.anchorId} AND ac.destination_id=#{destinationId}
+             AND <include refid="WorkflowAnalyzed"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+             AND <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+             <choose>
+               <when test="group.kind == 'exact'">AND candidate.file_sha256=anchor.file_sha256</when>
+               <otherwise>
+                 AND <include refid="WorkflowReady"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+                 AND <include refid="WorkflowReady"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+                 AND (candidate.id=anchor.id OR (<include refid="WorkflowSimilarRelation"/>))
+               </otherwise>
+             </choose>
+           ORDER BY (candidate.id=anchor.id) DESC,candidate.id LIMIT 4)
+        </foreach>
+    </select>
+    <select id="selection" resultType="com.tripbora.dto.ReviewPhotoMatch">
+        SELECT i.id, i.comment_id, c.user_id, i.gallery_status, i.file_sha256 AS sha256
+        FROM destination_comment_images i JOIN destination_comments c ON c.id=i.comment_id
+        WHERE c.destination_id=#{destinationId} AND i.analysis_destination_id=#{destinationId}
+          AND i.analysis_state IN ('READY','HASH_ONLY') AND i.id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach>
+        ORDER BY i.id <if test="lock">FOR UPDATE</if>
+    </select>
+    <!-- 유사 후보는 기준 사진의 직접 이웃만 조회한다. 연결 성분/전이 관계로 합치지 않는다. -->
+    <sql id="GroupFrom">
+        FROM destination_comment_images anchor JOIN destination_comments ac ON ac.id=anchor.comment_id
+        JOIN destination_comment_images candidate ON candidate.analysis_destination_id=ac.destination_id
+        JOIN destination_comments c ON c.id=candidate.comment_id AND c.destination_id=ac.destination_id
+        LEFT JOIN users u ON u.id=c.user_id
+        WHERE anchor.id=#{imageId} AND ac.destination_id=#{destinationId}
+          AND anchor.analysis_destination_id=ac.destination_id
+          AND anchor.analysis_state IN ('READY','HASH_ONLY') AND candidate.analysis_state IN ('READY','HASH_ONLY')
+          AND anchor.file_sha256 IS NOT NULL
+          AND <include refid="WorkflowAnalyzed"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+          AND <include refid="WorkflowAnalyzed"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+        <choose>
+          <when test="kind == 'exact'">AND candidate.file_sha256=anchor.file_sha256</when>
+          <otherwise>
+            AND <include refid="WorkflowReady"><property name="photo" value="anchor"/><property name="comment" value="ac"/></include>
+            AND <include refid="WorkflowReady"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>
+            AND (candidate.id=anchor.id OR (candidate.file_sha256 != anchor.file_sha256
+              AND anchor.analysis_state='READY' AND candidate.analysis_state='READY'
+              AND (candidate.hash_band_0=anchor.hash_band_0 OR candidate.hash_band_1=anchor.hash_band_1
+                OR candidate.hash_band_2=anchor.hash_band_2 OR candidate.hash_band_3=anchor.hash_band_3)
+              AND BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) &lt;= 3))
+          </otherwise>
+        </choose>
+    </sql>
+    <select id="groupPage" resultType="com.tripbora.dto.ReviewPhotoMatch">
+        SELECT candidate.id, candidate.comment_id, candidate.image_url, candidate.gallery_status, c.user_id, u.nickname,
+          (<include refid="WorkflowEligible"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>) AS eligible,
+          (<include refid="WorkflowRestrictionReason"><property name="photo" value="candidate"/><property name="comment" value="c"/></include>) AS eligibility_reason,
+          (candidate.file_sha256=anchor.file_sha256) AS exact,
+          BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) AS distance
+        <include refid="GroupFrom"/>
+        ORDER BY (candidate.id=anchor.id) DESC, candidate.id LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <select id="groupCounts" resultType="map">
+        SELECT COUNT(*) AS total, COALESCE(SUM(candidate.gallery_status='APPROVED'),0) AS approved,
+          COALESCE(SUM(CASE WHEN candidate.gallery_status='APPROVED' THEN
+            CASE WHEN <include refid="WorkflowEligible"><property name="photo" value="candidate"/><property name="comment" value="c"/></include> THEN 1 ELSE 0 END
+            ELSE 0 END),0) AS reviewableApproved,
+          COALESCE(SUM(candidate.gallery_status='PENDING'),0) AS pending,
+          COALESCE(SUM(candidate.gallery_status='REJECTED'),0) AS rejected,
+          COALESCE(SUM(candidate.gallery_status='REVOKED'),0) AS revoked,
+          COALESCE(SUM(candidate.gallery_status='NONE'),0) AS none
+        <include refid="GroupFrom"/>
+    </select>
+    <update id="expireExhausted">
+        UPDATE destination_comment_images SET analysis_state = 'FAILED', analysis_token = NULL,
+          analysis_lease_until = NULL
+        WHERE analysis_state = 'RUNNING' AND analysis_attempts &gt;= 3
+          AND analysis_lease_until &lt;= CURRENT_TIMESTAMP LIMIT #{limit}
+    </update>
+    <sql id="Due">
+        analysis_attempts &lt; 3 AND (analysis_state = 'PENDING'
+          OR (analysis_state = 'FAILED' AND analysis_next_attempt &lt;= CURRENT_TIMESTAMP)
+          OR (analysis_state = 'RUNNING' AND analysis_lease_until &lt;= CURRENT_TIMESTAMP))
+    </sql>
+    <select id="findDue" resultType="com.tripbora.dto.ReviewPhotoAnalysisJob">
+        SELECT i.id, i.comment_id, i.image_url, c.destination_id FROM destination_comment_images i
+        JOIN destination_comments c ON c.id = i.comment_id
+        WHERE c.destination_id IS NOT NULL AND <include refid="Due"/>
+        ORDER BY i.id LIMIT #{limit}
+    </select>
+    <update id="claim">
+        UPDATE destination_comment_images SET analysis_state = 'RUNNING', analysis_token = #{token},
+          analysis_attempts = analysis_attempts + 1, analysis_lease_until = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 MINUTE)
+        WHERE id = #{id} AND <include refid="Due"/>
+    </update>
+    <update id="complete">
+        UPDATE destination_comment_images i
+        SET i.analysis_state = 'READY', i.analysis_version = 1, i.analysis_token = NULL,
+          i.analysis_lease_until = NULL, i.analysis_next_attempt = NULL, i.analyzed_at = CURRENT_TIMESTAMP,
+          i.analysis_destination_id = #{job.destinationId}, i.file_sha256 = #{result.sha256},
+          i.perceptual_hash = #{result.dHash}, i.hash_band_0 = #{b0}, i.hash_band_1 = #{b1},
+          i.hash_band_2 = #{b2}, i.hash_band_3 = #{b3}, i.pixel_width = #{result.width},
+          i.pixel_height = #{result.height}, i.mean_brightness = #{result.brightness},
+          i.sharpness = #{result.sharpness}, i.quality_flags = #{result.qualityFlags}
+        WHERE i.id = #{job.id} AND i.image_url = #{job.imageUrl} AND i.comment_id = #{job.commentId}
+          AND i.analysis_state = 'RUNNING' AND i.analysis_token = #{token}
+    </update>
+    <update id="fail">
+        UPDATE destination_comment_images SET analysis_state = 'FAILED', analysis_token = NULL,
+          analysis_lease_until = NULL, analysis_next_attempt = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 MINUTE)
+        WHERE id = #{id} AND analysis_state = 'RUNNING' AND analysis_token = #{token}
+    </update>
+    <update id="completeHashOnly">
+        UPDATE destination_comment_images i
+        SET i.analysis_state = 'HASH_ONLY', i.analysis_version = 1, i.analysis_token = NULL,
+          i.analysis_lease_until = NULL, i.analysis_next_attempt = NULL, i.analyzed_at = CURRENT_TIMESTAMP,
+          i.analysis_destination_id = #{job.destinationId}, i.file_sha256 = #{sha256}
+        WHERE i.id = #{job.id} AND i.image_url = #{job.imageUrl} AND i.comment_id = #{job.commentId}
+          AND i.analysis_state = 'RUNNING' AND i.analysis_token = #{token}
+    </update>
+    <select id="matches" resultType="com.tripbora.dto.ReviewPhotoMatch">
+        SELECT candidate.id, candidate.comment_id, candidate.image_url, u.nickname,
+          (candidate.file_sha256 = anchor.file_sha256) AS exact,
+          BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) AS distance
+        FROM destination_comment_images anchor JOIN destination_comments ac ON ac.id = anchor.comment_id
+        JOIN destination_comment_images candidate ON candidate.analysis_destination_id = ac.destination_id
+        JOIN destination_comments c ON c.id = candidate.comment_id AND c.destination_id = ac.destination_id
+        LEFT JOIN users u ON u.id = c.user_id
+        WHERE anchor.id = #{imageId} AND ac.destination_id = #{destinationId}
+          AND anchor.analysis_state IN ('READY','HASH_ONLY') AND candidate.analysis_state IN ('READY','HASH_ONLY') AND candidate.id != anchor.id
+          AND (candidate.file_sha256 = anchor.file_sha256 OR
+              ((candidate.hash_band_0 = anchor.hash_band_0 OR candidate.hash_band_1 = anchor.hash_band_1
+                OR candidate.hash_band_2 = anchor.hash_band_2 OR candidate.hash_band_3 = anchor.hash_band_3)
+               AND BIT_COUNT(candidate.perceptual_hash ^ anchor.perceptual_hash) &lt;= 3))
+        ORDER BY exact DESC, distance, candidate.id LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

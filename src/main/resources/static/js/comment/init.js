@@ -1,8 +1,7 @@
 import {
     getDestinationId,
     fetchCommentsPage,
-    fetchCommentLocation,
-    fetchThumbnails
+    fetchCommentLocation
 } from './api.js';
 
 import {
@@ -17,16 +16,15 @@ import {
     initCommentForm,
     bindCommentActions,
     bindReplySubmit,
-    bindGalleryEvents,
     bindSingleImageModal,
     setupSortDropdownEvent
 } from './events.js';
 
-import { initPhotoModal } from './modal.js';
 import {
     appendComments,
     renderComments,
-    renderThumbnails
+    renderReviewStatistics,
+    revealReviewTarget
 } from './render.js';
 import { detailMessage } from './messages.js';
 
@@ -43,27 +41,29 @@ export function init() {
 
     const pageSize = 5;
     let currentSort = 'latest';
+    let dateSort = 'latest';
     let nextPage = 0;
     let isLoading = false;
     let isLastPage = false;
     let requestGeneration = 0;
 
     initGuestRedirect();
-
-    const openModal = initPhotoModal(
-        '#photo-modal',
-        '#sidebar-thumbnails',
-        '#main-photo'
-    );
-
-    function reloadThumbnails() {
-        fetchThumbnails(destinationId)
-            .then(data => renderThumbnails(data, '.photo-review-list', openModal))
-            .catch(err => console.error('썸네일 로드 실패:', err));
-    }
+    const composer = document.getElementById('review-composer');
+    const writeButton = document.querySelector('.review-write-toggle');
+    writeButton?.addEventListener('click', () => {
+        if (!composer) return;
+        composer.hidden = !composer.hidden;
+        writeButton.setAttribute('aria-expanded', String(!composer.hidden));
+        if (!composer.hidden) (composer.querySelector('input[name="rating"]') || composer.querySelector('textarea'))?.focus();
+    });
 
     function updateSortUi() {
         sortButtons.forEach(button => {
+            if (button.hasAttribute('data-date-sort')) {
+                button.dataset.commentSort = dateSort;
+                button.textContent = dateSort === 'latest'
+                    ? `${button.dataset.latestLabel} ↓` : `${button.dataset.oldestLabel} ↑`;
+            }
             const active = button.dataset.commentSort === currentSort;
             button.classList.toggle('is-active', active);
             button.setAttribute('aria-pressed', String(active));
@@ -90,10 +90,11 @@ export function init() {
             nextPage = 0;
             isLastPage = false;
             setLoadedComments([]);
-            renderComments([], commentListEl);
+            // 응답을 받을 때 교체해 열린 답글과 기존 내용을 유지한다.
         }
 
         isLoading = true;
+        commentListEl?.setAttribute('aria-busy', 'true');
         updateMoreButton();
 
         try {
@@ -109,16 +110,23 @@ export function init() {
                 appendComments(data.content, commentListEl);
             }
 
-            if (countEl) countEl.textContent = String(data.totalCommentCount ?? 0);
+            if (countEl) countEl.textContent = String(data.reviewCount ?? 0);
+            renderReviewStatistics(data.reviewStatistics);
             nextPage = page + 1;
             isLastPage = Boolean(data.last);
         } catch (error) {
             if (generation === requestGeneration) {
+                const summary = document.getElementById('review-summary');
+                if (summary && summary.dataset.loaded !== 'true') {
+                    summary.setAttribute('aria-busy', 'false');
+                    document.getElementById('review-average').textContent = detailMessage('reviewLoadFailed');
+                }
                 console.error('댓글 목록 갱신 실패:', error);
             }
         } finally {
             if (generation !== requestGeneration) return;
             isLoading = false;
+            commentListEl?.setAttribute('aria-busy', 'false');
             updateMoreButton();
         }
     }
@@ -143,6 +151,7 @@ export function init() {
             }
 
             await loadCommentPage({reset: true, pageOverride: targetPage});
+            revealReviewTarget(commentListEl, targetCommentId);
             if (!deepLink.focusTarget(commentListEl, 'data-id', targetCommentId)) {
                 deepLink.scrollToSection(commentSectionEl);
             }
@@ -154,7 +163,11 @@ export function init() {
     }
 
     setupSortDropdownEvent(commentSectionEl, sort => {
-        if (!['latest', 'oldest', 'likes'].includes(sort) || sort === currentSort) return;
+        if (sort === 'latest' || sort === 'oldest') {
+            dateSort = currentSort === sort ? (sort === 'latest' ? 'oldest' : 'latest') : dateSort;
+            sort = dateSort;
+        }
+        if (!['latest', 'oldest', 'likes', 'rating_desc', 'rating_asc'].includes(sort) || sort === currentSort) return;
         currentSort = sort;
         updateSortUi();
         void reloadComments();
@@ -165,17 +178,15 @@ export function init() {
     });
 
     if (commentFormEl) {
-        bindReplySubmit(commentListEl, destinationId, reloadComments);
-        initCommentForm(destinationId, reloadComments, reloadThumbnails);
+        if (!commentSectionEl?.hasAttribute('data-reviews-only')) bindReplySubmit(commentListEl, destinationId, reloadComments);
+        initCommentForm(destinationId, reloadComments);
     }
-    bindCommentActions(commentListEl, reloadComments, reloadThumbnails);
+    bindCommentActions(commentListEl, reloadComments);
 
-    bindGalleryEvents(destinationId, openModal);
     bindSingleImageModal();
 
     updateSortUi();
     void loadInitialComments();
-    reloadThumbnails();
 }
 
 document.addEventListener('DOMContentLoaded', init);

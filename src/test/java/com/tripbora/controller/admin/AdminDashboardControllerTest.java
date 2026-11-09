@@ -30,6 +30,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(AdminController.class)
 @Import(SecurityConfig.class)
 class AdminDashboardControllerTest {
+    @MockitoBean com.tripbora.repository.comment.DestinationCommentImageMapper reviewImages;
+    @Test void dashboardLinksPendingQueueWithIndexedCount() throws Exception {
+        org.mockito.Mockito.when(reviewImages.countPendingPhotos()).thenReturn(17L);
+        var document=adminPage();
+        assertThat(document.select("a[href='/admin/review-images?status=PENDING']").text()).contains("17");
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -82,6 +88,7 @@ class AdminDashboardControllerTest {
                         "/admin/diary/stickers",
                         "/admin/cover-library/reports",
                         "/admin/contents",
+                        "/admin/review-images?status=PENDING",
                         "/admin/courses"));
         assertThat(document.select(".admin-dashboard-card:nth-child(7) p").text())
                 .isEqualTo("관리자가 숨긴 글·코스·댓글을 확인하고 복구합니다.");

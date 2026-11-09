@@ -1,7 +1,6 @@
 package com.tripbora.controller.destination;
 
 import com.tripbora.dto.CommentDto;
-import com.tripbora.dto.CommentImageDto;
 import com.tripbora.dto.CommentLocationDto;
 import com.tripbora.dto.PageResult;
 import com.tripbora.security.ClientIpResolver;
@@ -99,7 +98,9 @@ public class DestinationCommentController {
         String content = payload.get("content"); // 프론트에서 받은 수정된 댓글 내용
 
         // 서비스 호출: 수정 성공 여부 반환
-        boolean result = destinationCommentService.updateComment(commentId, userDetails.getId(), content);
+        boolean result = destinationCommentService.updateComment(commentId, userDetails.getId(), content,
+                com.tripbora.service.comment.DestinationReviewPolicy.parseRating(payload.get("rating")),
+                payload.containsKey("rating"));
 
         if (result) {
             return ResponseEntity.ok().build(); // 성공
@@ -113,25 +114,18 @@ public class DestinationCommentController {
                                     @RequestParam("content") String content,
                                     @RequestParam(value = "images", required = false) List<MultipartFile> images,
                                     @RequestParam(value = "parentCommentId", required = false) Long parentCommentId,
+                                    @RequestParam(value = "rating", required = false) Integer rating,
+                                    @RequestParam(required = false) Long photoUploadPolicyVersionId,
                                     @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
             CommentDto dto = destinationCommentService.create(
-                    destinationId, userDetails.getId(), content, images, parentCommentId);
+                    destinationId, userDetails.getId(), content, images, parentCommentId, rating, photoUploadPolicyVersionId);
             return ResponseEntity.ok(dto);
         } catch (CommentImageLimitException | UnsupportedImageFormatException e) {
             // 프런트에서 그대로 안내할 수 있도록 메시지를 JSON 으로 돌려준다. (사진 수·형식 오류)
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
-    }
-
-    // 댓글 이미지 추출
-    @GetMapping("/images")
-    public ResponseEntity<List<CommentImageDto>> getCommentImages(@RequestParam Long destinationId,
-                                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
-        destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
-        List<CommentImageDto> images = destinationCommentService.getCommentImageDtos(destinationId);
-        return ResponseEntity.ok(images);
     }
 
     @GetMapping("/list/page")
@@ -140,11 +134,14 @@ public class DestinationCommentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(defaultValue = "false") boolean rootsOnly,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         destinationCommentService.requireDestinationAccessible(destinationId, isAdministrator(userDetails));
         Long userId = (userDetails != null) ? userDetails.getId() : null;
-        PageResult<CommentDto> result = destinationCommentService.getCommentsPaged(destinationId, userId, page, size, sort);
+        PageResult<CommentDto> result = rootsOnly
+                ? destinationCommentService.getCommentsPaged(destinationId, userId, page, size, sort, true)
+                : destinationCommentService.getCommentsPaged(destinationId, userId, page, size, sort);
         return ResponseEntity.ok(result);
     }
 

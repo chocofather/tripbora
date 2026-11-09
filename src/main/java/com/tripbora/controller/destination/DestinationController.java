@@ -15,6 +15,7 @@ import com.tripbora.service.category.ReferenceNameLocalizationService;
 import com.tripbora.service.comment.DestinationCommentService;
 import com.tripbora.service.destination.DestinationImageService;
 import com.tripbora.service.destination.DestinationService;
+import com.tripbora.service.destination.DestinationGalleryService;
 import com.tripbora.service.file.DestinationCardThumbnailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,6 +63,7 @@ public class DestinationController {
     private final DestinationCommentService destinationCommentService;
     private final ReferenceNameLocalizationService referenceNameLocalizationService;
     private final DestinationCardThumbnailService cardThumbnailService;
+    private final DestinationGalleryService destinationGalleryService;
 
     // 공통 리스트: type=domestic or overseas, region(도시, 국가 등) id
     @GetMapping("/destinations")
@@ -241,7 +243,7 @@ public class DestinationController {
         SupportedLanguage requestedLanguage = SupportedLanguage
                 .fromLocale(LocaleContextHolder.getLocale())
                 .orElse(SupportedLanguage.KOREAN);
-        DestinationDetailDto dto = destinationService.getDestinationDetailWithInfo(
+        DestinationDetailDto dto = destinationService.getPublicDestinationDetailWithInfo(
                 id, requestedLanguage);
         boolean administrator = userDetails != null && userDetails.getAuthorities().stream()
                 .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
@@ -256,8 +258,17 @@ public class DestinationController {
 
         model.addAttribute("destination", dto.getDestination());
         model.addAttribute("images", dto.getImages());
-        model.addAttribute("hasImageAttribution", dto.getImages() != null
-                && dto.getImages().stream().anyMatch(DestinationImage::isAttributionPresent));
+        // 비공개 여행지의 관리자 미리보기에는 공개 갤러리 API를 사용하지 않는다.
+        var galleryPage = dto.getDestination().isPublicVisible()
+                ? destinationGalleryService.page(id, "ALL", null)
+                : new com.tripbora.dto.DestinationGalleryPage(List.of(), null, null);
+        var galleryImages = galleryPage.items();
+        model.addAttribute("galleryImages", galleryImages);
+        model.addAttribute("galleryNextCursor", galleryPage.nextCursor());
+        model.addAttribute("galleryPreviousCursor", galleryPage.previousCursor());
+        model.addAttribute("galleryEndpoint", dto.getDestination().isPublicVisible()
+                ? "/destinations/" + id + "/gallery" : null);
+        model.addAttribute("hasImageAttribution", galleryImages.stream().anyMatch(DestinationImage::isAttributionPresent));
 
         model.addAttribute("descriptionParagraphs", descriptionParagraphs(dto.getDestination().getDescription()));
         model.addAttribute("wikipediaSource", destinationService.findDisplayedWikipediaSource(

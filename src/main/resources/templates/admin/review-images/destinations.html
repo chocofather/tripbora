@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'review-images')}">
+<th:block th:fragment="headFragment"><link rel="stylesheet" th:href="@{/css/review-image-management.css}"></th:block>
+<th:block th:fragment="body"><section class="admin-page-section">
+<header class="admin-page-header"><div class="admin-page-heading"><h1 class="admin-page-title">리뷰 사진 관리</h1><p class="admin-page-description">여행지별 리뷰 사진과 메인 갤러리 활용 심사 현황입니다.</p></div></header>
+<nav class="review-management-tabs" aria-label="사진 관리 구분"><a th:href="@{/admin/review-images}">승인 대기함</a><a th:href="@{/admin/review-images/destinations}" aria-current="page">여행지별 관리</a></nav>
+<form method="get" th:action="@{/admin/review-images/destinations}" class="admin-filter-card review-queue-filter">
+<label>여행지명 <input class="admin-input" name="q" maxlength="100" th:value="${q}"></label>
+<label>정렬 <select class="admin-select" name="sort"><option value="pending" th:selected="${sort == 'pending'}">승인 대기 많은 순</option><option value="latest" th:selected="${sort == 'latest'}">여행지 등록 최신순</option></select></label><button class="admin-btn is-primary">검색</button></form>
+<p>저장된 사진의 심사 상태 기준입니다. 전체에는 미동의 사진도 포함되며, 공개 갤러리의 실제 노출 수와는 다를 수 있습니다.</p>
+<div class="review-destination-list"><article class="admin-card review-destination-row" th:each="destination : ${destinations}">
+<div><h2><a th:href="@{/admin/review-images/destinations/{id}(id=${destination.destinationId})}" th:text="${destination.destinationName}"></a></h2>
+<p th:text="|${destination.regionName ?: ''} · ${destination.categoryNames ?: ''}|"></p><small th:text="|ID ${destination.destinationId} · 사진이 연결된 리뷰 ${destination.reviewCount}개|"></small></div>
+<div th:replace="~{admin/review-images/destinations :: statistics(${destination})}"></div>
+</article></div>
+<p th:if="${#lists.isEmpty(destinations)}">사진이 등록된 여행지가 없습니다.</p>
+<nav class="review-image-pagination" aria-label="여행지 목록 페이지"><a class="admin-btn" th:if="${page > 0}" th:href="@{/admin/review-images/destinations(q=${q},sort=${sort},page=${page - 1})}">이전</a><span th:text="${page + 1}"></span><a class="admin-btn" th:if="${hasNext}" th:href="@{/admin/review-images/destinations(q=${q},sort=${sort},page=${page + 1})}">다음</a></nav>
+</section></th:block>
+<div th:fragment="statistics(destination)" class="review-destination-statistics">
+<span>전체 <strong th:text="${destination.total}"></strong></span><span>대기 <strong th:text="${destination.pending}"></strong></span><span>승인 <strong th:text="${destination.approved}"></strong></span><span>반려 <strong th:text="${destination.rejected}"></strong></span><span>철회·승인 취소 <strong th:text="${destination.revoked}"></strong></span><span>미동의 <strong th:text="${destination.none}"></strong></span>
+</div></html>

@@ -9,6 +9,9 @@ import java.util.List;
 
 @Mapper
 public interface ContentTranslationCacheMapper {
+    int invalidateUnchangedReady(@Param("contentType") String contentType, @Param("contentId") Long contentId,
+            @Param("sourceField") String sourceField, @Param("targetLanguage") String targetLanguage,
+            @Param("sourceHash") byte[] sourceHash, @Param("translatedText") String translatedText);
     ContentTranslationCache find(@Param("contentType") String contentType,
                                  @Param("contentId") Long contentId,
                                  @Param("sourceField") String sourceField,

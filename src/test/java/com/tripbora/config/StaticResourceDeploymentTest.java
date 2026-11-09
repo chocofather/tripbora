@@ -34,6 +34,31 @@ class StaticResourceDeploymentTest {
     @TempDir Path directory;
 
     @Test
+    void commentImportMapRendersCurrentHashedModuleTargets() throws Exception {
+        var source = Jsoup.parse(Files.readString(Path.of("src/main/resources/templates/destination/detail.html")));
+        write("templates/inventory.html", "<html><head>" + source.selectFirst("script[type=importmap]").outerHtml() + "</head></html>");
+        try (var loader = new URLClassLoader(new java.net.URL[]{directory.toUri().toURL()}, getClass().getClassLoader());
+             var context = new AnnotationConfigWebApplicationContext()) {
+            context.setClassLoader(loader);
+            context.setServletContext(new MockServletContext());
+            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context, "custom.upload-path=" + directory);
+            context.register(DeploymentApplication.class);
+            context.refresh();
+            var mvc = MockMvcBuilders.webAppContextSetup(context)
+                    .addFilters(context.getBean(ResourceUrlEncodingFilter.class)).build();
+            var html = mvc.perform(get("/inventory")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            var imports = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(Jsoup.parse(html).selectFirst("script[type=importmap]").data()).get("imports");
+            assertThat(imports.size()).isEqualTo(5);
+            for (var target : imports) {
+                assertThat(target.asText()).matches("/js/comment/.+-[a-f0-9]{32}\\.js");
+                var response = mvc.perform(get(target.asText())).andExpect(status().isOk()).andReturn().getResponse();
+                assertThat(response.getContentType()).contains("javascript");
+            }
+        }
+    }
+
+    @Test
     void everyLiteralCssAndScriptReferenceInTemplatesUsesAnExistingHashedResource() throws Exception {
         var references = new LinkedHashSet<String>();
         var template = new StringBuilder("<html><head>");

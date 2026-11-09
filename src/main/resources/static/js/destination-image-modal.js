@@ -21,6 +21,11 @@
     let previousOverflow = '';
     let gesture = null;
     let ignoreImageClick = false;
+    let galleryScope = true;
+    let pagedGallery = null;
+    let navigation = 0;
+    let moving = false;
+    let retryStep = 1;
 
     function getModal() {
         return document.getElementById(MODAL_ID);
@@ -36,8 +41,18 @@
 
     function render(modal) {
         const modalImage = modal.querySelector('.image-modal-img');
-        const source = images[currentIndex];
-        if (!modalImage || !source) return;
+        const source = pagedGallery ? pagedGallery.current() : images[currentIndex];
+        if (!modalImage) return;
+        if (!source) {
+            modalImage.removeAttribute('src');
+            const caption = document.getElementById(CAPTION_ID);
+            if (caption) caption.hidden = true;
+            if (pagedGallery) {
+                modal.querySelector('.image-modal-nav.prev').disabled = !pagedGallery.canMove(-1);
+                modal.querySelector('.image-modal-nav.next').disabled = !pagedGallery.canMove(1);
+            }
+            return;
+        }
 
         modalImage.classList.remove('is-error');
         modalImage.src = source.currentSrc || source.src;
@@ -47,10 +62,18 @@
         if (mobile.matches) modalImage.setAttribute('draggable', 'false');
         else modalImage.removeAttribute('draggable');
         // 이미지가 한 장뿐이면 좌/우 버튼을 숨긴다.
-        modal.classList.toggle('is-single', images.length <= 1);
-        document.dispatchEvent(new CustomEvent('destination-gallery-change', {
-            detail: {index: currentIndex}
-        }));
+        modal.classList.toggle('is-single', !pagedGallery && images.length <= 1);
+        if (pagedGallery) {
+            modal.querySelector('.image-modal-nav.prev').disabled = !pagedGallery.canMove(-1);
+            modal.querySelector('.image-modal-nav.next').disabled = !pagedGallery.canMove(1);
+        } else {
+            modal.querySelectorAll('.image-modal-nav').forEach(button => { button.disabled = false; });
+        }
+        if (galleryScope && !pagedGallery) {
+            document.dispatchEvent(new CustomEvent('destination-gallery-change', {
+                detail: {index: currentIndex}
+            }));
+        }
     }
 
     function captionNode(tag, text) {
@@ -71,11 +94,27 @@
      * 지금 보이는 사진의 출처. 캐러셀 아래 출처와 같은 값(제공처 · 라이선스 · 촬영 · 크레딧 · 출처 링크)을
      * 있는 것만 이어 붙인다. 출처 정보가 없는 사진은 캡션을 숨긴다.
      */
-    function renderCaption(source) {
-        const caption = document.getElementById(CAPTION_ID);
+    function renderCaption(source, caption = document.getElementById(CAPTION_ID)) {
         if (!caption) return;
         const data = source.closest('.slide')?.dataset || {};
-        const labels = caption.dataset;
+        const labels = document.getElementById(CAPTION_ID)?.dataset || caption.dataset;
+
+        const reviewId = data.reviewId || source.dataset.reviewId;
+        if (reviewId && /^\d+$/.test(reviewId)) {
+            const link = captionNode('a', labels.reviewLinkLabel || '');
+            // 두 식별자 모두 서버/현재 상세 URL에서 얻는다. 외부 주소나 HTML은 사용하지 않는다.
+            const destinationId = window.location.pathname.split('/').pop();
+            const reviewUrl = data.reviewUrl || (/^\d+$/.test(destinationId)
+                ? `/destinations/${destinationId}?commentId=${reviewId}` : null);
+            const nodes = [captionNode('span', labels.travelerPhotoLabel || '')];
+            if (reviewUrl) {
+                link.href = reviewUrl;
+                nodes.push(link);
+            }
+            caption.replaceChildren(...nodes);
+            caption.hidden = false;
+            return;
+        }
 
         if (!data.sourceName && !data.licenseLabel && !data.photographer && !data.sourceUrl) {
             caption.replaceChildren();
@@ -111,8 +150,26 @@
     }
 
     /** 순환 이동. 첫 장에서 이전 -> 마지막, 마지막에서 다음 -> 첫 장. */
-    function move(step) {
+    async function move(step) {
         const modal = getModal();
+        if (pagedGallery) {
+            if (moving || !modal) return;
+            moving = true; retryStep = step;
+            const version = navigation;
+            const status = modal.querySelector('[data-gallery-viewer-status]');
+            const retry = modal.querySelector('[data-gallery-viewer-retry]');
+            const labels = document.getElementById('destination-detail-i18n')?.dataset || {};
+            if (status) status.textContent = labels.galleryLoading || '';
+            if (retry) retry.hidden = true;
+            modal.setAttribute('aria-busy', 'true');
+            const moved = await pagedGallery.move(step);
+            if (version !== navigation) return;
+            moving = false; modal.setAttribute('aria-busy', 'false');
+            render(modal);
+            if (status) status.textContent = pagedGallery.error() ? labels.galleryLoadFailed : !moved ? labels.galleryContinue : '';
+            if (retry) retry.hidden = !pagedGallery.error();
+            return;
+        }
         if (!modal || images.length <= 1) return;
         currentIndex = (currentIndex + step + images.length) % images.length;
         render(modal);
@@ -128,8 +185,15 @@
         const modal = getModal();
         if (!modal) return;
 
-        images = collectImages();
+        const group = image.closest('.comment-images');
+        galleryScope = !group;
+        pagedGallery = !group ? window.TripBoraGallery?.viewerFor?.(image) : null;
+        images = pagedGallery ? [] : group ? Array.from(group.querySelectorAll('.comment-image')) : collectImages();
         currentIndex = Math.max(images.indexOf(image), 0);
+        navigation++; moving = false;
+        modal.querySelector('[data-gallery-viewer-status]')?.replaceChildren();
+        const retry = modal.querySelector('[data-gallery-viewer-retry]');
+        if (retry) retry.hidden = true;
         returnFocus = image;
         previousOverflow = document.body.style.overflow;
         gesture = null;
@@ -170,19 +234,23 @@
     }
 
     function finishClose(modal) {
+        if (!modal.classList.contains('is-open')) return;
         modal.classList.remove('is-open', 'is-fallback');
         document.body.style.overflow = previousOverflow;
         gesture = null;
         ignoreImageClick = false;
         // -1은 탭 순서를 추가하지 않고 프로그램 포커스 복귀만 허용한다.
         // 모달 이동은 기존 캐러셀의 활성 사진도 바꾸므로 현재 보이는 사진으로 복귀한다.
-        const focusTarget = returnFocus && (images[currentIndex] || returnFocus);
+        const focusTarget = pagedGallery ? pagedGallery.focus() : returnFocus && (images[currentIndex] || returnFocus);
         if (focusTarget?.isConnected) {
             const tabindex = focusTarget.getAttribute('tabindex');
             if (tabindex === null) focusTarget.setAttribute('tabindex', '-1');
             focusTarget.focus({preventScroll: true});
         }
         returnFocus = null;
+        pagedGallery?.cancel();
+        navigation++; moving = false; pagedGallery = null; images = [];
+        modal.removeAttribute('aria-busy');
         modal.setAttribute('aria-hidden', 'true');
 
         const modalImage = modal.querySelector('.image-modal-img');
@@ -200,6 +268,9 @@
             event.preventDefault();
             closeModal();
             return;
+        }
+        if (target.closest('[data-gallery-viewer-retry]')) {
+            event.preventDefault(); void move(retryStep); return;
         }
 
         // 좌/우 이동. 닫기(이미지·배경 클릭)로 이어지지 않도록 여기서 끊는다.
@@ -237,10 +308,17 @@
             return;
         }
 
-        const image = target.closest(IMAGE_SELECTOR);
-        if (!image) return;
+        // contain 이미지 주변 여백과 전환 중 down/up 대상의 공통 조상(track)도 같은 사진을 연다.
+        const surface = target.closest('.carousel .slide, .carousel');
+        const image = target.closest(IMAGE_SELECTOR) || (surface && !target.closest('.nav')
+            ? (surface.querySelector('.slide.active img') || surface.querySelector('img')) : null);
+        const reviewImage = target.closest('.comment-image');
+        const gridImage = target.closest('[data-gallery-tile]')?.querySelector('img');
+        if (!image && !reviewImage && !gridImage) return;
+        if (window.TripBoraGallery?.suppressClick && image) { event.preventDefault(); event.stopPropagation(); return; }
         event.preventDefault();
-        openModal(image);
+        event.stopPropagation();
+        openModal(image || reviewImage || gridImage);
     }, true);
 
     // pan-y는 세로 제스처를 브라우저에 맡기고 가로 이동만 이 모달이 처리한다.
@@ -275,6 +353,8 @@
         if (!isOpen(modal)) return;
 
         if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
             closeModal();
             return;
         }
@@ -301,6 +381,7 @@
      * 모든 슬라이드가 실패하면 캐러셀째 숨긴다(인덱스가 어긋나지 않게 슬라이드는 지우지 않는다).
      */
     function hideBrokenImage(image) {
+        if (window.TripBoraGallery?.discard?.(image)) return;
         const cover = image.closest('.carousel.no-image');
         if (cover) {
             cover.hidden = true;
@@ -318,10 +399,14 @@
         const target = event.target;
         if (!target || typeof target.matches !== 'function') return;
         if (target.matches('.image-modal-img')) {
+            if (pagedGallery && target.getAttribute('src')) {
+                pagedGallery.discard(); render(getModal()); return;
+            }
             if (target.getAttribute('src')) target.classList.add('is-error');
             return;
         }
         if (target.matches(IMAGE_SELECTOR)) hideBrokenImage(target);
+        else if (target.matches('#destination-gallery-grid img, .destination-gallery-thumbnails img')) window.TripBoraGallery?.discard?.(target);
     }, true);
 
     // 스크립트보다 먼저 실패한 사진. 지연 로딩 사진은 아직 받기 전일 수 있어 위 리스너에 맡긴다.
@@ -330,4 +415,5 @@
             hideBrokenImage(image);
         }
     });
+    window.TripBoraImageViewer = {caption: renderCaption};
 })();

@@ -59,11 +59,11 @@ class LocaleStreamingRuntimeRegressionTest {
     void embeddedRuntimeResolvesHeaderAndDestinationDetailMessagesForEverySupportedLocale()
             throws Exception {
         List<LocaleExpectation> expectations = List.of(
-                new LocaleExpectation("ko", "국내", "로그인", "편의시설", "지도", "사진 후기"),
-                new LocaleExpectation("en", "Domestic", "Log in", "Amenities", "Map", "Photo Reviews"),
-                new LocaleExpectation("ja", "国内", "ログイン", "設備・サービス", "地図", "写真レビュー"),
-                new LocaleExpectation("zh-CN", "国内", "登录", "便利设施", "地图", "照片点评"),
-                new LocaleExpectation("zh-TW", "國內", "登入", "便利設施", "地圖", "照片評論")
+                new LocaleExpectation("ko", "국내", "로그인", "편의시설", "지도", "여행자 리뷰"),
+                new LocaleExpectation("en", "Domestic", "Log in", "Amenities", "Map", "Traveler reviews"),
+                new LocaleExpectation("ja", "国内", "ログイン", "設備・サービス", "地図", "旅行者のレビュー"),
+                new LocaleExpectation("zh-CN", "国内", "登录", "便利设施", "地图", "旅行者点评"),
+                new LocaleExpectation("zh-TW", "國內", "登入", "便利設施", "地圖", "旅客評論")
         );
 
         for (LocaleExpectation expectation : expectations) {

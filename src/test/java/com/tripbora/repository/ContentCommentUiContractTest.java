@@ -144,7 +144,7 @@ class ContentCommentUiContractTest {
         assertThat(resource("static/js/comment/api.js"))
                 .contains("/comments/${commentId}/like-toggle")
                 .contains("/comments/list/page")
-                .contains("/comments/images");
+                .doesNotContain("/comments/images");
     }
 
     @Test

@@ -110,6 +110,7 @@ public class SecurityConfig {
                         .requestMatchers(publicUploadPatterns()).permitAll()
                         // 메인 여행지 카드 썸네일. 공개 여행지 사진(destinations)을 줄인 것뿐이다.
                         .requestMatchers(HttpMethod.GET, "/thumbnails/destinations/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/review-photo-terms").permitAll()
 
                         /* === 비회원도 접근 가능한 공개 영역 === */
                         .requestMatchers(
@@ -148,7 +149,7 @@ public class SecurityConfig {
                                 "/bookmarks/check",    // NEW
                                 "/bookmarks/count",     // NEW
                                 // ✅ 댓글 목록 및 이미지 조회는 비로그인도 접근 가능하게 설정
-                                "/comments/list", "/comments/images",  "/comments/list/page",
+                                "/comments/list",   "/comments/list/page",
                                 "/events", "/events/**",
                                 "/board/list", "/board/fragment"
                                 ).permitAll()

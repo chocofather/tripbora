@@ -5,6 +5,15 @@
 
 <mapper namespace="com.tripbora.repository.user.AccountPurgeMapper">
 
+    <update id="revokeReviewImageConsents">
+        UPDATE destination_comment_images i
+        JOIN destination_comments c ON c.id = i.comment_id
+        SET i.gallery_status = 'REVOKED',
+            i.gallery_consent_withdrawn_at = CURRENT_TIMESTAMP
+        WHERE c.user_id = #{userId}
+          AND i.gallery_status IN ('PENDING', 'APPROVED', 'REJECTED')
+    </update>
+
     <!--
       회원당 한 건(user_id UNIQUE)이라 잠그고 확인하면 같은 회원을 두 번 처리하지 않는다.
       앞선 시도가 롤백되지 않고 남은 비정상 상황에서도 여기서 기존 job 을 찾아 이어 쓴다.

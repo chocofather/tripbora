@@ -8,6 +8,9 @@ import java.sql.Timestamp;
 
 @Mapper
 public interface SharedTranslationCacheMapper {
+    int invalidateUnchangedReady(@Param("sourceHash") byte[] sourceHash, @Param("sourceLanguage") String sourceLanguage,
+            @Param("targetLanguage") String targetLanguage, @Param("provider") String provider,
+            @Param("translationProfile") String translationProfile, @Param("translatedText") String translatedText);
     SharedTranslationCache find(@Param("sourceHash") byte[] sourceHash,
                                 @Param("sourceLanguage") String sourceLanguage,
                                 @Param("targetLanguage") String targetLanguage,

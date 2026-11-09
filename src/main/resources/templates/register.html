@@ -109,6 +109,10 @@
           약관 항목은 DB 의 현재 정책 세트가 정한다. 필수/선택 표시도 화면 문자열이 아니라
           policy_versions.is_required 를 그대로 따른다. 아직 활성화한 정책이 없으면 이 영역은 비어 있다.
         -->
+        <th:block th:if="${signupPolicies != null}">
+          <input type="hidden" name="shownPolicyVersionIds" th:each="policy : ${signupPolicies.policies}"
+                 th:value="${policy.policyVersionId}">
+        </th:block>
         <div class="terms-card" th:if="${signupPolicies != null and !signupPolicies.empty}">
           <label class="terms-summary" for="agreeAll"
                  th:if="${!signupPolicies.consentPolicies.isEmpty()}">

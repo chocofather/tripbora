@@ -71,7 +71,7 @@ class DestinationSubregionSelectionTest {
                 countryCategoryService, destinationCommentService,
                 referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
 
         when(countryCategoryService.getById(38L)).thenReturn(seoul);
         when(countryCategoryService.getById(235L)).thenReturn(jongno);

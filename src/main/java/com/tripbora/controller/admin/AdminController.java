@@ -20,6 +20,7 @@ public class AdminController {
     private final DestinationService destinationService;
     private final AdminUserService adminUserService;
     private final AdminAppealService adminAppealService;
+    private final com.tripbora.repository.comment.DestinationCommentImageMapper reviewImages;
 
     @GetMapping
     public String adminHome(Model model) {
@@ -31,6 +32,7 @@ public class AdminController {
         model.addAttribute("restrictedUserCount",
                 adminUserService.countUsers(null, UserStatus.RESTRICTED));
         model.addAttribute("pendingAppealCount", adminAppealService.countPendingAppeals());
+        model.addAttribute("pendingReviewPhotoCount", reviewImages.countPendingPhotos());
         return "admin/index";
     }
 

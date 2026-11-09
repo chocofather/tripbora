@@ -75,7 +75,7 @@ class DestinationListCategoryFilterTest {
         controller = new DestinationController(destinationService, destinationImageService,
                 countryCategoryService, destinationCommentService, referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
         when(countryCategoryService.getById(38L)).thenReturn(region(38L, "서울", 3, 7L));
         when(countryCategoryService.getSubregions(38L, 4)).thenReturn(List.of());
         when(countryCategoryService.getAllRegionIdsUnder(38L)).thenReturn(SEOUL_REGION_IDS);

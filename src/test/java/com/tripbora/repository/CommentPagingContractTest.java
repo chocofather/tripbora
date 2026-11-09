@@ -70,7 +70,8 @@ class CommentPagingContractTest {
                 .contains("countRootComments(destinationId)")
                 .contains("countByDestinationId(destinationId)")
                 .contains("offset >= totalThreads")
-                .contains("new PageResult<>(List.of(), totalThreads")
+                .contains("reviewPage(List.of(), totalThreads")
+                .contains("findReviewStatistics(destinationId)")
                 .contains("case \"recent\", \"latest\" -> \"latest\"");
     }
 
@@ -102,7 +103,7 @@ class CommentPagingContractTest {
                 .contains("let currentSort = 'latest'")
                 .contains("requestGeneration")
                 .contains("Boolean(data.last)")
-                .contains("data.totalCommentCount")
+                .contains("data.reviewCount")
                 .contains("concatComments(data.content)")
                 .doesNotContain("content.length <");
     }

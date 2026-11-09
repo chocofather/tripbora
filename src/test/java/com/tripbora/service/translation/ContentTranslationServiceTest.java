@@ -480,6 +480,10 @@ class ContentTranslationServiceTest {
     }
 
     private static final class InMemoryCacheMapper implements ContentTranslationCacheMapper {
+        @Override public synchronized int invalidateUnchangedReady(String type,Long id,String field,String target,byte[] hash,String text) {
+            if(value==null || !"READY".equals(value.getStatus()) || !Arrays.equals(hash,value.getSourceHash()) || !text.equals(value.getTranslatedText())) return 0;
+            value.setStatus("FAILED");value.setTranslatedText(null);value.setRetryAfter(null);return 1;
+        }
         private ContentTranslationCache value;
 
         @Override

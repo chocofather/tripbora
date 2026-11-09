@@ -1,5 +1,7 @@
 package com.tripbora.service.comment;
 
+import com.tripbora.service.policy.GalleryConsentService;
+
 import com.tripbora.dto.CommentDto;
 import com.tripbora.dto.CommentImageDto;
 import com.tripbora.dto.CommentLocationDto;
@@ -43,9 +45,9 @@ import java.util.stream.Collectors;
 public class DestinationCommentService {
     private static final int DEFAULT_PAGE_SIZE = 5;
     /** 댓글 하나에 첨부할 수 있는 사진 수 (DB CHECK 제약과 동일) */
-    public static final int MAX_COMMENT_IMAGES = 3;
+    public static final int MAX_COMMENT_IMAGES = 5;
     /** 상단 사진 후기에 노출할 사진 수 (기존 정책 유지) */
-    private static final int GALLERY_LIMIT = 12;
+    private static final int MAIN_REVIEW_GALLERY_LIMIT = 30;
 
     private final DestinationMapper destinationMapper; // 또는 별도 CommentMapper
     private final DestinationCommentMapper destinationCommentMapper;
@@ -54,6 +56,12 @@ public class DestinationCommentService {
     private final FileUploadService fileUploadService;
     private final LocalContentLanguageDetector languageDetector;
     private final WithdrawnMemberName withdrawnMemberName;
+    private com.tripbora.service.policy.GalleryConsentService galleryConsentService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setGalleryConsentService(com.tripbora.service.policy.GalleryConsentService service) {
+        this.galleryConsentService = service;
+    }
 
     @Value("${custom.upload-path}")
     private String uploadPath;
@@ -135,6 +143,11 @@ public class DestinationCommentService {
 
     @Transactional
     public boolean updateComment(Long commentId, Long userId, String content) {
+        return updateComment(commentId, userId, content, null, false);
+    }
+
+    @Transactional
+    public boolean updateComment(Long commentId, Long userId, String content, Integer rating, boolean ratingSpecified) {
         // 댓글 1개 조회
         DestinationComment comment = destinationCommentMapper.findById(commentId);
 
@@ -142,6 +155,12 @@ public class DestinationCommentService {
         if (comment == null || comment.getDeleted() || !comment.getUserId().equals(userId)) {
             return false;
         }
+
+        var policy = new DestinationReviewPolicy(destinationCommentMapper, destinationCommentImageMapper);
+        policy.lockWriter(userId, comment.getDestinationId());
+        comment = destinationCommentImageMapper.lockComment(commentId);
+        if (comment == null || !userId.equals(comment.getUserId())) return false;
+        policy.edit(comment, rating, ratingSpecified, content);
 
         // 내용과 수정 시간 업데이트
         comment.setContent(content);
@@ -154,12 +173,27 @@ public class DestinationCommentService {
     }
 
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public CommentDto create(Long destinationId,
                              Long userId,
                              String content,
                              List<MultipartFile> images,
                              Long parentCommentId) {
+        return create(destinationId, userId, content, images, parentCommentId, null);
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public CommentDto create(Long destinationId, Long userId, String content, List<MultipartFile> images,
+                             Long parentCommentId, Integer rating) {
+        return create(destinationId, userId, content, images, parentCommentId, rating, null);
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public CommentDto create(Long destinationId, Long userId, String content, List<MultipartFile> images,
+                             Long parentCommentId, Integer rating, Long photoUploadPolicyVersionId) {
+        new DestinationReviewPolicy(destinationCommentMapper, destinationCommentImageMapper)
+                .create(userId, destinationId, parentCommentId, rating, content);
+        // 신규 사진의 동의 snapshot과 회원의 철회를 같은 users 잠금으로 직렬화한다.
         // 1) 실제로 내용이 있는 파일만 추린 뒤 개수를 검증한다.
         List<MultipartFile> uploads = (images == null ? List.<MultipartFile>of() : images).stream()
                 .filter(file -> file != null && !file.isEmpty())
@@ -168,6 +202,13 @@ public class DestinationCommentService {
             throw new CommentImageLimitException(
                     "사진은 최대 " + MAX_COMMENT_IMAGES + "장까지 첨부할 수 있습니다.");
         }
+        GalleryConsentService.UploadLicenseGrant license = null;
+        if (!uploads.isEmpty()) {
+            if (galleryConsentService == null)
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "사진 업로드 이용조건을 확인할 수 없습니다.");
+            license = galleryConsentService.requireUploadLicense(userId, photoUploadPolicyVersionId);
+        }
 
         /*
           2) 파일 저장. 게시글·코스 댓글과 같은 공통 이미지 저장을 쓴다.
@@ -175,8 +216,10 @@ public class DestinationCommentService {
           한 장이라도 거부되면 앞서 저장한 사진도 지우고 요청 전체를 실패시킨다.
         */
         List<String> savedImageUrls = new ArrayList<>();
+        ReviewImageService.rollbackCleanup(savedImageUrls, fileUploadService);
         try {
             for (MultipartFile imageFile : uploads) {
+                ReviewImageService.validateDimensions(fileUploadService, imageFile);
                 savedImageUrls.add(fileUploadService.saveFile(imageFile, "comments"));
             }
         } catch (RuntimeException e) {
@@ -195,13 +238,15 @@ public class DestinationCommentService {
         comment.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         comment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         comment.setParentCommentId(parentCommentId);
+        comment.setRating(rating);
 
         // 4) DB 저장 (MyBatis라면 auto_increment 키 적용됨)
         destinationCommentMapper.insert(comment);
 
         // 5) 첨부 사진을 순서대로 저장. 실패하면 저장해 둔 실제 파일도 정리한다.
+        List<CommentImageDto> savedPhotos;
         try {
-            saveCommentImages(comment.getId(), savedImageUrls);
+            savedPhotos = saveCommentImages(comment.getId(), savedImageUrls, license);
         } catch (RuntimeException e) {
             deleteStoredFiles(savedImageUrls);
             throw e;
@@ -219,10 +264,12 @@ public class DestinationCommentService {
         dto.setContent(comment.getContent());
         applyTranslationMetadata(dto, comment);
         dto.setImageUrls(List.copyOf(savedImageUrls));
+        dto.setPhotos(savedPhotos);
         dto.setCreatedAt(comment.getCreatedAt().toString());
         dto.setUpdatedAt(comment.getUpdatedAt().toString());
         dto.setLikes(0); // 최초 0
         dto.setParentCommentId(comment.getParentCommentId());
+        dto.setRating(comment.getRating());
         dto.setWriter(writerDto);
         dto.setMyComment(true);
         dto.setAdmin(user.getRole().equals("ADMIN"));
@@ -233,16 +280,22 @@ public class DestinationCommentService {
     }
 
 
-    /**
-     * 상단 사진 후기(사진 모아보기).
-     * 댓글 한 건에 사진이 여러 장이면 각각 독립된 사진으로 노출되며,
-     * 최신 댓글 → 같은 댓글 안에서는 display_order 순서를 따른다.
-     */
-    public List<CommentImageDto> getCommentImageDtos(Long destinationId) {
-        return destinationCommentImageMapper
-                .findGalleryByDestinationId(destinationId, GALLERY_LIMIT).stream()
-                .map(image -> new CommentImageDto(image.getImageUrl()))
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public List<com.tripbora.dto.ReviewGalleryPhoto> getApprovedGalleryPhotos(Long destinationId) {
+        var gallery = new ArrayList<com.tripbora.dto.ReviewGalleryPhoto>(MAIN_REVIEW_GALLERY_LIMIT);
+        var candidates = destinationCommentImageMapper.findApprovedGallery(destinationId, MAIN_REVIEW_GALLERY_LIMIT,
+                java.time.LocalDateTime.now());
+        long offset = 0;
+        while (true) {
+            for (var photo : candidates) {
+                if (fileUploadService.commentFileExists(photo.getImageUrl())) gallery.add(photo);
+                if (gallery.size() == MAIN_REVIEW_GALLERY_LIMIT) return List.copyOf(gallery);
+            }
+            if (candidates.size() < MAIN_REVIEW_GALLERY_LIMIT) return List.copyOf(gallery);
+            // 없는 파일이 앞 순위를 차지해도 뒤의 유효 사진을 누락하지 않는다. 한 번에 30건만 읽는다.
+            offset += candidates.size();
+            candidates = destinationCommentImageMapper.findApprovedGalleryPage(destinationId, MAIN_REVIEW_GALLERY_LIMIT, offset);
+        }
     }
 
 
@@ -317,14 +370,15 @@ public class DestinationCommentService {
 
         final boolean isAdmin = isAdmin(currentUserId);
         // 첨부 사진은 댓글마다 조회하지 않고 한 번에 읽는다.
-        Map<Long, List<String>> imagesByComment = loadImageUrlsByCommentId(comments);
+        Map<Long, List<CommentImageDto>> imagesByComment = loadImageUrlsByCommentId(comments);
 
         return comments.stream().map(comment -> {
             CommentDto dto = new CommentDto();
             dto.setId(comment.getId());
+            dto.setRating(comment.isModerated() || Boolean.TRUE.equals(comment.getDeleted()) ? null : comment.getRating());
             dto.setContent(comment.getContent());
             applyTranslationMetadata(dto, comment);
-            dto.setImageUrls(imagesByComment.getOrDefault(comment.getId(), List.of()));
+            applyCommentPhotos(dto, imagesByComment.getOrDefault(comment.getId(), List.of()));
             dto.setCreatedAt(comment.getCreatedAt().toString());
             dto.setUpdatedAt(comment.getUpdatedAt().toString());
             dto.setLikes(comment.getLikes().intValue());
@@ -363,9 +417,10 @@ public class DestinationCommentService {
      * 댓글 목록의 첨부 사진을 한 번에 읽어 댓글 ID별로 묶는다. (댓글마다 SELECT 하지 않는다)
      * 삭제/관리자 조치된 댓글은 조회 대상에서 빼서 사진이 노출되지 않도록 한다.
      */
-    private Map<Long, List<String>> loadImageUrlsByCommentId(List<DestinationComment> comments) {
+    private Map<Long, List<CommentImageDto>> loadImageUrlsByCommentId(List<DestinationComment> comments) {
         List<Long> visibleCommentIds = comments.stream()
                 .filter(comment -> !Boolean.TRUE.equals(comment.getDeleted()))
+                .filter(comment -> !comment.isModerated())
                 .map(DestinationComment::getId)
                 .toList();
         if (visibleCommentIds.isEmpty()) {
@@ -376,20 +431,24 @@ public class DestinationCommentService {
                 .collect(Collectors.groupingBy(
                         DestinationCommentImage::getCommentId,
                         LinkedHashMap::new,
-                        Collectors.mapping(DestinationCommentImage::getImageUrl, Collectors.toList())));
+                        Collectors.mapping(image -> new CommentImageDto(image.getId(), image.getImageUrl()), Collectors.toList())));
     }
 
-    /** 첨부 사진을 display_order 1,2,3 순서로 저장한다. */
-    private void saveCommentImages(Long commentId, List<String> imageUrls) {
+    /** 첨부 사진을 display_order 1~5 순서로 저장한다. */
+    private List<CommentImageDto> saveCommentImages(Long commentId, List<String> imageUrls, GalleryConsentService.UploadLicenseGrant license) {
+        List<CommentImageDto> photos = new ArrayList<>();
         for (int i = 0; i < imageUrls.size(); i++) {
             DestinationCommentImage image = new DestinationCommentImage();
             image.setCommentId(commentId);
             image.setImageUrl(imageUrls.get(i));
             image.setDisplayOrder(i + 1);
+            galleryConsentService.applyToNewImage(image, license);
             if (destinationCommentImageMapper.insert(image) != 1) {
                 throw new IllegalStateException("댓글 이미지를 저장하지 못했습니다.");
             }
+            photos.add(new CommentImageDto(image.getId(), image.getImageUrl()));
         }
+        return List.copyOf(photos);
     }
 
     /** 저장에 실패했을 때 이미 올라간 실제 파일을 정리한다. (기존 이미지 삭제 방식과 동일) */
@@ -405,16 +464,25 @@ public class DestinationCommentService {
         }
     }
 
+    @Transactional(readOnly = true)
     public PageResult<CommentDto> getCommentsPaged(Long destinationId, Long userId, int page, int size, String sort) {
+        return getCommentsPaged(destinationId, userId, page, size, sort, false);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<CommentDto> getCommentsPaged(Long destinationId, Long userId, int page, int size, String sort,
+                                                  boolean rootsOnly) {
         int safePage = Math.max(page, 0);
         int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, 50);
         String safeSort = normalizePageSort(sort);
         int totalThreads = destinationCommentMapper.countRootComments(destinationId);
         int totalCommentCount = destinationCommentMapper.countByDestinationId(destinationId);
+        var statistics = destinationCommentMapper.findReviewStatistics(destinationId);
+        if (statistics == null) statistics = new com.tripbora.dto.DestinationReviewStatistics();
         long offset = (long) safePage * safeSize;
 
         if (totalThreads == 0 || offset >= totalThreads) {
-            return new PageResult<>(List.of(), totalThreads, safePage, safeSize, totalCommentCount);
+            return reviewPage(List.of(), totalThreads, safePage, safeSize, totalCommentCount, statistics);
         }
 
         // 1. 부모 댓글만 페이징으로 가져오기
@@ -422,7 +490,7 @@ public class DestinationCommentService {
                 destinationId, (int) offset, safeSize, safeSort);
 
         if (parentComments.isEmpty()) {
-            return new PageResult<>(List.of(), totalThreads, safePage, safeSize, totalCommentCount);
+            return reviewPage(List.of(), totalThreads, safePage, safeSize, totalCommentCount, statistics);
         }
 
         // 2. 부모 ID 목록 뽑아서
@@ -431,7 +499,7 @@ public class DestinationCommentService {
                 .toList();
 
         // 3. 그 부모들의 모든 대댓글(자식) 한 번에 조회
-        List<DestinationComment> replies = parentIds.isEmpty()
+        List<DestinationComment> replies = rootsOnly || parentIds.isEmpty()
                 ? List.of()
                 : destinationCommentMapper.findRepliesForParents(destinationId, parentIds);
 
@@ -440,14 +508,22 @@ public class DestinationCommentService {
         merged.addAll(replies);
 
         // 5. DTO 변환 (첨부 사진은 부모+자식 전체를 한 번에 조회)
-        Map<Long, List<String>> imagesByComment = loadImageUrlsByCommentId(merged);
+        Map<Long, List<CommentImageDto>> imagesByComment = loadImageUrlsByCommentId(merged);
         // 보고 있는 사람이 관리자인지는 댓글 수와 상관없는 값 하나다. 목록 경로와 같이 한 번만 읽는다.
         boolean viewerIsAdmin = isAdmin(userId);
         List<CommentDto> dtos = merged.stream()
                 .map(c -> enrichComment(c, userId, viewerIsAdmin, imagesByComment))
                 .toList();
 
-        return new PageResult<>(dtos, totalThreads, safePage, safeSize, totalCommentCount);
+        return reviewPage(dtos, totalThreads, safePage, safeSize, totalCommentCount, statistics);
+    }
+
+    private PageResult<CommentDto> reviewPage(List<CommentDto> content, int threads, int page, int size,
+                                             int comments, com.tripbora.dto.DestinationReviewStatistics statistics) {
+        var result = new PageResult<>(content, threads, page, size, comments);
+        result.setReviewCount(statistics.getReviewCount());
+        result.setReviewStatistics(statistics);
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -470,6 +546,7 @@ public class DestinationCommentService {
         return switch (sort == null ? "" : sort) {
             case "oldest" -> "oldest";
             case "likes" -> "likes";
+            case "rating_desc", "rating_asc" -> sort;
             case "recent", "latest" -> "latest";
             default -> "latest";
         };
@@ -479,12 +556,13 @@ public class DestinationCommentService {
 
     private CommentDto enrichComment(DestinationComment comment, Long currentUserId,
                                      boolean currentUserIsAdmin,
-                                     Map<Long, List<String>> imagesByComment) {
+                                     Map<Long, List<CommentImageDto>> imagesByComment) {
         CommentDto dto = new CommentDto();
         dto.setId(comment.getId());
+        dto.setRating(comment.isModerated() || Boolean.TRUE.equals(comment.getDeleted()) ? null : comment.getRating());
         dto.setContent(comment.getContent());
         applyTranslationMetadata(dto, comment);
-        dto.setImageUrls(imagesByComment.getOrDefault(comment.getId(), List.of()));
+        applyCommentPhotos(dto, imagesByComment.getOrDefault(comment.getId(), List.of()));
         dto.setCreatedAt(comment.getCreatedAt().toString());
         dto.setUpdatedAt(comment.getUpdatedAt().toString());
         dto.setLikes(comment.getLikes().intValue());
@@ -506,6 +584,11 @@ public class DestinationCommentService {
         dto.setLikedByMe(liked);
 
         return dto;
+    }
+
+    private void applyCommentPhotos(CommentDto dto, List<CommentImageDto> photos) {
+        dto.setPhotos(photos);
+        dto.setImageUrls(photos.stream().map(CommentImageDto::getImageUrl).toList());
     }
 
     /**
@@ -549,7 +632,7 @@ public class DestinationCommentService {
         dto.setSourceLanguage(sourceLanguage);
         dto.setTranslationAvailable(!Boolean.TRUE.equals(comment.getDeleted())
                 && !comment.isModerated()
-                && TranslationVisibility.shouldOffer(sourceLanguage, targetLanguage));
+                && TranslationVisibility.shouldOffer(sourceLanguage, targetLanguage, comment.getContent()));
     }
 
     // 여러 여행지 댓글 수 카운트

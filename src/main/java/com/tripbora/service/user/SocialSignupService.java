@@ -15,6 +15,7 @@ import com.tripbora.service.policy.PolicyConsentDecision;
 import com.tripbora.service.policy.PolicyConsentPersistenceException;
 import com.tripbora.service.policy.PolicyConsentRecorder;
 import com.tripbora.service.policy.PolicyConsentRequiredException;
+import com.tripbora.service.policy.PolicySnapshotException;
 import com.tripbora.service.policy.SignupPolicyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -175,13 +176,19 @@ public class SocialSignupService {
     }
 
     /**
-     * 현재 가입 정책 세트로 동의 여부를 판정한다. 화면이 보낸 id 중 세트에 없는 값은 버려지므로
-     * 임의의 policy version id 로 필수 동의를 대신할 수 없다.
+     * 현재 필수 정책 구성과 표시했던 전체 버전을 검증한 후 동의 여부를 판정한다.
      */
     private List<PolicyConsentDecision> resolveConsentDecisions(SocialSignupForm form) {
         List<Long> agreed = form == null ? null : form.getAgreedPolicyVersionIds();
         try {
-            return signupPolicyService.loadSignupPolicies().decide(agreed);
+            return signupPolicyService.loadSignupPolicies().decide(agreed,
+                    form == null ? null : form.getShownPolicyVersionIds());
+        } catch (PolicySnapshotException exception) {
+            if (form != null) {
+                form.setAgreedPolicyVersionIds(List.of());
+            }
+            throw new SocialSignupValidationException(
+                    "agreedPolicyVersionIds", exception.getMessage(), exception.getMessageCode());
         } catch (PolicyConsentRequiredException exception) {
             throw new SocialSignupValidationException(
                     "agreedPolicyVersionIds", exception.getMessage(), exception.getMessageCode());

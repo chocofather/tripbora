@@ -19,9 +19,12 @@ public class RegistrationForm {
      *
      * <p>필수 동의 판정은 Bean Validation 이 아니라 서버가 다시 조회한 현재 정책 세트가 한다.
      * 어떤 정책이 필수인지는 화면 문자열이 아니라 policy_versions.is_required 가 정하기 때문이다.
-     * 세트에 없는 id 는 버려지므로 예전 버전 id 를 보내도 동의로 처리되지 않는다.
+     * 표시 버전과 현재 정책을 대조하므로 예전 버전 id 는 동의로 처리되지 않는다.
      */
     private List<Long> agreedPolicyVersionIds = new ArrayList<>();
+
+    /** 열람 전용을 포함해 가입 화면에 표시한 정책 버전 전체. 서버에서 현재 목록과 대조한다. */
+    private List<Long> shownPolicyVersionIds = new ArrayList<>();
 
     /**
      * 연령 확인용 생년월일(yyyy-MM-dd). 판정에만 쓰고 저장하지 않는다.

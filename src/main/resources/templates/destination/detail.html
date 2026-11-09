@@ -4,10 +4,11 @@
       th:replace="~{layout/main :: layout(~{::body}, ~{::headFragment})}">
 
 <th:block th:fragment="headFragment">
-    <link rel="stylesheet" href="/css/detail.css?v=20261008-1">
-    <link rel="stylesheet" href="/css/comment.css">
+    <link rel="stylesheet" th:href="@{/css/review-image-management.css}">
+    <link rel="stylesheet" th:href="@{/css/detail.css}">
+    <link rel="stylesheet" th:href="@{/css/comment.css}">
     <link rel="stylesheet" href="/css/content-comment.css">
-    <link rel="stylesheet" href="/css/destination-detail-mobile.css?v=20261003-1">
+    <link rel="stylesheet" th:href="@{/css/destination-detail-mobile.css}">
     <!--
       detail-carousel.js 가 $ 를 쓴다. 공통 layout 에서 내려온 jQuery 에 기대지 않고 여기서 부른다.
       defer 라 문서 순서대로 실행된다 — head 의 이 파일이 body 의 detail-carousel.js 보다 먼저다.
@@ -17,15 +18,22 @@
 </th:block>
 
 <th:block th:fragment="body">
-    <div class="destination-detail-page">
+    <div class="destination-detail-page"
+         th:data-review-owner-id="${#authentication.principal != null and #authentication.principal != 'anonymousUser' ? #authentication.principal.id : ''}">
 
     <div id="destination-detail-i18n" hidden
          th:data-gallery-fallback-alt="#{destination.detail.gallery.imageFallbackAlt}"
+         th:data-gallery-loading="#{destination.detail.gallery.loading}"
+         th:data-gallery-load-failed="#{destination.detail.gallery.loadFailed}"
+         th:data-gallery-empty="#{destination.detail.gallery.empty}"
+         th:data-gallery-end="#{destination.detail.gallery.end}"
+         th:data-gallery-continue="#{destination.detail.gallery.continue}"
+         th:data-gallery-traveler="#{destination.detail.gallery.travelerPhoto}"
          th:data-comment-loading="#{destination.detail.comment.loading}"
          th:data-comment-load-more="#{destination.detail.comment.loadMore}"
          th:data-comment-moderated="#{destination.detail.comment.moderated}"
          th:data-comment-unknown-user="#{destination.detail.comment.unknownUser}"
-         th:data-comment-like="#{destination.detail.comment.like}"
+         th:data-comment-like="#{destination.detail.review.helpful}"
          th:data-comment-profile-alt="#{destination.detail.comment.profileAlt}"
          th:data-comment-author="#{destination.detail.comment.author}"
          th:data-comment-edited="#{destination.detail.comment.edited}"
@@ -33,7 +41,6 @@
          th:data-comment-edit="#{destination.detail.comment.edit}"
          th:data-comment-delete="#{destination.detail.comment.delete}"
          th:data-comment-image-alt="#{destination.detail.comment.imageAlt}"
-         th:data-comment-photo-review-alt="#{destination.detail.gallery.photoReviewAlt}"
          th:data-comment-image-limit="#{destination.detail.comment.imageLimit}"
          th:data-comment-file-preview="#{destination.detail.comment.filePreview}"
          th:data-comment-file-remove="#{destination.detail.comment.fileRemove}"
@@ -50,6 +57,13 @@
          th:data-comment-translation-retry="#{destination.detail.comment.translationRetry}"
          th:data-comment-translation-rate-limited="#{destination.detail.comment.translationRateLimited}"
          th:data-comment-translation-failed="#{destination.detail.comment.translationFailed}"
+         th:data-review-rating="#{destination.detail.review.rating}"
+         th:data-review-unscored="#{destination.detail.review.unscored}"
+         th:data-review-rating-count="#{destination.detail.review.ratingCount}"
+         th:data-review-no-rating="#{destination.detail.review.noRating}"
+         th:data-review-legacy="#{destination.detail.review.legacy}"
+         th:data-review-replies="#{destination.detail.review.replies}"
+         th:data-review-load-failed="#{destination.detail.review.loadFailed}"
          th:data-comment-submit="#{destination.detail.comment.submit}"></div>
 
 
@@ -103,13 +117,21 @@
     </section>
 
     <!-- ────── 이미지 슬라이드 영역 ────── -->
-    <div class="carousel-wrapper" th:if="${images != null and !images.isEmpty()}">
-        <div class="carousel">
-            <button class="nav prev" th:aria-label="#{destination.detail.gallery.previous}">&#10094;</button>
+    <div id="destination-gallery" class="carousel-wrapper"
+         th:if="${galleryImages != null and (!galleryImages.isEmpty() or galleryEndpoint != null)}"
+         th:data-gallery-endpoint="${galleryEndpoint}"
+         th:data-gallery-next-cursor="${galleryNextCursor}"
+         th:data-gallery-previous-cursor="${galleryPreviousCursor}">
+        <div class="carousel" tabindex="0" role="group" th:aria-label="#{destination.detail.gallery.dialogLabel}">
+            <button type="button" class="nav prev" th:aria-label="#{destination.detail.gallery.previous}">&#10094;</button>
             <div class="track">
-                <div class="slide" th:each="img, idx : ${images}"
+                <div class="slide" th:each="img, idx : ${galleryImages}"
                      th:classappend="|${idx.index == 0 ? 'active' : ''} ${img.noDerivatives ? 'is-no-derivatives' : ''}|"
-                     th:attr="data-source-name=${img.sourceName},
+                     th:attr="data-source-name=${img.travelerPhoto ? #messages.msg('destination.detail.gallery.travelerPhoto') : img.sourceName},
+                              data-gallery-key=${img.galleryKey},
+                              data-review-image-id=${img.reviewImageId},
+                              data-review-id=${img.reviewId},
+                              data-review-url=${img.reviewUrl},
                               data-license-label=${img.licenseDisplay},
                               data-license-url=${img.safeLicenseUrl},
                               data-photographer=${img.photographer},
@@ -124,17 +146,31 @@
                          th:alt="#{destination.detail.gallery.imageAlt(${idx.index + 1})}"/>
                 </div>
             </div>
-            <button class="nav next" th:aria-label="#{destination.detail.gallery.next}">&#10095;</button>
+            <button type="button" class="nav next" th:aria-label="#{destination.detail.gallery.next}">&#10095;</button>
+        </div>
+
+        <div class="destination-gallery-navigation" th:if="${galleryImages.size() > 1 or galleryEndpoint != null}">
+            <button type="button" class="gallery-scroll prev" data-gallery-scroll="-1" hidden
+                    th:aria-label="#{destination.detail.gallery.previousPhoto}">&#10094;</button>
+        <div class="destination-gallery-thumbnails">
+            <button type="button" th:each="img, idx : ${galleryImages}" th:data-gallery-index="${idx.index}"
+                    th:classappend="${img.noDerivatives} ? 'is-no-derivatives'"
+                    th:aria-label="#{destination.detail.gallery.imageAlt(${idx.index + 1})}">
+                <img th:src="@{${img.imageUrl}}" alt="" loading="lazy">
+            </button>
+        </div>
+            <button type="button" class="gallery-scroll next" data-gallery-scroll="1" hidden
+                    th:aria-label="#{destination.detail.gallery.nextPhoto}">&#10095;</button>
         </div>
 
         <p class="destination-image-attribution" aria-live="polite"
-           th:if="${hasImageAttribution}"
-           th:with="firstImage=${images[0]}"
+           th:if="${!galleryImages.isEmpty() and hasImageAttribution}"
+           th:with="firstImage=${galleryImages[0]}"
            th:hidden="${!firstImage.attributionPresent}"
            data-destination-image-attribution>
             <span th:text="#{destination.detail.gallery.source}">출처:</span>
-            <span th:text="${firstImage.sourceName}"
-                  th:hidden="${firstImage.sourceName == null or #strings.isEmpty(firstImage.sourceName)}"
+            <span th:text="${firstImage.travelerPhoto ? #messages.msg('destination.detail.gallery.travelerPhoto') : firstImage.sourceName}"
+                  th:hidden="${!firstImage.travelerPhoto and (firstImage.sourceName == null or #strings.isEmpty(firstImage.sourceName))}"
                   data-destination-image-source></span>
             <span aria-hidden="true"
                   th:hidden="${firstImage.sourceName == null or #strings.isEmpty(firstImage.sourceName)
@@ -173,12 +209,41 @@
                th:aria-label="#{destination.detail.gallery.sourceLink}"
                target="_blank" rel="noopener noreferrer"
                data-destination-image-source-link>↗</a>
+            <a th:href="${firstImage.reviewUrl}" th:hidden="${firstImage.reviewUrl == null}"
+               data-destination-image-review-link th:text="#{destination.detail.gallery.viewReview}">리뷰 보기</a>
         </p>
+        <div class="destination-gallery-actions" th:if="${galleryEndpoint != null}">
+            <button type="button" data-gallery-open th:text="#{destination.detail.gallery.viewAll}">전체 사진</button>
+            <span data-gallery-status role="status" aria-live="polite"></span>
+            <button type="button" data-gallery-retry hidden th:text="#{destination.detail.gallery.retry}">다시 시도</button>
+        </div>
     </div>
+
+    <dialog id="destination-gallery-grid" class="destination-gallery-grid-dialog"
+            th:if="${galleryEndpoint != null}" aria-labelledby="destination-gallery-grid-title">
+        <div class="destination-gallery-grid-header">
+            <h2 id="destination-gallery-grid-title" th:text="#{destination.detail.gallery.viewAll}">전체 사진</h2>
+            <button type="button" data-gallery-close th:aria-label="#{destination.detail.gallery.close}">&times;</button>
+        </div>
+        <div class="destination-gallery-filters" role="group" th:aria-label="#{destination.detail.gallery.filter}">
+            <button type="button" data-gallery-filter="ALL" aria-pressed="true" th:text="#{destination.detail.gallery.all}">전체</button>
+            <button type="button" data-gallery-filter="ADMIN" aria-pressed="false" th:text="#{destination.detail.gallery.admin}">관리자 사진</button>
+            <button type="button" data-gallery-filter="TRAVELER" aria-pressed="false" th:text="#{destination.detail.gallery.travelerPhoto}">여행자 사진</button>
+        </div>
+        <div class="destination-gallery-grid-scroll" tabindex="0" th:aria-label="#{destination.detail.gallery.viewAll}">
+            <button type="button" data-gallery-grid-previous hidden th:text="#{destination.detail.gallery.loadPrevious}">이전 사진 불러오기</button>
+            <div class="destination-gallery-grid-items"></div>
+            <button type="button" data-gallery-grid-next th:text="#{destination.detail.gallery.loadMore}">사진 더 보기</button>
+        </div>
+        <div class="destination-gallery-grid-feedback">
+            <span data-gallery-grid-status role="status" aria-live="polite"></span>
+            <button type="button" data-gallery-grid-retry hidden th:text="#{destination.detail.gallery.retry}">다시 시도</button>
+        </div>
+    </dialog>
 
     <!-- 대표 이미지 주소가 없으면 이미지 영역을 아예 만들지 않아 제목·소개가 바로 이어진다. -->
     <div class="carousel no-image"
-         th:if="${(images == null or images.isEmpty()) and !#strings.isEmpty(destination.thumbnailPath)}">
+         th:if="${(galleryImages == null or galleryImages.isEmpty()) and !#strings.isEmpty(destination.thumbnailPath)}">
         <img th:src="@{${destination.thumbnailPath}}"
              th:alt="#{destination.detail.gallery.coverAlt(${destination.name})}"/>
     </div>
@@ -197,7 +262,13 @@
                         th:data-source-label="#{destination.detail.gallery.source}"
                         th:data-photographer-label="#{destination.detail.gallery.photographer}"
                         th:data-credit-label="#{destination.detail.gallery.credit}"
-                        th:data-source-link-label="#{destination.detail.gallery.sourceLink}"></figcaption>
+                        th:data-source-link-label="#{destination.detail.gallery.sourceLink}"
+                        th:data-traveler-photo-label="#{destination.detail.gallery.travelerPhoto}"
+                        th:data-review-link-label="#{destination.detail.gallery.viewReview}"></figcaption>
+            <div class="destination-gallery-viewer-feedback">
+                <span data-gallery-viewer-status role="status" aria-live="polite"></span>
+                <button type="button" data-gallery-viewer-retry hidden th:text="#{destination.detail.gallery.retry}">다시 시도</button>
+            </div>
         </figure>
         <button type="button" class="image-modal-nav next"
                 th:aria-label="#{destination.detail.gallery.next}">&#10095;</button>
@@ -1196,41 +1267,55 @@
         </section>
     </div>
 
-    <!-- 사진 후기 모아보기 -->
-    <section class="photo-review-section">
-        <div class="photo-review-header">
-            <h2 th:text="#{destination.detail.section.photoReviews}">사진 후기</h2>
-            <a href="#" class="view-all">
-                <span th:text="#{destination.detail.gallery.viewAll}">전체보기</span> &gt;
-            </a>
-        </div>
-        <div class="photo-review-list">
-            <!-- JS로 썸네일 이미지들이 동적으로 들어옵니다 -->
-        </div>
-    </section>
-
-    <section class="comment-section content-comments">
+    <section id="traveler-reviews" class="comment-section content-comments traveler-reviews" data-reviews-only>
         <div class="comment-toolbar content-comment-toolbar">
             <div class="comment-count"><h2 class="content-comment-heading">
-                <span th:text="#{destination.detail.section.comments}">댓글</span>
+                <span th:text="#{destination.detail.section.comments}">여행자 리뷰</span>
                 <span id="comment-count">0</span>
             </h2></div>
-            <div class="comment-sort content-comment-sort" role="group"
-                 th:aria-label="#{destination.detail.comment.sortLabel}">
-                <button type="button" class="is-active" data-comment-sort="latest" aria-pressed="true"
-                        th:text="#{destination.detail.comment.sort.latest}">최신순</button>
-                <button type="button" data-comment-sort="oldest" aria-pressed="false"
-                        th:text="#{destination.detail.comment.sort.oldest}">오래된순</button>
-                <button type="button" data-comment-sort="likes" aria-pressed="false"
-                        th:text="#{destination.detail.comment.sort.likes}">좋아요순</button>
+            <button type="button" class="review-write-toggle" aria-expanded="false" aria-controls="review-composer"
+                    th:text="#{destination.detail.review.write}">리뷰 작성</button>
+        </div>
+
+        <div id="review-summary" class="review-summary" aria-busy="true">
+            <div class="review-summary-score">
+                <p id="review-average" class="review-average" role="status" th:text="#{destination.detail.comment.loading}">불러오는 중…</p>
+                <div class="review-summary-stars" aria-hidden="true"><span>★★★★★</span><span id="review-average-stars">★★★★★</span></div>
+                <p id="review-rating-count" class="review-rating-count"></p>
+            </div>
+            <div class="review-distribution" th:aria-label="#{destination.detail.review.distribution}">
+                <div class="review-distribution-row" th:each="score : ${#numbers.sequence(5, 1, -1)}" th:data-rating-score="${score}">
+                    <span th:text="${score + ' ★'}">5 ★</span>
+                    <meter min="0" max="1" value="0" th:aria-label="${score + ' / 5'}"></meter>
+                    <span class="review-distribution-count">0</span>
+                </div>
             </div>
         </div>
 
+        <div class="review-list-toolbar">
+            <span class="review-list-caption" th:text="#{destination.detail.review.experiences}">여행자들의 방문 경험</span>
+            <div class="comment-sort content-comment-sort" role="group"
+                 th:aria-label="#{destination.detail.comment.sortLabel}">
+                <button type="button" class="is-active" data-comment-sort="latest" aria-pressed="true"
+                        data-date-sort th:data-latest-label="#{destination.detail.comment.sort.latest}"
+                        th:data-oldest-label="#{destination.detail.comment.sort.oldest}"
+                        th:text="|#{destination.detail.comment.sort.latest} ↓|">최신순 ↓</button>
+                <button type="button" data-comment-sort="likes" aria-pressed="false"
+                        th:text="#{destination.detail.review.sortHelpful}">도움이 된 순</button>
+                <button type="button" data-comment-sort="rating_desc" aria-pressed="false"
+                        th:text="#{destination.detail.review.sortHigh}">높은 평점순</button>
+                <button type="button" data-comment-sort="rating_asc" aria-pressed="false"
+                        th:text="#{destination.detail.review.sortLow}">낮은 평점순</button>
+            </div>
+        </div>
+
+        <div id="review-composer" class="review-composer" hidden>
+        <p class="review-composer-hint" th:text="#{destination.detail.review.writeHint}">직접 방문한 경험을 들려주세요. 별점과 본문만 입력하면 됩니다.</p>
         <!-- ✅ 비로그인 시 안내 문구 및 클릭 가능 댓글창 -->
         <div th:if="${#authentication.name == 'anonymousUser'}">
             <div class="textarea-wrapper">
             <textarea id="guest-comment-box" readonly
-                      th:placeholder="#{destination.detail.comment.loginPrompt}"></textarea>
+                      th:placeholder="#{destination.detail.review.loginPrompt}"></textarea>
             </div>
         </div>
 
@@ -1238,17 +1323,38 @@
         <form id="comment-form" enctype="multipart/form-data"
               th:if="${#authentication.name != 'anonymousUser'}" class="comment-write-form">
 
+            <fieldset class="review-rating-input">
+                <legend th:text="#{destination.detail.review.rating}">별점</legend>
+                <div class="review-rating-options">
+                    <label class="review-rating-choice" th:each="score : ${#numbers.sequence(1, 5)}">
+                        <input type="radio" name="rating" th:value="${score}" required>
+                        <span aria-hidden="true">★</span>
+                        <span class="content-comment-sr-only" th:text="${score + ' / 5'}">1 / 5</span>
+                    </label>
+                </div>
+            </fieldset>
             <div class="textarea-wrapper">
                 <textarea name="content" maxlength="2000"
                           th:placeholder="#{destination.detail.comment.placeholder}" required></textarea>
             </div>
-
-            <!-- 선택한 사진 미리보기 (등록 전) -->
             <div class="comment-image-preview" id="comment-image-preview" hidden></div>
+
+            <section class="review-photo-upload-terms" data-photo-upload-terms aria-label="리뷰 사진 업로드 조건">
+                <strong>사진을 첨부하기 전에 확인해 주세요</strong>
+                <p>사진의 권리는 회원님에게 있습니다. 직접 촬영했거나 적법한 사용 권한이 있는 사진만 올려 주세요.</p>
+                <p>사진을 첨부해 리뷰를 등록·저장하면, 리뷰가 공개되는 동안 TripBora에 서비스 내 게시·복제·크기 조정 및 갤러리 표시에 필요한 비독점적 이용을 허용합니다. 여행지 갤러리에는 승인된 사진만 표시됩니다.</p>
+                <p>외부 광고, 제3자 제공, 별도 상업적 재사용은 이 조건에 포함되지 않습니다. 이 조건을 원하지 않으면 사진을 첨부하지 않아도 텍스트 리뷰를 작성할 수 있습니다.</p>
+                <div class="review-photo-upload-terms-meta">
+                    <a data-photo-upload-link th:href="@{/review-photo-terms}" target="_blank" rel="noopener noreferrer">사진 업로드 이용조건 전문</a>
+                    <span data-photo-upload-version>현재 버전 확인 중</span>
+                    <button type="button" data-photo-upload-retry hidden>다시 확인</button>
+                </div>
+                <p data-photo-upload-status role="status" aria-live="polite"></p>
+            </section>
 
             <div class="comment-controls">
                 <span class="comment-length"><span id="comment-length">0</span>/2000</span>
-                <input type="file" id="comment-image-input" name="images" accept="image/*" multiple hidden>
+                <input type="file" id="comment-image-input" name="images" accept="image/jpeg,image/png,image/webp" multiple hidden>
 
                 <label for="comment-image-input" class="image-upload-label">
                     <img src="/uploads/icons/camera.png" th:alt="#{destination.detail.comment.photo}">
@@ -1259,6 +1365,7 @@
                         th:text="#{destination.detail.comment.submit}">등록</button>
             </div>
         </form>
+        </div>
 
         <!-- ✅ 댓글 목록 -->
         <ul id="comment-list" class="comment-list content-comment-list">
@@ -1341,28 +1448,6 @@
                 th:aria-label="#{destination.detail.gallery.nextPhoto}">&#10095;</button>
     </div>
 
-    <!-- 전체보기 모달 -->
-    <div id="photo-modal" class="photo-modal" style="display: none;" role="dialog" aria-modal="true"
-         th:aria-label="#{destination.detail.gallery.dialogLabel}">
-        <div class="photo-modal-overlay"></div>
-        <div class="photo-modal-container">
-            <button type="button" class="photo-close"
-                    th:aria-label="#{destination.detail.gallery.close}">&times;</button>
-            <!-- 좌/우 버튼은 이미지 영역 안에 두어 항상 사진 위에 겹치게 한다 -->
-            <div class="photo-main">
-                <button type="button" class="photo-prev"
-                        th:aria-label="#{destination.detail.gallery.previousPhoto}">&#10094;</button>
-                <img id="main-photo" src="" th:alt="#{destination.detail.gallery.mainImageAlt}">
-                <button type="button" class="photo-next"
-                        th:aria-label="#{destination.detail.gallery.nextPhoto}">&#10095;</button>
-            </div>
-            <div class="photo-sidebar-thumbnails" id="sidebar-thumbnails">
-                <!-- 썸네일 동적 삽입 -->
-            </div>
-        </div>
-    </div>
-
-
     <!-- ────── JS 스크립트 ────── -->
 
     <!-- ✅ Kakao 지도 SDK (JS 앱 키 사용) -->
@@ -1371,13 +1456,24 @@
 -->
 
     <!-- 자체 JS -->
-    <script src="/js/detail-carousel.js" defer></script>
-    <script src="/js/destination-image-modal.js?v=20261008-1" defer></script>
+    <script th:src="@{/js/detail-carousel.js}" defer></script>
+    <script th:src="@{/js/destination-image-modal.js}" defer></script>
     <script src="/js/destination-description-mobile.js?v=20261001-1" defer></script>
     <script src="/js/map-init.js" defer></script>
     <script src="/js/bookmark.js" defer></script>
     <script src="/js/detail.js" defer></script>
-    <script type="module" src="/js/comment/init.js"></script>
+    <script type="importmap" th:inline="javascript">
+        {"imports": {
+            "/js/comment/api.js": /*[[@{/js/comment/api.js}]]*/ "/js/comment/api.js",
+            "/js/comment/events.js": /*[[@{/js/comment/events.js}]]*/ "/js/comment/events.js",
+            "/js/comment/render.js": /*[[@{/js/comment/render.js}]]*/ "/js/comment/render.js",
+            "/js/comment/commentsState.js": /*[[@{/js/comment/commentsState.js}]]*/ "/js/comment/commentsState.js",
+            "/js/comment/messages.js": /*[[@{/js/comment/messages.js}]]*/ "/js/comment/messages.js",
+            "/js/comment/uploadTerms.js": /*[[@{/js/comment/uploadTerms.js}]]*/ "/js/comment/uploadTerms.js"
+        }}
+    </script>
+    <script type="module" th:src="@{/js/comment/init.js}"></script>
+    <script type="module" th:src="@{/js/review-image-management.js}"></script>
 
 
     <!-- ✅ 지도 초기화 호출 (DOM 로드 후 실행) -->

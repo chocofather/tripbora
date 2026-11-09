@@ -6,6 +6,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.StringReader;
+import java.util.Map;
+import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.xml.sax.InputSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,19 +73,63 @@ class UserPolicyConsentMapperContractTest {
 
     /** 정책 문서 자체와 회원 tombstone 은 이 mapper 가 건드리지 않는다. */
     @Test
-    void neitherPolicyDocumentsNorTheUserTombstoneAreTouched() throws IOException {
-        String consentXml = consentXml();
+    void neitherPolicyDocumentsNorTheUserTombstoneAreTouched() throws Exception {
+        var factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        var document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(consentXml())));
+        var allowed = Map.of("insertConsent", "insert:user_policy_consents",
+                "deleteConsentsOfRetentionExpiredUser", "delete:user_policy_consents",
+                "revokeGalleryImages", "update:destination_comment_images");
+        for (String tag : new String[]{"insert", "update", "delete"}) {
+            var statements = document.getElementsByTagName(tag);
+            for (int i = 0; i < statements.getLength(); i++) {
+                var item = (org.w3c.dom.Element) statements.item(i);
+                String sql = item.getTextContent().replace("`", "").replaceAll("\\s+", " ").strip();
+                var target = Pattern.compile("(?i)^(?:UPDATE|INSERT INTO|DELETE FROM)\\s+(\\w+)\\b").matcher(sql);
+                assertThat(target.find()).as(item.getAttribute("id")).isTrue();
+                assertThat(tag + ":" + target.group(1).toLowerCase(java.util.Locale.ROOT))
+                        .as(item.getAttribute("id")).isEqualTo(allowed.get(item.getAttribute("id")));
+                // 동의 이력의 덮어쓰기와 복수 명령은 허용하지 않는다.
+                assertThat(Pattern.compile("(?i)\\b(?:ON DUPLICATE KEY UPDATE|REPLACE INTO)\\b|;")
+                        .matcher(sql).find()).isFalse();
+            }
+        }
+    }
 
-        assertThat(consentXml)
-                .doesNotContain("DELETE FROM policy_versions")
-                .doesNotContain("DELETE FROM policy_translations")
-                .doesNotContain("DELETE FROM users")
-                .doesNotContain("UPDATE users")
-                // append-only 기록이다. 가입 시 INSERT 와 보관기간 만료 DELETE 외에는 손대지 않는다.
-                .doesNotContain("UPDATE user_policy_consents")
-                .doesNotContain("<update")
-                .doesNotContain("ON DUPLICATE KEY UPDATE")
-                .doesNotContain("REPLACE INTO");
+    /** 회원 연결·상태 조건과 수정 컬럼을 해당 UPDATE 안에서만 검사한다. */
+    @Test
+    void galleryWithdrawalOnlyRevokesTheOwnersEligibleStatesWithoutDeletingOriginals() throws IOException {
+        assertGalleryWithdrawal(statement(consentXml(), "update", "revokeGalleryImages"));
+    }
+
+    @Test
+    void withdrawalContractRejectsBroaderOwnersStatesAndDestructiveAssignments() throws IOException {
+        String sql = statement(consentXml(), "update", "revokeGalleryImages");
+        for (String unsafe : new String[]{
+                sql.replace("c.user_id = #{userId}", "c.user_id != #{userId}"),
+                sql.replace("c.id = i.comment_id", "c.id != i.comment_id"),
+                sql.replace("AND i.gallery_license_policy_id IS NULL", ""),
+                sql.replace("'REJECTED')", "'REJECTED', 'NONE')"),
+                sql.replace("'REJECTED')", "'REJECTED', 'REVOKED')"),
+                sql.replace("CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP, i.image_url = NULL"),
+                sql.replace("c.user_id = #{userId}", "c.user_id = #{userId} OR 1=1")}) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> assertGalleryWithdrawal(unsafe))
+                    .isInstanceOf(AssertionError.class);
+        }
+        // 정상 SQL의 줄바꿈/들여쓰기 변화는 계약 위반이 아니다.
+        assertGalleryWithdrawal(sql.replace("\n", "\n    "));
+    }
+
+    private void assertGalleryWithdrawal(String statement) {
+        String sql = statement.substring(statement.indexOf('>') + 1)
+                .replaceAll("\\s+", " ").strip();
+        // 전체 명령을 검사하므로 다른 회원을 포함하는 OR, 추가 UPDATE/DELETE,
+        // 파일 URL·리뷰 수정이나 NONE/REVOKED의 재처리를 허용하지 않는다.
+        assertThat(sql).matches("(?i:UPDATE destination_comment_images i JOIN destination_comments c ON c\\.id = i\\.comment_id SET) "
+                + "i\\.gallery_status = 'REVOKED', i\\.gallery_consent_withdrawn_at = (?i:CURRENT_TIMESTAMP) "
+                + "(?i:WHERE) c\\.user_id = #\\{userId} (?i:AND) i\\.gallery_license_policy_id (?i:IS NULL) "
+                + "(?i:AND) i\\.gallery_status (?i:IN) "
+                + "\\('PENDING', 'APPROVED', 'REJECTED'\\)");
     }
 
     /**

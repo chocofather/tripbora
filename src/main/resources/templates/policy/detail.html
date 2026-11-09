@@ -3,7 +3,7 @@
       th:replace="~{layout/main :: layout(~{::body}, ~{::headFragment})}">
 
 <th:block th:fragment="headFragment">
-  <link rel="stylesheet" href="/css/policy.css" />
+  <link rel="stylesheet" th:href="@{/css/policy.css}" />
 </th:block>
 
 <th:block th:fragment="body">

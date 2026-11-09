@@ -528,6 +528,54 @@ public class FileUploadService {
         }
     }
 
+    /** 공개 댓글 저장소 안의 실제 일반 파일만 갤러리에 사용할 수 있다. 개인 저장소·링크는 제외한다. */
+    public boolean commentFileExists(String imageUrl) {
+        try {
+            String name = managedCommentFileName(imageUrl);
+            Path realRoot = Paths.get(uploadDir).toAbsolutePath().normalize().toRealPath();
+            Path directory = realRoot.resolve(COMMENT_DIRECTORY);
+            if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return false;
+            Path realDirectory = directory.toRealPath();
+            ensureContained(realRoot, realDirectory);
+            Path target = realDirectory.resolve(name).normalize();
+            ensureContained(realDirectory, target);
+            return Files.isRegularFile(target, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && target.toRealPath().startsWith(realDirectory);
+        } catch (IOException | IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    /** 공개 여행지 저장소의 일반 파일만 확인하며 외부 URL을 가져오지 않는다. */
+    public boolean destinationFileExists(String imageUrl) {
+        try {
+            String name = managedDestinationFileName(imageUrl);
+            Path realRoot = Paths.get(uploadDir).toAbsolutePath().normalize().toRealPath();
+            Path directory = realRoot.resolve(DESTINATION_DIRECTORY);
+            if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return false;
+            Path realDirectory = directory.toRealPath();
+            ensureContained(realRoot, realDirectory);
+            Path target = realDirectory.resolve(name).normalize();
+            ensureContained(realDirectory, target);
+            return Files.isRegularFile(target, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && target.toRealPath().startsWith(realDirectory);
+        } catch (IOException | IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    /** 분석 전용 읽기 경로. 공개 댓글 저장소 외부와 심볼릭 링크를 허용하지 않는다. */
+    public Path commentFileForAnalysis(String imageUrl) throws IOException {
+        if (!commentFileExists(imageUrl)) throw new IOException("분석할 리뷰 사진을 찾을 수 없습니다.");
+        Path directory = Paths.get(uploadDir).toAbsolutePath().normalize().toRealPath().resolve(COMMENT_DIRECTORY);
+        Path target = directory.resolve(managedCommentFileName(imageUrl)).normalize();
+        if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(target)) throw new IOException("리뷰 사진 경로가 올바르지 않습니다.");
+        Path realDirectory = directory.toRealPath();
+        Path realTarget = target.toRealPath();
+        ensureContained(realDirectory,realTarget);
+        return realTarget;
+    }
+
     /**
      * 일반 여행정보(GENERAL)의 목록 썸네일을 저장한다.
      *

@@ -13,6 +13,34 @@ import java.util.List;
  */
 @Mapper
 public interface UserPolicyConsentMapper {
+    /** 나중의 DECLINE이 과거 이용허락 자체를 철회하지는 않으므로 마지막 긍정 동의를 별도 조회한다. */
+    UserPolicyConsent findLatestAgreementForType(@Param("userId") Long userId,
+                                                @Param("policyType") String policyType,
+                                                @Param("asOf") LocalDateTime asOf);
+    /** 이력 없음과 다른 기준의 거절을 구분하기 위한 종류 전체의 최신 한 건. */
+    UserPolicyConsent findLatestForType(@Param("userId") Long userId,
+                                       @Param("policyType") String policyType,
+                                       @Param("asOf") LocalDateTime asOf);
+    /** 같은 기준의 표시 버전들을 합쳐 최신 결정 한 건만 조회한다. 전체 이력을 적재하지 않는다. */
+    UserPolicyConsent findLatestForBasis(@Param("userId") Long userId,
+                                        @Param("policyType") String policyType,
+                                        @Param("basisId") Long basisId,
+                                        @Param("asOf") LocalDateTime asOf);
+
+    /** 종류 전체의 명시 철회 또는 의미 불명인 과거 false 중 최신 한 건. */
+    UserPolicyConsent findLatestStopForType(@Param("userId") Long userId,
+                                           @Param("policyType") String policyType,
+                                           @Param("asOf") LocalDateTime asOf);
+
+    /** 다른 기준의 최신 결정이 동의인 경우만 증거 한 건을 반환한다. */
+    UserPolicyConsent findLatestAgreementOnOtherBasis(@Param("userId") Long userId,
+                                                     @Param("policyType") String policyType,
+                                                     @Param("basisId") Long basisId,
+                                                     @Param("asOf") LocalDateTime asOf);
+    UserPolicyConsent findLatestForUpdate(@Param("userId") Long userId,
+                                         @Param("policyVersionId") Long policyVersionId);
+
+    int revokeGalleryImages(@Param("userId") Long userId);
 
     /**
      * 동의 결정 한 건 기록. 거절(agreed = false)도 결정이라 그대로 INSERT 한다.

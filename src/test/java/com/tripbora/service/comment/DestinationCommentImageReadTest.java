@@ -32,6 +32,21 @@ import static org.mockito.Mockito.when;
 /** STEP D: 댓글 조회는 destination_comment_images 기준으로 사진을 채운다. */
 @ExtendWith(MockitoExtension.class)
 class DestinationCommentImageReadTest {
+    @Test void allFivePhotosRemainPublicRegardlessOfGalleryApprovalRejectionRevocationOrNoConsent() {
+        when(commentMapper.countRootComments(10L)).thenReturn(1);
+        when(commentMapper.countByDestinationId(10L)).thenReturn(1);
+        when(commentMapper.findPagedParentComments(10L,0,5,"latest")).thenReturn(List.of(comment(1L,null,false)));
+        var photos=new java.util.ArrayList<DestinationCommentImage>();
+        for(int i=1;i<=5;i++)photos.add(image(1L,"/uploads/comments/"+i+".jpg",i));
+        when(commentImageMapper.findByCommentIds(List.of(1L))).thenReturn(photos);
+        for(String[] states:new String[][]{{"PENDING","PENDING","PENDING","PENDING","PENDING"},
+                {"APPROVED","APPROVED","APPROVED","REJECTED","REJECTED"},
+                {"REVOKED","APPROVED","APPROVED","REJECTED","NONE"}}) {
+            for(int i=0;i<5;i++)photos.get(i).setGalleryStatus(states[i]);
+            assertThat(service.getCommentsPaged(10L,null,0,5,"latest").getContent().get(0).getImageUrls()).hasSize(5);
+        }
+        org.mockito.Mockito.verify(commentImageMapper,org.mockito.Mockito.never()).deleteById(org.mockito.ArgumentMatchers.any());
+    }
 
     @Mock
     private DestinationMapper destinationMapper;
@@ -72,6 +87,8 @@ class DestinationCommentImageReadTest {
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).getImageUrls()).containsExactly(
                 "/uploads/comments/a.jpg", "/uploads/comments/b.jpg", "/uploads/comments/c.jpg");
+        assertThat(result.getContent().get(0).getPhotos()).extracting(com.tripbora.dto.CommentImageDto::getId)
+                .containsExactly(11L,12L,13L);
         assertThat(result.getContent().get(1).getImageUrls())
                 .containsExactly("/uploads/comments/reply.jpg");
         // 댓글마다 SELECT 하지 않는다
@@ -123,26 +140,6 @@ class DestinationCommentImageReadTest {
                 .isEmpty();
     }
 
-    @Test
-    void photoGalleryReadsEveryImageFromTheNewStorageKeepingTheLimitAndOrder() {
-        when(commentImageMapper.findGalleryByDestinationId(10L, 12)).thenReturn(List.of(
-                image(9L, "/uploads/comments/new-1.jpg", 1),
-                image(9L, "/uploads/comments/new-2.jpg", 2),
-                image(9L, "/uploads/comments/new-3.jpg", 3),
-                image(8L, "/uploads/comments/old.jpg", 1)));
-
-        List<CommentImageDto> gallery = service.getCommentImageDtos(10L);
-
-        // 댓글 한 건의 사진 3장이 각각 독립된 사진으로 노출되고, 매퍼가 준 순서를 유지한다
-        assertThat(gallery)
-                .extracting(CommentImageDto::getImageUrl)
-                .containsExactly(
-                        "/uploads/comments/new-1.jpg",
-                        "/uploads/comments/new-2.jpg",
-                        "/uploads/comments/new-3.jpg",
-                        "/uploads/comments/old.jpg");
-    }
-
     private DestinationComment comment(long id, Long parentId, boolean deleted) {
         DestinationComment comment = new DestinationComment();
         comment.setId(id);
@@ -165,6 +162,7 @@ class DestinationCommentImageReadTest {
 
     private DestinationCommentImage image(long commentId, String url, int order) {
         DestinationCommentImage image = new DestinationCommentImage();
+        image.setId(commentId * 10 + order);
         image.setCommentId(commentId);
         image.setImageUrl(url);
         image.setDisplayOrder(order);

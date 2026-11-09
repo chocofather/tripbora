@@ -45,6 +45,7 @@ $(function () {
 
     function initialStep() {
         const field = $("[data-field-error]").first().data("field-error");
+        if (field === "birthDate" || field === "agreedPolicyVersionIds") return 1;
         if (field || $("[data-server-error]").length) return 2;
         return 1;
     }

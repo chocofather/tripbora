@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/main :: layout(~{::body}, ~{::headFragment})}">
+<th:block th:fragment="headFragment">
+  <link rel="stylesheet" th:href="@{/css/mypage-layout.css}">
+  <link rel="stylesheet" th:href="@{/css/mypage-comments.css}">
+  <link rel="stylesheet" th:href="@{/css/review-image-management.css}">
+</th:block>
+<th:block th:fragment="body">
+  <div class="mypage-layout" th:data-review-owner-id="${ownerId}">
+    <nav th:replace="~{fragments/mypage/navigation :: navigation('review-images')}"></nav>
+    <section class="mypage-content mypage-comments-page" aria-labelledby="my-review-images-title">
+      <header class="mypage-page-header">
+        <h1 id="my-review-images-title">내 리뷰 사진 관리</h1>
+        <p>공개한 리뷰의 사진과 갤러리 심사 상태를 확인하고 사진을 삭제할 수 있습니다.</p>
+        <a th:href="@{/mypage/comments}">내 댓글로 돌아가기</a>
+      </header>
+      <section th:if="${legacyGalleryWithdrawal != null and legacyGalleryWithdrawal.hasAgreement}"
+               class="legacy-gallery-withdrawal" data-legacy-gallery-withdrawal
+               th:data-policy-id="${legacyGalleryWithdrawal.policyVersionId}"
+               th:data-policy-version="${legacyGalleryWithdrawal.version}"
+               aria-labelledby="legacy-gallery-withdrawal-title">
+        <h2 id="legacy-gallery-withdrawal-title">과거 사진 갤러리 활용 동의</h2>
+        <p>과거에 선택 동의한 리뷰 사진의 여행지 메인 갤러리 활용을 철회할 수 있습니다. 철회해도 원본 리뷰와 사진은 그대로 유지됩니다.</p>
+        <p>신규 업로드 이용조건으로 등록한 사진에는 이 철회가 적용되지 않습니다. 새 사진 업로드에는 기존 업로드 이용조건이 적용됩니다.</p>
+        <p data-legacy-gallery-status role="status" aria-live="polite"
+           th:text="${legacyGalleryWithdrawal.withdrawn ? '과거 사진 갤러리 활용 동의 철회가 완료되었습니다.' : legacyGalleryWithdrawal.canWithdraw ? '과거 선택 동의 이력이 있습니다. 아래 버튼에서 갤러리 활용 동의를 철회할 수 있습니다.' : '과거 선택 동의 이력이 있으나 현재 철회 가능 상태를 확인하지 못했습니다. 페이지를 새로고침한 뒤 다시 확인해 주세요.'}"></p>
+        <button th:if="${legacyGalleryWithdrawal.canWithdraw}" type="button" data-legacy-gallery-withdraw
+                aria-describedby="legacy-gallery-withdrawal-title">과거 갤러리 활용 동의 철회</button>
+        <p data-legacy-gallery-error role="alert" hidden></p>
+      </section>
+      <ul id="comment-list" class="review-image-private-list">
+        <li th:each="comment : ${photos}" class="comment-item mypage-comment-row"
+            th:data-id="${comment.commentId}" th:data-user-id="${ownerId}">
+          <div class="content-comment-card">
+            <div class="content-comment-body">
+              <h2 class="mypage-comment-target">
+                <a th:href="@{/destinations/{id}(id=${comment.destinationId},commentId=${comment.commentId})}"
+                   th:text="${comment.destinationName}">여행지</a>
+              </h2>
+              <p class="mypage-comment-preview" th:text="${comment.content}">내 댓글 내용</p>
+              <img class="review-image-private-photo" th:src="${comment.imageUrl}" alt="내 리뷰 사진" loading="lazy">
+              <p>갤러리 심사: <span th:text="${comment.galleryStatus == 'PENDING' ? '승인 대기' : comment.galleryStatus == 'APPROVED' ? '승인' : comment.galleryStatus == 'REJECTED' ? '반려' : comment.galleryStatus == 'REVOKED' ? '철회·승인 취소' : '활용하지 않음'}"></span></p>
+              <p th:if="${comment.reviewReason}" th:text="${comment.reviewReason}"></p>
+              <button type="button" data-review-photo-delete th:data-comment-id="${comment.commentId}" th:data-image-id="${comment.id}">사진 삭제</button>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(photos)}">관리할 리뷰 사진이 없습니다.</p>
+      <nav class="mypage-comment-pagination" aria-label="내 리뷰 사진 페이지">
+        <a th:if="${page > 0}" th:href="@{/mypage/review-images(page=${page - 1})}">이전</a>
+        <span th:text="${page + 1}">1</span>
+        <a th:if="${hasNext}" th:href="@{/mypage/review-images(page=${page + 1})}">다음</a>
+      </nav>
+    </section>
+  </div>
+  <script type="module" th:src="@{/js/review-image-management.js}"></script>
+</th:block>
+</html>

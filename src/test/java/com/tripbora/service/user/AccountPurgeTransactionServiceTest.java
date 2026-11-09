@@ -86,6 +86,17 @@ class AccountPurgeTransactionServiceTest {
 
     /** purgeOne 은 회원 한 명의 트랜잭션 경계여야 한다. */
     @Test
+    void finalWithdrawalRevokesGalleryConsentAfterLockingTheMember() {
+        service.purgeOne(USER_ID, NOW);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(userMapper, accountPurgeMapper);
+        order.verify(userMapper).findPurgeTargetByIdForUpdate(USER_ID, NOW);
+        order.verify(accountPurgeMapper).revokeReviewImageConsents(USER_ID);
+        order.verify(userMapper).finalizeWithdrawal(eq(USER_ID), any(), any(), any(), any(), any());
+    }
+
+    /** purgeOne 은 회원 한 명의 트랜잭션 경계여야 한다. */
+    @Test
     void purgeOneIsAPublicTransactionalBoundary() throws Exception {
         Method purgeOne = AccountPurgeTransactionService.class.getMethod(
                 "purgeOne", Long.class, LocalDateTime.class);

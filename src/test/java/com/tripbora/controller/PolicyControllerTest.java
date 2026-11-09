@@ -36,11 +36,50 @@ class PolicyControllerTest {
     @MockitoBean
     private SignupPolicyService signupPolicyService;
     @MockitoBean
+    private com.tripbora.service.policy.GalleryConsentService galleryConsentService;
+    @MockitoBean
     private UserMapper userMapper;
     @MockitoBean
     private CustomLoginSuccessHandler customLoginSuccessHandler;
     @MockitoBean
     private CustomLogoutSuccessHandler customLogoutSuccessHandler;
+
+    @Test
+    void anonymousReviewPhotoTermsExposeTheSameActualVersionAsHtmlAndJson() throws Exception {
+        var terms = new com.tripbora.dto.ReviewPhotoUploadTerms(true, 50L, "20261106-v1",
+                "리뷰 사진 업로드 약관", "<p>공개 리뷰 사진의 서비스 내 활용</p>", "ko",
+                "/review-photo-terms?versionId=50");
+        when(galleryConsentService.uploadTerms(null)).thenReturn(terms);
+        when(galleryConsentService.uploadTerms(50L)).thenReturn(terms);
+        String html = mockMvc.perform(get("/review-photo-terms").accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String stylesheet = org.jsoup.Jsoup.parse(html).select("link[href*=policy-]").attr("href");
+        assertThat(stylesheet).matches("/css/policy-[a-f0-9]{32}\\.css");
+        mockMvc.perform(get(stylesheet)).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("text/css"));
+        mockMvc.perform(get("/review-photo-terms").accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isOk()).andExpect(view().name("policy/detail"))
+                .andExpect(result -> {
+                    var document = org.jsoup.Jsoup.parse(result.getResponse().getContentAsString());
+                    assertThat(document.select("h1").text()).contains(terms.title());
+                    assertThat(document.select(".policy-document").text()).contains("서비스 내 활용");
+                });
+        mockMvc.perform(get("/review-photo-terms").param("versionId", "50")
+                        .accept(org.springframework.http.MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.policyVersionId").value(50))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.contentHtml").value(terms.contentHtml()));
+    }
+
+    @Test
+    void unknownHistoricalPhotoTermsReturnNotFoundAndNewMethodRemainsCsrfProtected() throws Exception {
+        when(galleryConsentService.uploadTerms(999L)).thenThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND));
+        mockMvc.perform(get("/review-photo-terms").param("versionId", "999")
+                        .accept(org.springframework.http.MediaType.APPLICATION_JSON)).andExpect(status().isNotFound());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/review-photo-terms"))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     void anonymousUserCanReadTheActiveTermsOfService() throws Exception {

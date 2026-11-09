@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +41,42 @@ import static org.mockito.Mockito.when;
 /** STEP C: 신규 댓글 사진은 destination_comment_images 에만 저장된다. */
 @ExtendWith(MockitoExtension.class)
 class DestinationCommentImageWriteTest {
+    @Test
+    void newCommentPhotosReceiveUploadLicenseSnapshotBeforeInsert() {
+        givenCommentIsInserted(50L);
+        givenWriterExists();
+        User active = new User();
+        active.setId(7L);
+        active.setStatus(com.tripbora.model.UserStatus.ACTIVE);
+        when(commentImageMapper.lockUser(7L)).thenReturn(active);
+        when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(1);
+        service.create(10L, 7L, "사진 후기", List.of(image("photo.jpg")), null, 4, 700L);
+        verify(uploadTerms).requireUploadLicense(7L, 700L);
+        verify(commentImageMapper).insert(org.mockito.ArgumentMatchers.argThat(photo ->
+                "PENDING".equals(photo.getGalleryStatus()) && Long.valueOf(700L).equals(photo.getGalleryLicensePolicyId())
+                        && license.acceptedAt().equals(photo.getGalleryLicenseAcceptedAt())
+                        && photo.getGalleryConsentId() == null && photo.getGalleryConsentAt() == null
+                        && photo.getGalleryConsentVersion() == null));
+    }
+
+    @Test
+    void originalCommentUploadIsCleanedOnLateTransactionRollback() throws Exception {
+        givenCommentIsInserted(50L);
+        givenWriterExists();
+        when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(1);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.create(10L, 7L, "사진 후기", List.of(image("photo.jpg")), null, 4);
+            org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(callback -> callback.afterCompletion(
+                            org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
+            try (var files = Files.list(uploadDir.resolve("comments"))) {
+                assertThat(files).isEmpty();
+            }
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 
     @Mock
     private DestinationMapper destinationMapper;
@@ -53,6 +91,10 @@ class DestinationCommentImageWriteTest {
     Path uploadDir;
 
     private DestinationCommentService service;
+    private com.tripbora.service.policy.GalleryConsentService uploadTerms;
+    private final com.tripbora.service.policy.GalleryConsentService.UploadLicenseGrant license =
+            new com.tripbora.service.policy.GalleryConsentService.UploadLicenseGrant(700L,
+                    java.time.LocalDateTime.parse("2026-11-06T10:00:00.123456"));
 
     @BeforeEach
     void setUp() {
@@ -61,6 +103,23 @@ class DestinationCommentImageWriteTest {
                 new FileUploadService(uploadDir.toString()), new LocalContentLanguageDetector(),
                 TestWithdrawnMemberName.real());
         ReflectionTestUtils.setField(service, "uploadPath", uploadDir.toString());
+        uploadTerms = org.mockito.Mockito.mock(com.tripbora.service.policy.GalleryConsentService.class);
+        service.setGalleryConsentService(uploadTerms);
+        // 파일 경계 테스트는 유효한 약관 근거를 고정한다. 버전 누락/충돌은 별도 테스트에서 거절한다.
+        org.mockito.Mockito.lenient().when(uploadTerms.requireUploadLicense(org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.nullable(Long.class))).thenReturn(license);
+        org.mockito.Mockito.lenient().doAnswer(call -> {
+            DestinationCommentImage photo = call.getArgument(0);
+            photo.setGalleryStatus("PENDING");
+            photo.setGalleryLicensePolicyId(license.policyVersionId());
+            photo.setGalleryLicenseAcceptedAt(license.acceptedAt());
+            return null;
+        }).when(uploadTerms).applyToNewImage(any(DestinationCommentImage.class), org.mockito.ArgumentMatchers.eq(license));
+        User active = new User(); active.setId(7L); active.setStatus(com.tripbora.model.UserStatus.ACTIVE);
+        var destination = new com.tripbora.model.Destination(); destination.setId(10L); destination.setPublicVisible(true);
+        org.mockito.Mockito.lenient().when(commentImageMapper.lockUser(7L)).thenReturn(active);
+        org.mockito.Mockito.lenient().when(commentImageMapper.lockDestination(10L)).thenReturn(destination);
+        org.mockito.Mockito.lenient().when(commentMapper.findBlockingReviewId(any(), any(), any())).thenReturn(null);
     }
 
     @Test
@@ -70,7 +129,7 @@ class DestinationCommentImageWriteTest {
         when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(1);
 
         service.create(10L, 7L, "사진 후기",
-                List.of(image("a.jpg"), image("b.jpg"), image("c.jpg")), null);
+                List.of(image("a.jpg"), image("b.jpg"), image("c.jpg")), null, 4);
 
         ArgumentCaptor<DestinationCommentImage> captor =
                 ArgumentCaptor.forClass(DestinationCommentImage.class);
@@ -91,26 +150,65 @@ class DestinationCommentImageWriteTest {
         assertThat(commentCaptor.getValue().getSourceLanguage()).isEqualTo("ko");
     }
 
+    @Test void createResponseKeepsNewPhotoIdAlongsideLegacyImageUrls() {
+        givenCommentIsInserted(50L);givenWriterExists();
+        when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenAnswer(call->{
+            call.getArgument(0,DestinationCommentImage.class).setId(70L);return 1;
+        });
+        var result=service.create(10L,7L,"방문 사진",List.of(image("photo.jpg")),null,4);
+        assertThat(result.getPhotos()).extracting(com.tripbora.dto.CommentImageDto::getId).containsExactly(70L);
+        assertThat(result.getPhotos().get(0).getImageUrl()).isEqualTo(result.getImageUrls().get(0));
+    }
+
     @Test
     void emptyFilesAreIgnoredWhenCountingAttachments() {
         givenCommentIsInserted(50L);
         givenWriterExists();
 
         service.create(10L, 7L, "사진 없음",
-                Arrays.asList(emptyImage(), null, emptyImage()), null);
+                Arrays.asList(emptyImage(), null, emptyImage()), null, 4);
 
         verify(commentImageMapper, never()).insert(any());
+        org.mockito.Mockito.verifyNoInteractions(uploadTerms);
+    }
+
+    @Test void missingOrStaleUploadTermsRejectBeforeFileAndDatabaseWrites() throws Exception {
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT)).when(uploadTerms)
+                .requireUploadLicense(org.mockito.ArgumentMatchers.eq(7L), org.mockito.ArgumentMatchers.nullable(Long.class));
+        for (Long expected : Arrays.asList(null, 699L)) {
+            assertThatThrownBy(() -> service.create(10L, 7L, "사진 후기", List.of(image("photo.jpg")), null, 4, expected))
+                    .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,
+                            error -> assertThat(error.getStatusCode().value()).isEqualTo(409));
+        }
+        verify(commentMapper, never()).insert(any());
+        verify(commentImageMapper, never()).insert(any());
+        assertThat(Files.exists(uploadDir.resolve("comments"))).isFalse();
     }
 
     @Test
-    void moreThanThreeImagesAreRejectedBeforeAnythingIsStored() {
-        assertThatThrownBy(() -> service.create(10L, 7L, "사진 4장",
-                List.of(image("a.jpg"), image("b.jpg"), image("c.jpg"), image("d.jpg")), null))
+    void moreThanFiveImagesAreRejectedBeforeAnythingIsStored() {
+        assertThatThrownBy(() -> service.create(10L, 7L, "사진 6장",
+                java.util.stream.IntStream.range(0, 6).mapToObj(i -> image(i + ".jpg")).toList(), null, 4))
                 .isInstanceOf(CommentImageLimitException.class)
-                .hasMessage("사진은 최대 3장까지 첨부할 수 있습니다.");
+                .hasMessage("사진은 최대 5장까지 첨부할 수 있습니다.");
 
         verify(commentMapper, never()).insert(any());
         verify(commentImageMapper, never()).insert(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    void oneToFivePhotosAreStoredInTheirOriginalOrder(int count) {
+        givenCommentIsInserted(50L);
+        givenWriterExists();
+        when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(1);
+        service.create(10L, 7L, "사진 후기",
+                java.util.stream.IntStream.range(0, count).mapToObj(i -> image(i + ".jpg")).toList(), null, 4);
+        var captor = ArgumentCaptor.forClass(DestinationCommentImage.class);
+        verify(commentImageMapper, org.mockito.Mockito.times(count)).insert(captor.capture());
+        assertThat(captor.getAllValues()).extracting(DestinationCommentImage::getDisplayOrder)
+                .containsExactlyElementsOf(java.util.stream.IntStream.rangeClosed(1, count).boxed().toList());
     }
 
     @Test
@@ -118,7 +216,7 @@ class DestinationCommentImageWriteTest {
         givenCommentIsInserted(50L);
         when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(0);
 
-        assertThatThrownBy(() -> service.create(10L, 7L, "실패", List.of(image("a.jpg")), null))
+        assertThatThrownBy(() -> service.create(10L, 7L, "실패", List.of(image("a.jpg")), null, 4))
                 .isInstanceOf(IllegalStateException.class);
 
         // 업로드된 실제 파일이 남지 않아야 한다
@@ -137,7 +235,7 @@ class DestinationCommentImageWriteTest {
         givenWriterExists();
         when(commentImageMapper.insert(any(DestinationCommentImage.class))).thenReturn(1);
 
-        service.create(10L, 7L, "사진 후기", List.of(image("../evil name.html")), null);
+        service.create(10L, 7L, "사진 후기", List.of(image("../evil name.html")), null, 4);
 
         ArgumentCaptor<DestinationCommentImage> captor =
                 ArgumentCaptor.forClass(DestinationCommentImage.class);
@@ -160,7 +258,7 @@ class DestinationCommentImageWriteTest {
                 new MockMultipartFile("images", "x.svg", "image/svg+xml", svg),
                 new MockMultipartFile("images", "x.jpg", "image/jpeg", html))) {
             assertThatThrownBy(() -> service.create(10L, 7L, "위장 파일",
-                    List.of(image("ok.jpg"), rejected), null))
+                    List.of(image("ok.jpg"), rejected), null, 4))
                     .isInstanceOf(com.tripbora.service.file.UnsupportedImageFormatException.class);
         }
 
@@ -189,7 +287,9 @@ class DestinationCommentImageWriteTest {
         comment.setId(50L);
         comment.setUserId(7L);
         comment.setDeleted(false);
+        comment.setDestinationId(10L);
         when(commentMapper.findById(50L)).thenReturn(comment);
+        when(commentImageMapper.lockComment(50L)).thenReturn(comment);
 
         assertThat(service.updateComment(
                 50L, 7L, "This updated comment is written clearly in English.")).isTrue();

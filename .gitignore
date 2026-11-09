@@ -52,6 +52,9 @@ src/main/resources/application-local.yml
 !docs/destination-json-update-protection.md
 !docs/superpowers/plans/2026-10-24-destination-json-update.md
 !docs/ops/production-architecture.md
+!docs/policy-consent-stage3.md
+!docs/policy-consent-stage4.md
+!docs/review-photo-upload-terms.md
 
 ### Claude Code local config ###
 .claude/

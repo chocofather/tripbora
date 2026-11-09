@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DestinationListRenderingTest {
     @Autowired MockMvc mvc;
     @MockitoBean DestinationService destinations;
+    @MockitoBean DestinationGalleryService gallery;
     @MockitoBean DestinationImageService images;
     @MockitoBean CountryCategoryService countries;
     @MockitoBean DestinationCommentService comments;

@@ -66,17 +66,18 @@ class SignupPolicyMapperContractTest {
                 .contains("t.policy_version_id IN");
     }
 
-    /** 동의 이력은 append-only 다. 저장 문장은 INSERT 하나뿐이어야 한다. */
+        /** 동의 이력은 append-only 다. 사진 상태 갱신과 구분한다. */
     @Test
     void theConsentIsOnlyEverInserted() throws IOException {
         String consentXml = resource("mapper/UserPolicyConsentMapper.xml");
 
         assertThat(statement(consentXml, "insert", "insertConsent"))
                 .contains("INSERT INTO user_policy_consents")
-                .contains("(user_id, policy_version_id, agreed, locale, consent_source)");
+                .contains("(user_id, policy_version_id, agreed, decision_action, locale, consent_source)")
+                .contains("#{decisionAction}");
         // 기존 동의를 덮어쓰는 경로를 만들지 않는다.
         assertThat(consentXml)
-                .doesNotContain("<update")
+                .doesNotContain("UPDATE user_policy_consents")
                 .doesNotContain("ON DUPLICATE KEY UPDATE")
                 .doesNotContain("REPLACE INTO");
         // 정책 원본은 참조만 한다.

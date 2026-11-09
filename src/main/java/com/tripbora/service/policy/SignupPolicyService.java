@@ -69,6 +69,7 @@ public class SignupPolicyService {
             }
             // 아는 policy_type 만 화면에 올린다. 모르는 값이 들어와도 조회가 깨지지 않는다.
             PolicyType.from(version.getPolicyType())
+                    .filter(SIGNUP_POLICY_TYPES::contains)
                     .ifPresent(type -> activeByType.putIfAbsent(type, version));
         }
         if (activeByType.isEmpty()) {

@@ -19,6 +19,8 @@ public class PolicyVersion {
     private boolean requiresConsent;
     private boolean required;
     private boolean requiresReconsent;
+    /** null은 이 버전 자체의 범위. 경미 개정의 재사용은 명시 참조가 있어야 한다. */
+    private Long consentBasisVersionId;
     private LocalDateTime effectiveAt;
     private LocalDateTime publishedAt;
     private boolean active;

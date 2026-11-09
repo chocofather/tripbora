@@ -11,4 +11,10 @@ public final class TranslationVisibility {
         var target = SupportedLanguage.fromLanguageTag(targetLanguage);
         return source.isPresent() && target.isPresent() && source.get() != target.get();
     }
+
+    public static boolean shouldOffer(String sourceLanguage, String targetLanguage, String text) {
+        return shouldOffer(sourceLanguage, targetLanguage)
+                || (SupportedLanguage.fromLanguageTag(targetLanguage).isPresent()
+                    && MixedLanguageSupport.shouldTranslate(text, targetLanguage));
+    }
 }

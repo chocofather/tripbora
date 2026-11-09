@@ -18,6 +18,8 @@ import com.tripbora.service.policy.SignupPolicyService;
 import com.tripbora.service.policy.SignupPolicySet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -55,11 +57,56 @@ class UserServiceRegistrationTest {
 
     private UserService userService;
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void galleryChoiceUsesTheShownVersionAndSignupSource(boolean agreed) {
+        var policies = new java.util.ArrayList<>(SignupPolicyFixtures.activeSignupPolicies().policies());
+        policies.add(SignupPolicyFixtures.policy(105L, PolicyType.REVIEW_GALLERY, true, false));
+        when(signupPolicyService.loadSignupPolicies()).thenReturn(new SignupPolicySet(policies));
+        RegistrationForm form = validForm();
+        form.setShownPolicyVersionIds(policies.stream()
+                .map(com.tripbora.service.policy.SignupPolicy::policyVersionId).toList());
+        if (agreed) {
+            form.setAgreedPolicyVersionIds(List.of(SignupPolicyFixtures.TERMS_ID,
+                    SignupPolicyFixtures.PRIVACY_COLLECTION_ID, 105L));
+        }
+
+        userService.registerUser(form);
+
+        assertThat(decisionFor(recordedDecisions(), PolicyType.REVIEW_GALLERY))
+                .isEqualTo(new PolicyConsentDecision(105L, PolicyType.REVIEW_GALLERY, agreed));
+    }
+
+    @Test
+    void anOptionalVersionChangeRejectsTheWholeSignupWithoutRecordingAnUnseenRefusal() {
+        RegistrationForm form = validForm();
+        form.setShownPolicyVersionIds(List.of(SignupPolicyFixtures.TERMS_ID,
+                SignupPolicyFixtures.PRIVACY_COLLECTION_ID, SignupPolicyFixtures.PRIVACY_POLICY_ID, 999L));
+
+        assertThatThrownBy(() -> userService.registerUser(form))
+                .isInstanceOf(RegistrationValidationException.class)
+                .hasFieldOrPropertyWithValue("messageCode", "signup.error.terms.changed");
+
+        assertThat(form.getAgreedPolicyVersionIds()).isEmpty();
+        verify(userMapper, never()).insertUser(any());
+        verifyNoInteractions(policyConsentRecorder, passwordEncoder, emailVerificationService);
+    }
+
+    @Test
+    void unavailableRequiredPoliciesNeverCreateAUser() {
+        when(signupPolicyService.loadSignupPolicies()).thenReturn(SignupPolicySet.empty());
+        assertThatThrownBy(() -> userService.registerUser(validForm()))
+                .isInstanceOf(RegistrationValidationException.class)
+                .hasFieldOrPropertyWithValue("field", "agreedPolicyVersionIds");
+        verify(userMapper, never()).insertUser(any());
+        verifyNoInteractions(policyConsentRecorder);
+    }
+
     @BeforeEach
     void setUp() {
-        // 기본값은 정책 활성화 전 상태다. 정책이 필요한 테스트만 활성 세트로 바꿔 끼운다.
+        // 정상 가입에는 활성 필수 정책과 화면에 표시한 버전이 모두 필요하다.
         lenient().when(signupPolicyService.loadSignupPolicies())
-                .thenReturn(SignupPolicySet.empty());
+                .thenReturn(SignupPolicyFixtures.activeSignupPolicies());
         // MyBatis 가 useGeneratedKeys 로 채워 주는 id 를 흉내 낸다. 동의 이력이 이 id 를 쓴다.
         lenient().doAnswer(invocation -> {
             invocation.<User>getArgument(0).setId(41L);
@@ -374,6 +421,9 @@ class UserServiceRegistrationTest {
         form.setUserPassword("Password!");
         form.setPasswordConfirm("Password!");
         form.setNickname("여행자123");
+        form.setShownPolicyVersionIds(SignupPolicyFixtures.activeSignupPolicies().policies().stream()
+                .map(com.tripbora.service.policy.SignupPolicy::policyVersionId).toList());
+        form.setAgreedPolicyVersionIds(SignupPolicyFixtures.requiredConsentIds());
         return form;
     }
 }

@@ -86,6 +86,22 @@ class SignupPolicyServiceTest {
                 NOW);
     }
 
+    @Test
+    void photoPoliciesAreExcludedFromSignupDisplayAndDecisionHistory() {
+        activeVersions(version(1L, PolicyType.TERMS_OF_SERVICE, true, true),
+                version(2L, PolicyType.PRIVACY_COLLECTION, true, true),
+                version(50L, PolicyType.REVIEW_GALLERY, true, false),
+                version(51L, PolicyType.PHOTO_UPLOAD_NOTICE, false, false));
+        when(policyMapper.findTranslations(anyList(), anyString(), anyString())).thenReturn(List.of());
+        SignupPolicySet policies = service().loadSignupPolicies("ko", NOW);
+        assertThat(policies.policies()).extracting(SignupPolicy::type)
+                .containsExactly(PolicyType.TERMS_OF_SERVICE, PolicyType.PRIVACY_COLLECTION);
+        assertThat(policies.decide(List.of(1L, 2L, 50L, 51L)))
+                .extracting(PolicyConsentDecision::policyVersionId).containsExactly(1L, 2L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> policies.decide(List.of(1L)))
+                .isInstanceOf(PolicyConsentRequiredException.class);
+    }
+
     /** 동의 항목과 열람 전용 항목이 갈린다. 개인정보처리방침은 체크박스를 만들지 않는다. */
     @Test
     void theViewOnlyPolicyIsSeparatedFromTheConsentPolicies() {

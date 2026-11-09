@@ -109,6 +109,56 @@
     </resultMap>
 
     <!-- 상세페이지 쿼리 (결과는 DestinationDetailMap으로) -->
+    <select id="findPublicDestinationDetail" resultMap="destinationWithThumbnail">
+        SELECT d.*, c.region_name
+        FROM destinations d JOIN country_categories c ON d.region_id = c.id
+        WHERE d.id = #{id}
+    </select>
+
+    <select id="isPublicDestination" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM destinations WHERE id = #{destinationId} AND is_public = 1)
+    </select>
+
+    <select id="findPublicRepresentativeImage" resultMap="imageMap">
+        SELECT <include refid="imageSelectColumns"/>
+        FROM destination_images di
+        LEFT JOIN destination_image_sources s ON s.destination_image_id = di.id
+        WHERE di.destination_id = #{destinationId}
+          AND EXISTS (SELECT 1 FROM destinations WHERE id = di.destination_id AND is_public = 1)
+        ORDER BY di.is_main DESC, di.order_index ASC, di.id ASC LIMIT 1
+    </select>
+
+    <sql id="galleryCandidateConditions">
+        di.destination_id = #{destinationId}
+        AND EXISTS (SELECT 1 FROM destinations WHERE id = di.destination_id AND is_public = 1)
+        <if test="anchor != null">
+            <choose>
+                <when test="reverse">
+                    AND (di.order_index &lt; #{anchor.orderIndex}
+                      OR (di.order_index = #{anchor.orderIndex} AND di.id &lt; #{anchor.imageId}))
+                </when>
+                <otherwise>
+                    AND (di.order_index &gt; #{anchor.orderIndex}
+                      OR (di.order_index = #{anchor.orderIndex} AND di.id &gt; #{anchor.imageId}))
+                </otherwise>
+            </choose>
+        </if>
+    </sql>
+    <select id="findGalleryCandidates" resultMap="imageMap">
+        SELECT <include refid="imageSelectColumns"/>
+        FROM destination_images di
+        LEFT JOIN destination_image_sources s ON s.destination_image_id = di.id
+        WHERE <include refid="galleryCandidateConditions"/>
+        <choose>
+            <when test="reverse">ORDER BY di.order_index DESC, di.id DESC</when>
+            <otherwise>ORDER BY di.order_index ASC, di.id ASC</otherwise>
+        </choose>
+        LIMIT #{limit}
+    </select>
+    <select id="hasGalleryCandidates" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM destination_images di WHERE <include refid="galleryCandidateConditions"/>)
+    </select>
+
     <select id="findDestinationDetail" resultMap="DestinationDetailMap">
         SELECT
             d.*,                            -- type 컬럼 포함!

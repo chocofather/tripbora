@@ -59,7 +59,7 @@ class OverseasMapEmbedTest {
         controller = new DestinationController(destinationService, destinationImageService,
                 countryCategoryService, destinationCommentService, referenceNameLocalizationService,
                 new com.tripbora.service.file.DestinationCardThumbnailService("build/tmp/no-uploads",
-                        org.mockito.Mockito.mock(DestinationImageService.class)));
+                        org.mockito.Mockito.mock(DestinationImageService.class)), DestinationGalleryTestSupport.empty());
         when(countryCategoryService.getDomesticRootIds()).thenReturn(List.of(1L));
     }
 
@@ -219,7 +219,7 @@ class OverseasMapEmbedTest {
         DestinationDetailDto dto = new DestinationDetailDto();
         dto.setDestination(destination);
 
-        when(destinationService.getDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
+        when(destinationService.getPublicDestinationDetailWithInfo(eq(7L), any(SupportedLanguage.class)))
                 .thenReturn(dto);
         when(destinationService.getSimilarDestinations(7L, 4)).thenReturn(List.of());
         when(destinationService.convertToDtoWithBookmark(List.of(), null)).thenReturn(List.of());

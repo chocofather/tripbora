@@ -6,8 +6,13 @@
  * @param {string} label - 작업 라벨 (에러 메시지에 사용)
  * @returns {Promise<any>} JSON 파싱 결과
  */
-function handleJson(res, label) {
-    if (!res.ok) throw new Error(`${label} 실패: HTTP ${res.status}`);
+async function handleJson(res, label) {
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const error = new Error(body.message || body.detail || `${label} 실패: HTTP ${res.status}`);
+        error.status = res.status;
+        throw error;
+    }
     const ct = res.headers.get('Content-Type') || '';
     if (!ct.includes('application/json')) {
         throw new Error(`${label} 응답이 JSON이 아닙니다: ${ct}`);
@@ -60,7 +65,8 @@ export function postComment(destinationId, formData) {
  * @returns {Promise<Object>} Page<CommentDto> 형태 응답
  */
 export function fetchCommentsPage(destinationId, page = 0, size = 5, sort = 'latest') {
-    const url = `/comments/list/page?destinationId=${destinationId}&page=${page}&size=${size}&sort=${sort}&_=${Date.now()}`;
+    const rootsOnly = Boolean(document.querySelector('[data-reviews-only]'));
+    const url = `/comments/list/page?destinationId=${destinationId}&page=${page}&size=${size}&sort=${sort}&rootsOnly=${rootsOnly}&_=${Date.now()}`;
     return fetch(url, {
         headers: { 'Accept': 'application/json' },
         cache: 'no-store'
@@ -157,12 +163,19 @@ export function updateCommentApi(commentId, body) {
     });
 }
 
-/**
- * 댓글 이미지(썸네일) 목록 조회
- * @param {string|number} destinationId
- * @returns {Promise<Array<{imageUrl: string}>>}
- */
-export function fetchThumbnails(destinationId) {
-    return fetch(`/comments/images?destinationId=${destinationId}`)
-        .then(res => handleJson(res, '썸네일 로드'));
+export function fetchOwnCommentImages(commentId) {
+    return fetch(`/comments/${encodeURIComponent(commentId)}/images`, {cache: 'no-store'})
+        .then(res => handleJson(res, '댓글 사진 조회'));
+}
+
+export async function updateCommentWithImages(commentId, body) {
+    const response = await fetch(`/comments/${encodeURIComponent(commentId)}/with-images`, {
+        method: 'PUT', headers: csrfHeaders(), body
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const error = new Error(data.message || data.detail || '댓글을 수정하지 못했습니다. 다시 시도해 주세요.');
+        error.status = response.status;
+        throw error;
+    }
 }

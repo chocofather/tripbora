@@ -11,6 +11,8 @@ public class PageResult<T> {
     private int currentPage;       // 현재 페이지
     private int pageSize;          // 페이지당 개수
     private int totalCommentCount; // 대댓글을 포함한 활성 댓글 전체 개수
+    private int reviewCount; // 여행지 공개 최상위 글 수. 답글 및 숨김 안내 자리는 제외
+    private DestinationReviewStatistics reviewStatistics;
 
     public PageResult(List<T> content, int totalElements, int currentPage, int pageSize) {
         this(content, totalElements, currentPage, pageSize, totalElements);

@@ -15,6 +15,11 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ContentTranslationCacheMapperContractTest {
+    @Test void staleOriginalInvalidationIsRestrictedToTheExactReadyVersion() {
+        String query=sql(mapperConfiguration(),"invalidateUnchangedReady",Map.of("contentType","DESTINATION_COMMENT","contentId",1L,"sourceField","content","targetLanguage","ko","sourceHash",new byte[32],"translatedText","원문"));
+        assertThat(query).contains("source_hash = ?","content_type = ?","content_id = ?","source_field = ?","target_language = ?","status = 'READY'","BINARY translated_text = BINARY ?","retry_after = NULL");
+        assertThat(query).doesNotContain("DELETE", "TRUNCATE");
+    }
 
     @Test
     void leaseClaimAndCompletionQueriesGuardConcurrentProviderCalls() {

@@ -15,6 +15,16 @@ import java.util.List;
 @Mapper
 public interface PolicyMapper {
 
+    /** 사진 동의의 live 판정은 DB TIMESTAMP/정책 DATETIME과 같은 세션 시계를 사용한다. */
+    LocalDateTime databaseWallTime();
+
+    /** 공통 판정 전용: 과거 스냅샷과 명시적인 동의 기준 버전 확인. */
+    PolicyVersion findVersionById(@Param("id") Long id);
+
+    /** 명시 기준과 표시 버전 사이에 새 범위를 만든 개정이 있는지 확인한다. */
+    boolean hasInterveningMaterialVersion(@Param("basisId") Long basisId,
+                                          @Param("versionId") Long versionId);
+
     /**
      * 요청한 policy_type 들의 현재 사용 버전. 타입당 최대 한 행만 돌려준다.
      *

@@ -14,7 +14,9 @@ public enum PolicyType {
     TERMS_OF_SERVICE("signup.terms.service", "signup.error.terms.service"),
     PRIVACY_POLICY("signup.terms.privacyPolicy", "signup.error.terms.required"),
     PRIVACY_COLLECTION("signup.terms.privacy", "signup.error.terms.privacy"),
-    MARKETING_EMAIL("signup.terms.marketing", "signup.error.terms.required");
+    MARKETING_EMAIL("signup.terms.marketing", "signup.error.terms.required"),
+    PHOTO_UPLOAD_NOTICE("signup.terms.photoUpload", "signup.error.terms.required"),
+    REVIEW_GALLERY("signup.terms.reviewGallery", "signup.error.terms.required");
 
     /** 번역 제목이 아직 없을 때 쓰는 messages key. */
     private final String labelCode;

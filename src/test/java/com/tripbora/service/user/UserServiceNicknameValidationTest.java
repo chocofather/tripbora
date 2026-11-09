@@ -7,7 +7,7 @@ import com.tripbora.service.email.EmailDispatchService;
 import com.tripbora.service.email.EmailVerificationService;
 import com.tripbora.service.policy.PolicyConsentRecorder;
 import com.tripbora.service.policy.SignupPolicyService;
-import com.tripbora.service.policy.SignupPolicySet;
+import com.tripbora.service.policy.SignupPolicyFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,9 +36,9 @@ class UserServiceNicknameValidationTest {
 
     @BeforeEach
     void setUp() {
-        // 정책 활성화 전 상태가 기본값이다. 닉네임 검증만 남는다.
+        // 정상 가입에 필요한 활성 필수 정책을 제공한다.
         lenient().when(signupPolicyService.loadSignupPolicies())
-                .thenReturn(SignupPolicySet.empty());
+                .thenReturn(SignupPolicyFixtures.activeSignupPolicies());
         userService = new UserService(userMapper, passwordEncoder, emailDispatchService,
                 emailVerificationService, signupPolicyService,
                 new RegistrationTransactionService(userMapper, policyConsentRecorder),
@@ -109,6 +109,9 @@ class UserServiceNicknameValidationTest {
         form.setUserPassword("Password!");
         form.setPasswordConfirm("Password!");
         form.setUserEmail("member@example.com");
+        form.setAgreedPolicyVersionIds(SignupPolicyFixtures.requiredConsentIds());
+        form.setShownPolicyVersionIds(SignupPolicyFixtures.activeSignupPolicies().policies().stream()
+                .map(com.tripbora.service.policy.SignupPolicy::policyVersionId).toList());
         return form;
     }
 }

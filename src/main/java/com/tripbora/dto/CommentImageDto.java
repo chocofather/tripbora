@@ -6,5 +6,8 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class CommentImageDto {
+    private Long id;
     private String imageUrl;
+
+    public CommentImageDto(String imageUrl) { this(null, imageUrl); }
 }

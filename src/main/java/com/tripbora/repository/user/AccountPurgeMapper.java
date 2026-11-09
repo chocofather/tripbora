@@ -17,6 +17,9 @@ import java.util.List;
 @Mapper
 public interface AccountPurgeMapper {
 
+    /** 공개 댓글 사진은 보존하되 최종 탈퇴 시 갤러리 활용 동의를 철회한다. */
+    int revokeReviewImageConsents(@Param("userId") Long userId);
+
     /** 회원당 한 건만 있는 파기 작업. 같은 회원을 두 번 처리하지 않도록 잠그고 본다. */
     AccountPurgeJob findJobByUserIdForUpdate(@Param("userId") Long userId);
 

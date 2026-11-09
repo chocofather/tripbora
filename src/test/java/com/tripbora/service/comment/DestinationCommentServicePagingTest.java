@@ -34,6 +34,53 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DestinationCommentServicePagingTest {
+    @Test
+    void detailReviewsOnlyNeverLoadRepliesAndKeepRootPagination() {
+        when(commentMapper.countRootComments(10L)).thenReturn(1);
+        when(commentMapper.countByDestinationId(10L)).thenReturn(3);
+        when(commentMapper.findPagedParentComments(10L, 0, 5, "latest"))
+                .thenReturn(List.of(comment(1L, null, false)));
+        var result = service.getCommentsPaged(10L, null, 0, 5, "latest", true);
+        assertThat(result.getContent()).extracting(CommentDto::getId).containsExactly(1L);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(commentMapper, never()).findRepliesForParents(anyLong(), org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test void statisticsStaySeparateFromThreadPaginationAndRefreshAfterHideAndRestore() {
+        var visible = new com.tripbora.dto.DestinationReviewStatistics();
+        visible.setReviewCount(4); visible.setRatingCount(3);
+        visible.setAverageRating(new java.math.BigDecimal("4.3333"));
+        visible.setRating3Count(1); visible.setRating5Count(2);
+        var hidden = new com.tripbora.dto.DestinationReviewStatistics();
+        hidden.setReviewCount(3); hidden.setRatingCount(2);
+        hidden.setAverageRating(new java.math.BigDecimal("4.0000")); hidden.setRating3Count(1); hidden.setRating5Count(1);
+        when(commentMapper.findReviewStatistics(10L)).thenReturn(visible, hidden, visible);
+        var first = service.getCommentsPaged(10L, null, 0, 5, "latest");
+        var second = service.getCommentsPaged(10L, null, 0, 5, "latest");
+        var third = service.getCommentsPaged(10L, null, 0, 5, "latest");
+        assertThat(first.getReviewCount()).isEqualTo(4);
+        assertThat(first.getReviewStatistics().getRatingCount()).isEqualTo(3);
+        assertThat(first.getReviewStatistics().getAverageRating()).isEqualByComparingTo("4.3333");
+        assertThat(second.getReviewCount()).isEqualTo(3);
+        assertThat(second.getReviewStatistics().getDistribution()).containsExactly(0, 0, 1, 0, 1);
+        assertThat(third.getReviewStatistics()).isEqualTo(visible);
+    }
+
+    @Test void noRatingsKeepsNullAverageAndFiveZeroBuckets() {
+        var page = service.getCommentsPaged(10L, null, 0, 5, "latest");
+        assertThat(page.getReviewStatistics().getAverageRating()).isNull();
+        assertThat(page.getReviewStatistics().getDistribution()).containsExactly(0, 0, 0, 0, 0);
+    }
+
+    @Test void everySortIsWhitelistedAndForwardedWithStablePaging() {
+        when(commentMapper.countRootComments(10L)).thenReturn(7);
+        for (String sort : List.of("latest", "oldest", "likes", "rating_desc", "rating_asc")) {
+            service.getCommentsPaged(10L, null, 1, 5, sort);
+            verify(commentMapper).findPagedParentComments(10L, 5, 5, sort);
+        }
+        service.getCommentsPaged(10L, null, 1, 5, "rating DESC;bad");
+        verify(commentMapper, org.mockito.Mockito.times(2)).findPagedParentComments(10L, 5, 5, "latest");
+    }
 
     @Mock
     private DestinationMapper destinationMapper;
@@ -142,6 +189,10 @@ class DestinationCommentServicePagingTest {
         CommentDto sameLanguage = service.getCommentsPaged(10L, null, 0, 5, "latest")
                 .getContent().get(0);
         assertThat(sameLanguage.isTranslationAvailable()).isFalse();
+
+        korean.setContent("정말 좋은 식당입니다. The food was very delicious.");
+        assertThat(service.getCommentsPaged(10L,null,0,5,"latest").getContent().get(0).isTranslationAvailable()).isTrue();
+        korean.setContent("내용 1");
 
         LocaleContextHolder.setLocale(Locale.ENGLISH);
         CommentDto differentLanguage = service.getCommentsPaged(10L, null, 0, 5, "latest")

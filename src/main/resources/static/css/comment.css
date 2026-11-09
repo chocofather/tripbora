@@ -34,7 +34,7 @@
 }
 
 /* 0/2000 글자수 표시 (커뮤니티 댓글 작성폼과 같은 스타일) */
-#comment-form .comment-length {
+.comment-write-form .comment-length {
     color: #777;
     font-size: 14px;
 }
@@ -54,7 +54,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 10px;
+    margin: 0;
+    padding: 0;
     overflow-x: auto;
 }
 
@@ -70,6 +71,7 @@
 }
 
 .comment-image-preview-item img {
+    box-sizing: border-box;
     display: block;
     width: 100%;
     height: 100%;
@@ -81,8 +83,8 @@
 
 .comment-image-remove {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 4px;
+    right: 4px;
     display: flex;
     width: 22px;
     height: 22px;
@@ -106,7 +108,7 @@
 
 @media (max-width: 600px) {
     .comment-image-preview {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         padding-bottom: 4px;
     }
 
@@ -181,8 +183,6 @@
     border-radius: 5px;
     font-weight: 400;
 }
-
-.can
 
 .submit-btn:hover {
     background-color: #222;
@@ -291,6 +291,65 @@
 
 .comment-item.editing .comment-actions {
     display: none;
+}
+
+/* 입력 영역과 미리보기·버튼 줄은 분리한다. 사진 선택은 textarea 크기에 영향을 주지 않는다. */
+.comment-write-form .textarea-wrapper {
+    min-width: 0;
+}
+.comment-write-form .textarea-wrapper textarea,
+#comment-form .textarea-wrapper textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin: 0;
+    padding: 12px;
+    outline: none;
+    font: inherit;
+}
+.comment-write-form .textarea-wrapper textarea:focus,
+#comment-form:focus-within {
+    border-color: #8b5cf6;
+}
+.comment-write-form > .comment-image-preview {
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+}
+.comment-write-form > .comment-image-preview[hidden] { display: none; }
+.comment-write-form .comment-controls { flex-wrap: nowrap; justify-content: flex-end; }
+.comment-write-form .comment-controls > * { flex-shrink: 0; }
+.comment-write-form .comment-controls .image-upload-label,
+.comment-write-form .comment-controls .comment-length { margin: 0; }
+.comment-write-form .submit-btn,
+#comment-form .submit-btn,
+.comment-write-form .save-edit-btn {
+    padding: 7px 13px !important;
+    background: var(--tripbora-primary, #7c3aed) !important;
+    color: #fff;
+    border: 1px solid var(--tripbora-primary, #7c3aed);
+    font-size: 14px;
+    font-weight: 500;
+}
+.comment-write-form .cancel-edit-btn,
+.comment-write-form .cancel-reply {
+    padding: 7px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #555;
+    background: #fff;
+    font: inherit;
+    font-size: 14px;
+}
+.comment-edit-feedback { color: #b42318; font-size: 13px; overflow-wrap: anywhere; }
+.comment-edit-feedback:empty { display: none; }
+.content-comments .comment-images[hidden] { display: none; }
+@media (max-width: 430px) {
+    #comment-form { padding: 12px; }
+    .comment-write-form .comment-controls { gap: 6px; }
+    .comment-write-form .image-upload-label { padding: 6px 9px; }
 }
 
 /* ===== 대댓글 작성 폼 ===== */
@@ -402,196 +461,6 @@
         right: 10px;
     }
 }
-
-/* ===== 사진 후기 영역 ===== */
-.photo-review-section {
-    max-width: 960px;
-    margin: 60px auto 40px;
-}
-.photo-review-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-.photo-review-header h2 {
-    font-size: 22px;
-    font-weight: bold;
-}
-.photo-review-header .view-all {
-    font-size: 14px;
-    color: #333;
-    text-decoration: none;
-}
-.photo-review-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-}
-.photo-thumbnail {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-.photo-thumbnail:hover {
-    transform: scale(1.05);
-}
-
-/* ===== 전체보기 모달 (썸네일 갤러리) ===== */
-/* 전체보기 모달 */
-#photo-modal {
-    display: none;
-    position: fixed;
-    z-index: 9999;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.photo-modal-container {
-    display: flex;
-    position: relative;
-    width: 90%;
-    max-width: 1300px;
-    height: 90%;
-    background: transparent;
-}
-
-
-/* 메인 이미지 영역 */
-.photo-main {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    position: relative;
-
-}
-
-.photo-main img {
-    max-width: 100%;
-    max-height: 100%;
-    border-radius: 8px;
-    object-fit: contain;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-}
-
-/* 썸네일 영역 */
-.photo-sidebar-thumbnails {
-    width: 120px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow-y: auto;
-    background-color: #fff;
-    padding: 10px;
-    border-left: 1px solid #ccc;
-}
-
-.photo-sidebar-thumbnails img {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    object-fit: cover;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.photo-sidebar-thumbnails img:hover {
-    transform: scale(1.05);
-}
-
-.thumbnail-item.active {
-    outline: 2px solid var(--tripbora-primary);
-}
-
-.photo-sidebar-thumbnails img.active {
-    border: 2px solid var(--tripbora-primary);
-}
-
-/* 닫기 버튼 */
-.photo-close {
-    position: fixed;
-    top: 24px;
-    right: 32px;
-    padding: 0;
-    border: 0;
-    background: none;
-    font-size: 32px;
-    line-height: 1;
-    color: white;
-    cursor: pointer;
-    z-index: 10000;
-}
-
-/* 좌우 버튼 */
-/* 좌/우 이동 버튼 (메인 여행지 이미지 모달과 같은 디자인) */
-.photo-prev, .photo-next {
-    position: absolute;
-    top: 50%;
-    z-index: 10;
-    display: flex;
-    width: 46px;
-    height: 46px;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 50%;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    transform: translateY(-50%);
-    transition: background-color 0.18s ease;
-}
-
-.photo-prev:hover,
-.photo-next:hover,
-.photo-prev:focus-visible,
-.photo-next:focus-visible {
-    background: rgba(0, 0, 0, 0.72);
-}
-
-.photo-prev {
-    left: 20px;
-}
-
-.photo-next {
-    right: 20px;
-}
-
-/* 사진이 한 장이면 이동 버튼을 감춘다 */
-.photo-modal.is-single .photo-prev,
-.photo-modal.is-single .photo-next {
-    display: none;
-}
-
-@media (max-width: 600px) {
-    .photo-prev, .photo-next {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
-    }
-
-    .photo-prev {
-        left: 10px;
-    }
-
-    .photo-next {
-        right: 10px;
-    }
-}
-
 
 .comment-author-tag {
     display: inline-block;
@@ -712,3 +581,157 @@
     margin-right: 5px;
     vertical-align: middle;
 }
+
+/* 기본 radio 키보드 동작과 기존 작성·사진 컨트롤 배치를 유지한다. */
+.comment-section .review-rating-input { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
+.review-rating-input legend { color: #4b4261; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.review-rating-options { display: inline-flex; max-width: 100%; }
+.review-rating-choice { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; }
+.review-rating-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.review-rating-choice > span[aria-hidden] { color: #d9d4e3; font-size: 30px; line-height: 1; }
+.review-rating-choice:has(input:checked) > span[aria-hidden],
+.review-rating-choice:has(~ .review-rating-choice input:checked) > span[aria-hidden] { color: #7c3aed; }
+.review-rating-choice:has(input:focus-visible) { outline: 2px solid #7c3aed; outline-offset: -2px; border-radius: 6px; }
+.review-rating-unscored { display: inline-flex; gap: 5px; align-items: center; color: #6b6575; font-size: 12px; }
+.review-rating-display { display: flex; gap: 8px; align-items: center; margin: 6px 0; color: #7c3aed; font-size: 14px; }
+.review-rating-display > span:last-child { color: #6b6575; font-size: 12px; }
+
+/* 여행지 리뷰 전용. 게시글·코스의 공통 댓글 디자인에는 적용하지 않는다. */
+.traveler-reviews .review-write-toggle {
+    border: 1px solid #7657c8;
+    border-radius: 8px;
+    padding: 9px 16px;
+    min-height: 42px;
+    background: #7657c8;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.traveler-reviews .review-summary {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr);
+    gap: 28px;
+    padding: 24px;
+    border: 1px solid #e8e2f1;
+    border-radius: 12px;
+    background: #fff;
+    margin: 0 0 22px;
+}
+.traveler-reviews .review-summary-score { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 0; }
+.traveler-reviews .review-average { font-size: 40px; line-height: 1.2; font-weight: 700; color: #34284d; margin: 0 0 6px; }
+.traveler-reviews .review-average.is-unrated { font-size: 18px; }
+.traveler-reviews .review-rating-count { margin: 6px 0 0; color: #6c6477; font-size: 13px; }
+.traveler-reviews .review-summary-stars { position: relative; display: inline-block; font-size: 21px; line-height: 1.2; letter-spacing: 2px; color: #e1dbea; }
+.traveler-reviews #review-average-stars { position: absolute; left: 0; top: 0; width: 0; overflow: hidden; white-space: nowrap; color: #7657c8; }
+.traveler-reviews .review-distribution { display: grid; gap: 7px; align-content: center; min-width: 0; }
+.traveler-reviews .review-distribution-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) 40px; align-items: center; gap: 10px; font-size: 12px; color: #6c6477; }
+.traveler-reviews .review-distribution-count { text-align: right; }
+.traveler-reviews meter { appearance: none; width: 100%; height: 8px; border: none; border-radius: 4px; background: #f0edf5; }
+.traveler-reviews meter::-webkit-meter-bar { background: #f0edf5; border: none; border-radius: 4px; }
+.traveler-reviews meter::-webkit-meter-optimum-value { background: #9476d1; border-radius: 4px; }
+.traveler-reviews meter::-moz-meter-bar { background: #9476d1; border-radius: 4px; }
+.traveler-reviews .review-list-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.traveler-reviews .review-list-caption { font-size: 13px; color: #6c6477; }
+.traveler-reviews .review-composer-hint { font-size: 13px; color: #6c6477; margin: 0 0 12px; }
+.traveler-reviews .review-composer[hidden] { display: none; }
+.traveler-reviews .review-legacy-badge { display: inline-block; font-size: 12px; color: #71677d; background: #f4f2f7; border-radius: 5px; padding: 3px 7px; margin: 6px 0 12px; }
+.traveler-reviews.content-comments .content-comment-list { display: grid; gap: 16px; }
+.traveler-reviews.content-comments .content-comment-item:not(.reply) { border: 1px solid #e8e2f1; border-radius: 12px; padding: 20px; background: #fff; }
+.traveler-reviews.content-comments .content-comment-text { margin-top: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.traveler-reviews.content-comments .content-comment-actions { margin-top: 14px; flex-wrap: wrap; gap: 6px 12px; }
+.traveler-reviews.content-comments .content-comment-like { border: 1px solid #e8e2f1; border-radius: 7px; padding: 5px 9px; }
+.traveler-reviews .review-replies { margin-top: 14px; }
+.traveler-reviews .review-replies > summary { display: list-item; cursor: pointer; color: #7657c8; font-size: 13px; padding: 10px 2px; min-height: 40px; }
+.traveler-reviews .review-write-toggle:focus-visible,
+.traveler-reviews .review-replies > summary:focus-visible { outline: 2px solid #7657c8; outline-offset: 3px; }
+.traveler-reviews.content-comments .comment-images .comment-image { object-fit: cover; border-radius: 8px; }
+.destination-detail-page .traveler-reviews .content-comment-sort { gap: 6px; }
+.destination-detail-page .traveler-reviews .content-comment-sort button { min-height: 34px; padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.destination-detail-page .traveler-reviews .content-comment-list { gap: 14px; }
+.destination-detail-page .traveler-reviews .content-comment-item:not(.reply) { padding: 20px; border-color: #e9e4ef; border-radius: 14px; }
+.destination-detail-page .traveler-reviews .content-comment-header { gap: 6px 10px; margin-bottom: 8px; }
+.destination-detail-page .traveler-reviews .content-comment-meta { color: #8a8393; font-size: 11px; }
+.destination-detail-page .traveler-reviews .review-rating-display { margin: 4px 0 10px; gap: 7px; font-size: 16px; letter-spacing: 1px; }
+.destination-detail-page .traveler-reviews .content-comment-text { margin-top: 8px; line-height: 1.75; }
+.destination-detail-page .traveler-reviews .comment-images { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.destination-detail-page .traveler-reviews .comment-images .comment-image { flex: 0 0 auto; width: 112px; height: 96px; margin: 0; border-radius: 9px; }
+.destination-detail-page .traveler-reviews .content-comment-actions { gap: 5px; margin-top: 14px; }
+.destination-detail-page .traveler-reviews .content-comment-action,
+.destination-detail-page .traveler-reviews .content-comment-like { min-height: 32px; padding: 5px 8px; border: 1px solid transparent; border-radius: 7px; font-size: 12px; background: transparent; }
+.destination-detail-page .traveler-reviews .content-comment-action:hover { background: #f5f2fa; border-color: #e9e2f2; }
+.destination-detail-page .traveler-reviews .review-legacy-badge { margin: 3px 0 8px; padding: 2px 6px; font-size: 11px; color: #8a8393; background: #f7f6f9; }
+.destination-detail-page .traveler-reviews .review-replies { margin-top: 12px; border-top: 1px solid #f0ecf5; }
+.destination-detail-page .traveler-reviews .review-replies > summary { padding: 9px 2px; font-size: 12px; }
+.destination-detail-page .traveler-reviews .reply { border-top: 0; padding: 12px 0 0; }
+.destination-detail-page .traveler-reviews .review-composer { padding: 18px; margin-bottom: 20px; border: 1px solid #e9e4ef; border-radius: 12px; background: #faf9fc; }
+.destination-detail-page .traveler-reviews #comment-form { margin-bottom: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.destination-detail-page .traveler-reviews .review-rating-input { margin-bottom: 12px; }
+.destination-detail-page .traveler-reviews .comment-write-form textarea,
+.destination-detail-page .traveler-reviews .edit-text { box-sizing: border-box; width: 100%; min-height: 110px; padding: 12px; border: 1px solid #e0d9e9; border-radius: 8px; background: #fff; line-height: 1.65; resize: vertical; }
+.destination-detail-page .traveler-reviews .comment-controls { justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.destination-detail-page .traveler-reviews .comment-image-preview { gap: 8px; margin-top: 10px; }
+.destination-detail-page [data-reviews-only] .content-comment-header { flex-wrap: wrap; align-items: baseline; }
+.destination-detail-page [data-reviews-only] .content-comment-meta { margin-left: 0; gap: 5px; }
+.destination-detail-page [data-reviews-only] .content-comment-text { line-height: 1.85; white-space: pre-wrap; }
+.destination-detail-page [data-reviews-only] .content-comment-actions { gap: 4px 6px; }
+.destination-detail-page [data-reviews-only] .review-legacy-badge { background: transparent; padding-left: 0; color: #928a9a; }
+@media (max-width: 600px) {
+    .destination-detail-page .traveler-reviews .content-comment-item:not(.reply) { padding: 14px; }
+    .destination-detail-page .traveler-reviews .content-comment-sort { justify-content: flex-start; }
+    .destination-detail-page .traveler-reviews .content-comment-sort button { min-height: 38px; padding: 6px 9px; }
+    .destination-detail-page .traveler-reviews .comment-images .comment-image { width: 88px; height: 80px; max-width: calc((100% - 16px) / 3); }
+    .destination-detail-page .traveler-reviews .review-composer { padding: 12px; }
+}
+@media (max-width: 600px) {
+    .destination-detail-page .traveler-reviews .review-summary { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; }
+    .destination-detail-page .traveler-reviews .review-summary-score { align-items: center; }
+    .destination-detail-page .traveler-reviews .review-average { font-size: 36px; }
+    .destination-detail-page .traveler-reviews .review-average.is-unrated { font-size: 18px; }
+    .destination-detail-page .traveler-reviews.content-comments .content-comment-sort { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+    .destination-detail-page .traveler-reviews .content-comment-sort button { font-size: 12px; min-height: 40px; padding: 6px 9px; }
+    .destination-detail-page .traveler-reviews .content-comment-item:not(.reply) { padding: 14px; }
+    .destination-detail-page .traveler-reviews .content-comment-action { min-height: 40px; }
+    .destination-detail-page .traveler-reviews .review-rating-choice { width: 42px; height: 44px; }
+}
+.review-photo-upload-terms {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid #e5dff1;
+    border-radius: 8px;
+    background: #faf9fc;
+    color: #4b4655;
+    font-size: 12px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.review-photo-upload-terms > strong {
+    color: #514064;
+    font-size: 13px;
+}
+
+.review-photo-upload-terms > p { margin: 5px 0 0; }
+
+.review-photo-upload-terms-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px 12px;
+    margin-top: 8px;
+}
+
+.review-photo-upload-terms-meta a { color: #6b45a0; text-decoration: underline; }
+.review-photo-upload-terms-meta span { color: #736a7e; }
+.review-photo-upload-terms-meta button {
+    padding: 2px 8px;
+    border: 1px solid #d9cfe7;
+    border-radius: 5px;
+    background: #fff;
+    color: #6b45a0;
+    font: inherit;
+    cursor: pointer;
+}
+.review-photo-upload-terms [data-photo-upload-status]:empty { display: none; }

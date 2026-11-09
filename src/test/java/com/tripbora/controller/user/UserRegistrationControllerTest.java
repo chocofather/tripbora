@@ -43,6 +43,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class UserRegistrationControllerTest {
+    @Test
+    void renderedSnapshotIncludesUncheckedOptionalAndViewOnlyPolicies() throws Exception {
+        var policies=SignupPolicyFixtures.activeSignupPolicies();
+        when(signupPolicyService.loadSignupPolicies()).thenReturn(policies);
+        String html=mockMvc.perform(get("/users/register")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var document=org.jsoup.Jsoup.parse(html);
+        assertThat(document.select("input[type=hidden][name=shownPolicyVersionIds]").eachAttr("value"))
+                .containsExactlyElementsOf(policies.policies().stream().map(p->p.policyVersionId().toString()).toList());
+        assertThat(document.select("input[name=agreedPolicyVersionIds][checked]")).isEmpty();
+    }
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserController userController;

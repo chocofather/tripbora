@@ -94,6 +94,9 @@
     <section class="admin-nav-group">
       <h2 class="admin-nav-group-title">콘텐츠 관리</h2>
       <a class="admin-nav-link"
+         th:classappend="${activeMenu == 'review-images'} ? ' is-active' : ''"
+         th:href="@{/admin/review-images}">리뷰 사진 관리</a>
+      <a class="admin-nav-link"
          th:classappend="${activeMenu == 'cover-library-reports'} ? ' is-active' : ''"
          th:href="@{/admin/cover-library/reports}">표지 라이브러리 신고</a>
       <a class="admin-nav-link"

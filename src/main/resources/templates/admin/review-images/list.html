@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/admin :: layout(~{::body}, ~{::headFragment}, 'review-images')}">
+<th:block th:fragment="headFragment">
+<link rel="stylesheet" th:href="@{/css/review-image-management.css}"><script th:src="@{/js/admin-review-photos.js}" defer></script>
+</th:block>
+<th:block th:fragment="body"><section class="admin-page-section" data-photo-queue>
+<header class="admin-page-header"><div class="admin-page-heading"><h1 class="admin-page-title">리뷰 사진 관리</h1><p class="admin-page-description">메인 갤러리 활용 심사입니다. 원본 리뷰 공개와 별개이며 승인 후에도 공개 조건·30장 제한에 따라 표시됩니다.</p></div></header>
+<nav class="review-management-tabs" aria-label="사진 관리 구분"><a th:href="@{/admin/review-images}" th:attr="aria-current=${destinationId == null ? 'page' : null}">승인 대기함</a><a th:href="@{/admin/review-images/destinations}" th:attr="aria-current=${destinationId != null ? 'page' : null}">여행지별 관리</a></nav>
+<div th:if="${destinationId != null}" class="admin-card review-destination-heading">
+<a class="admin-btn" th:href="@{/admin/review-images/destinations}">여행지 목록으로</a>
+<h2 th:text="${destination.destinationName}"></h2><p th:text="|${destination.regionName ?: ''} · ${destination.categoryNames ?: ''} · ID ${destinationId}|"></p>
+<div th:replace="~{admin/review-images/destinations :: statistics(${destination})}"></div>
+<a class="admin-btn" th:href="@{/destinations/{id}(id=${destinationId})}">공개 여행지 상세</a>
+</div>
+<p role="status" th:if="${notice}" th:text="${notice}"></p><p role="alert" th:if="${error}" th:text="${error}"></p>
+<form th:if="${destinationId == null}" method="get" th:action="@{/admin/review-images}" class="admin-filter-card review-queue-filter">
+<label>상태 <select name="status" class="admin-select"><option th:each="s : ${ {'PENDING','APPROVED','REJECTED','REVOKED','NONE'} }" th:value="${s}" th:selected="${s == status}" th:text="|${s == 'PENDING' ? '승인 대기' : s == 'APPROVED' ? '승인 완료' : s == 'REJECTED' ? '반려' : s == 'REVOKED' ? '철회·승인 취소' : '미동의'} (${counts.getOrDefault(s,0)})|"></option></select></label>
+<label>여행지명 / 리뷰 ID <input class="admin-input" name="q" maxlength="100" th:value="${q}"></label><button class="admin-btn is-primary">검색</button>
+</form>
+<form th:if="${destinationId != null}" method="get" th:action="@{/admin/review-images/destinations/{id}(id=${destinationId})}" class="admin-filter-card review-queue-filter">
+<label>이 여행지의 사진 상태 <select name="status" class="admin-select"><option th:each="s : ${ {'ALL','PENDING','APPROVED','REJECTED','REVOKED','NONE'} }" th:value="${s}" th:selected="${s == status}" th:text="${s == 'ALL' ? '전체' : s == 'PENDING' ? '승인 대기' : s == 'APPROVED' ? '승인 완료' : s == 'REJECTED' ? '반려' : s == 'REVOKED' ? '철회·승인 취소' : '미동의'}"></option></select></label><button class="admin-btn is-primary">필터 적용</button><span>선택한 상태의 사진이 있는 리뷰만 표시합니다.</span>
+</form>
+<form method="post" th:action="${destinationId == null} ? @{/admin/review-images/batch} : @{/admin/review-images/destinations/{id}/batch(id=${destinationId})}" data-batch-form>
+<input type="hidden" name="status" th:value="${status}"><input type="hidden" name="q" th:value="${q}"><input type="hidden" name="page" th:value="${page}">
+<div class="review-batch-toolbar"><label><input type="checkbox" data-select-pending> 현재 페이지 대기 사진 선택</label><strong aria-live="polite"><span data-selected-count>0</span>장 선택</strong>
+<button class="admin-btn is-primary" name="action" value="APPROVE" data-approve-selected disabled>선택 승인</button><button class="admin-btn" name="action" value="REJECT">선택 반려</button><button class="admin-btn" name="action" value="REVOKE">선택 승인 취소</button><span data-approval-hint role="status"></span></div>
+<div class="review-image-admin-list">
+<article class="admin-card review-photo-group" th:each="group : ${groups}">
+<header><h2 th:if="${destinationId == null}"><a th:href="@{/destinations/{id}(id=${group.review.destinationId})}" th:text="${group.review.destinationName}"></a> <a class="admin-btn" th:href="@{/admin/review-images/destinations/{id}(id=${group.review.destinationId})}">여행지 사진 관리</a></h2>
+<p><span th:text="${group.review.nickname}"></span> · 리뷰 #<a th:href="@{/destinations/{id}(id=${group.review.destinationId},commentId=${group.review.commentId})}" th:text="${group.review.commentId}"></a></p>
+<p class="review-queue-summary" th:text="${group.review.content}"></p><p th:text="|대기 ${group.count('PENDING')} · 승인 ${group.count('APPROVED')} · 반려 ${group.count('REJECTED')}|"></p>
+<p th:text="|표시 사진 ${#lists.size(group.photos)}장|"></p>
+<button class="admin-btn" name="action" value="APPROVE" data-approve-card th:disabled="${group.approvablePendingCount() == 0}" th:text="|승인 가능 ${group.approvablePendingCount()}장 승인|"></button></header>
+<div class="review-photo-grid"><div class="review-queue-photo" th:each="photo : ${group.photos}" th:attr="data-status=${photo.galleryStatus},data-approvable=${photo.approvable}">
+<label><input type="checkbox" name="ids" th:value="${photo.id}" th:disabled="${photo.galleryStatus != 'PENDING' and photo.galleryStatus != 'APPROVED'}"> 사진 #<span th:text="${photo.id}"></span></label>
+<button type="button" class="review-photo-enlarge" data-enlarge th:attr="data-url=${photo.imageUrl}"><img th:src="${photo.imageUrl}" alt="심사 사진 크게 보기" loading="lazy"></button>
+<span class="review-status" th:text="${photo.galleryStatus == 'PENDING' ? '승인 대기' : photo.galleryStatus == 'APPROVED' ? '승인 완료' : photo.galleryStatus == 'REJECTED' ? '반려' : photo.galleryStatus == 'REVOKED' ? '철회·승인 취소' : '미동의'}"></span>
+<small th:if="${photo.reviewReason}" th:text="${photo.reviewReason}"></small><div>
+<small th:if="${photo.galleryStatus == 'PENDING' and !photo.approvable}" th:text="|승인 제한 · 반려 가능: ${photo.eligibilityMessage}|"></small>
+<button th:if="${photo.galleryStatus == 'PENDING' and photo.approvable}" class="admin-btn" name="action" value="APPROVE" data-single>승인</button><button th:if="${photo.galleryStatus == 'PENDING'}" class="admin-btn" name="action" value="REJECT" data-single>반려</button><button th:if="${photo.galleryStatus == 'APPROVED'}" class="admin-btn" name="action" value="REVOKE" data-single>승인 취소</button>
+</div></div></div></article></div></form>
+<p th:if="${#lists.isEmpty(groups)}">해당 조건의 사진이 없습니다.</p>
+<nav class="review-image-pagination" aria-label="리뷰 사진 페이지"><a class="admin-btn" th:if="${page > 0}" th:href="${destinationId == null} ? @{/admin/review-images(status=${status},q=${q},page=${page - 1})} : @{/admin/review-images/destinations/{id}(id=${destinationId},status=${status},page=${page - 1})}">이전</a><span th:text="${page + 1}"></span><a class="admin-btn" th:if="${hasNext}" th:href="${destinationId == null} ? @{/admin/review-images(status=${status},q=${q},page=${page + 1})} : @{/admin/review-images/destinations/{id}(id=${destinationId},status=${status},page=${page + 1})}">다음</a></nav>
+<dialog data-reject-dialog><h2>반려 사유</h2><p data-reject-count></p><label>사유 (필수) <textarea data-reason maxlength="500" rows="3"></textarea></label><button type="button" class="admin-btn" data-reject-cancel>취소</button><button type="button" class="admin-btn is-primary" data-reject-confirm>반려</button></dialog>
+<dialog data-photo-dialog><button type="button" class="admin-btn" data-photo-close>닫기</button><img alt="리뷰 사진 원본"></dialog>
+<p data-batch-error role="alert"></p>
+</section></th:block></html>

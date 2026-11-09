@@ -14,6 +14,11 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SharedTranslationCacheMapperContractTest {
+    @Test void staleOriginalInvalidationKeepsProfileProviderAndReadyGuards() {
+        String query=sql(mapperConfiguration(),"invalidateUnchangedReady",parameters());
+        assertThat(query).contains("source_hash = ?","source_language = ?","target_language = ?","provider = ?","translation_profile = ?","status = 'READY'","BINARY translated_text = BINARY ?","retry_after = NULL");
+        assertThat(query).doesNotContain("DELETE", "TRUNCATE");
+    }
 
     @Test
     void lookupAndInsertUseOnlyTheExactGlobalTranslationKey() {

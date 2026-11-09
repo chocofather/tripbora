@@ -1,6 +1,7 @@
 package com.tripbora.service.policy;
 
 import com.tripbora.model.PolicyConsentSource;
+import com.tripbora.model.PolicyConsentAction;
 import com.tripbora.model.UserPolicyConsent;
 import com.tripbora.repository.user.UserPolicyConsentMapper;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class PolicyConsentRecorder {
             consent.setUserId(userId);
             consent.setPolicyVersionId(decision.policyVersionId());
             consent.setAgreed(decision.agreed());
+            consent.setDecisionAction(decision.agreed() ? PolicyConsentAction.AGREE : PolicyConsentAction.DECLINE);
             consent.setLocale(locale);
             consent.setConsentSource(source);
 

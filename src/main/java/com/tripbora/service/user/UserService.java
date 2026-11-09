@@ -11,6 +11,7 @@ import com.tripbora.service.email.EmailDispatchService;
 import com.tripbora.service.email.EmailVerificationService;
 import com.tripbora.service.policy.PolicyConsentDecision;
 import com.tripbora.service.policy.PolicyConsentRequiredException;
+import com.tripbora.service.policy.PolicySnapshotException;
 import com.tripbora.service.policy.SignupPolicyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +90,7 @@ public class UserService {
         // 필수 동의가 모두 들어왔는지 보고, 저장할 결정 목록도 여기에서 만든다.
         String consentLocale = SignupPolicyService.currentLocaleTag();
         List<PolicyConsentDecision> consentDecisions =
-                resolveConsentDecisions(form.getAgreedPolicyVersionIds());
+                resolveConsentDecisions(form);
 
         User user = new User();
         user.setUserEmail(email);
@@ -128,12 +129,16 @@ public class UserService {
     /**
      * 현재 가입 정책 세트로 동의 여부를 판정한다.
      *
-     * <p>정책이 아직 활성화되지 않았으면 세트가 비어 있어 필수 동의도 없고 남길 결정도 없다.
-     * 활성화 SQL 을 실행하는 순간부터 같은 코드가 필수 동의를 강제하기 시작한다.
+     * <p>필수 정책 구성이 잘못되었거나 표시했던 버전이 바뀌었으면 저장 전에 막는다.
      */
-    private List<PolicyConsentDecision> resolveConsentDecisions(List<Long> agreedPolicyVersionIds) {
+    private List<PolicyConsentDecision> resolveConsentDecisions(RegistrationForm form) {
         try {
-            return signupPolicyService.loadSignupPolicies().decide(agreedPolicyVersionIds);
+            return signupPolicyService.loadSignupPolicies().decide(
+                    form.getAgreedPolicyVersionIds(), form.getShownPolicyVersionIds());
+        } catch (PolicySnapshotException exception) {
+            form.setAgreedPolicyVersionIds(List.of());
+            throw new RegistrationValidationException(
+                    "agreedPolicyVersionIds", exception.getMessage(), exception.getMessageCode());
         } catch (PolicyConsentRequiredException exception) {
             throw new RegistrationValidationException(
                     "agreedPolicyVersionIds", exception.getMessage(), exception.getMessageCode());

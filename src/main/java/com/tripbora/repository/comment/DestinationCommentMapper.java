@@ -12,6 +12,12 @@ import java.util.Map;
 
 @Mapper
 public interface DestinationCommentMapper {
+    com.tripbora.dto.DestinationReviewStatistics findReviewStatistics(@Param("destinationId") Long destinationId);
+    Long findBlockingReviewId(@Param("userId") Long userId,
+                              @Param("destinationId") Long destinationId,
+                              @Param("excludeId") Long excludeId);
+
+    int countVisibleReviews(@Param("destinationId") Long destinationId);
 
     // 댓글 등록
     void insert(DestinationComment comment);

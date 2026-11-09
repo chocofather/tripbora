@@ -18,15 +18,16 @@ class DestinationDescriptionUiContractTest {
         Document detail = Jsoup.parse(resource("/templates/destination/detail.html"));
         Element scope = detail.selectFirst(".destination-detail-page");
         assertThat(scope).isNotNull();
-        assertThat(scope.select(".destination-hero, .detail-container, .photo-review-section, .comment-section, .similar-destinations"))
-                .hasSize(5);
+        assertThat(scope.select(".destination-hero, .detail-container, .comment-section, .similar-destinations"))
+                .hasSize(4);
         assertThat(scope.select("#comment-form, #comment-list, #guest-comment-box, #bookmark-container, #map"))
                 .hasSize(5);
         assertThat(scope.select(".carousel .nav")).hasSize(2);
-        assertThat(scope.select("[data-comment-sort]")).hasSize(3);
-        assertThat(scope.select("#destination-image-modal, #image-modal, #photo-modal")).hasSize(3);
-        assertThat(detail.select("link[rel=stylesheet]").last().attr("href"))
-                .startsWith("/css/destination-detail-mobile.css?v=");
+        assertThat(scope.select("[data-comment-sort]")).hasSize(4);
+        assertThat(scope.select("#destination-image-modal, #image-modal")).hasSize(2);
+        assertThat(scope.select(".photo-review-section, #photo-modal, .view-all")).isEmpty();
+        assertThat(detail.select("link[rel=stylesheet]").last().attr("th:href"))
+                .isEqualTo("@{/css/destination-detail-mobile.css}");
         // 공통 레이아웃에는 로드하지 않아 다른 페이지 댓글과 헤더에 영향을 주지 않는다.
         assertThat(resource("/templates/layout/main.html"))
                 .doesNotContain("destination-detail-mobile.css", "destination-detail-page");

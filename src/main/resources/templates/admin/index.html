@@ -96,6 +96,7 @@
                     <a class="admin-dashboard-link"
                        th:href="@{/admin/cover-library/reports}">표지 라이브러리 신고</a>
                     <a class="admin-dashboard-link" th:href="@{/admin/contents}">조치된 콘텐츠</a>
+                    <a class="admin-dashboard-link" th:href="@{/admin/review-images(status='PENDING')}">리뷰 사진 관리 <span th:text="${pendingReviewPhotoCount}">0</span></a>
                 </div>
             </article>
             <article class="admin-dashboard-card">

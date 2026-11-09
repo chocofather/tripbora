@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -66,6 +67,64 @@ class SocialSignupServiceTest {
     private PolicyConsentRecorder policyConsentRecorder;
 
     private SocialSignupService service;
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @SuppressWarnings("unchecked")
+    void galleryChoiceUsesTheShownVersionAndSocialSignupSource(boolean agreed) {
+        var policies = new java.util.ArrayList<>(SignupPolicyFixtures.activeSignupPolicies().policies());
+        policies.add(SignupPolicyFixtures.policy(105L, com.tripbora.model.PolicyType.REVIEW_GALLERY,
+                true, false));
+        when(signupPolicyService.loadSignupPolicies())
+                .thenReturn(new com.tripbora.service.policy.SignupPolicySet(policies));
+        SocialSignupForm form = acceptedForm("여행자123");
+        form.setShownPolicyVersionIds(policies.stream()
+                .map(com.tripbora.service.policy.SignupPolicy::policyVersionId).toList());
+        if (agreed) {
+            form.setAgreedPolicyVersionIds(List.of(SignupPolicyFixtures.TERMS_ID,
+                    SignupPolicyFixtures.PRIVACY_COLLECTION_ID, 105L));
+        }
+        arrangeGeneratedUserId(41L);
+
+        service.complete(pending("google-sub", "new@example.com", true), form);
+
+        ArgumentCaptor<List<PolicyConsentDecision>> decisions = ArgumentCaptor.forClass(List.class);
+        verify(policyConsentRecorder).record(any(), decisions.capture(),
+                org.mockito.ArgumentMatchers.eq(com.tripbora.model.PolicyConsentSource.SOCIAL_SIGNUP), any());
+        assertThat(decisions.getValue()).contains(new PolicyConsentDecision(105L,
+                com.tripbora.model.PolicyType.REVIEW_GALLERY, agreed));
+    }
+
+    @Test
+    void anOptionalVersionChangeRejectsBeforeAnyUserSocialOrConsentSave() {
+        SocialSignupForm form = acceptedForm("여행자123");
+        form.setShownPolicyVersionIds(List.of(SignupPolicyFixtures.TERMS_ID,
+                SignupPolicyFixtures.PRIVACY_COLLECTION_ID, SignupPolicyFixtures.PRIVACY_POLICY_ID, 999L));
+
+        assertThatThrownBy(() -> service.complete(pending("google-sub", "new@example.com", true), form))
+                .isInstanceOf(SocialSignupValidationException.class)
+                .hasFieldOrPropertyWithValue("messageCode", "signup.error.terms.changed");
+
+        assertThat(form.getAgreedPolicyVersionIds()).isEmpty();
+        verify(userMapper, never()).insertUser(any());
+        verify(socialAccountMapper, never()).insert(any());
+        verifyNoInteractions(policyConsentRecorder, emailVerificationService);
+    }
+
+    @Test
+    void missingCorePoliciesRejectBeforeAnySave() {
+        when(signupPolicyService.loadSignupPolicies())
+                .thenReturn(com.tripbora.service.policy.SignupPolicySet.empty());
+
+        assertThatThrownBy(() -> service.complete(pending("google-sub", "new@example.com", true),
+                acceptedForm("여행자123")))
+                .isInstanceOf(SocialSignupValidationException.class)
+                .hasFieldOrPropertyWithValue("messageCode", "signup.error.terms.unavailable");
+
+        verify(userMapper, never()).insertUser(any());
+        verify(socialAccountMapper, never()).insert(any());
+        verifyNoInteractions(policyConsentRecorder, emailVerificationService);
+    }
 
     @BeforeEach
     void setUp() {
@@ -566,6 +625,8 @@ class SocialSignupServiceTest {
         form.setUserEmail(userEmail);
         // 활성 정책 세트의 필수 동의 두 건. 선택 항목은 기본적으로 거절 상태다.
         form.setAgreedPolicyVersionIds(SignupPolicyFixtures.requiredConsentIds());
+        form.setShownPolicyVersionIds(SignupPolicyFixtures.activeSignupPolicies().policies().stream()
+                .map(com.tripbora.service.policy.SignupPolicy::policyVersionId).toList());
         return form;
     }
 

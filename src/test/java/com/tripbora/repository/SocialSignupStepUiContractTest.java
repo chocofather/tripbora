@@ -112,7 +112,8 @@ class SocialSignupStepUiContractTest {
                         + "SocialSignupService.java"), StandardCharsets.UTF_8);
 
         assertThat(service)
-                .contains("signupPolicyService.loadSignupPolicies().decide(agreed)")
+                .contains("signupPolicyService.loadSignupPolicies().decide(agreed,")
+                .contains("form.getShownPolicyVersionIds()")
                 .contains("AgeVerificationPolicy.verify(")
                 .contains("PolicyConsentSource.SOCIAL_SIGNUP")
                 .contains("policyConsentRecorder.record(");

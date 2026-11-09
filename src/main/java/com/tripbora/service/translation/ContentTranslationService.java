@@ -55,7 +55,9 @@ public class ContentTranslationService {
                 > properties.maxCommentCharacters()) {
             throw new TranslationTooLongException();
         }
-        if (!TranslationVisibility.shouldOffer(source.sourceLanguage(), targetLanguage)) {
+        boolean mixed = !"text/html".equals(source.mimeType())
+                && MixedLanguageSupport.shouldTranslate(source.text(), targetLanguage);
+        if (!mixed && !TranslationVisibility.shouldOffer(source.sourceLanguage(), targetLanguage)) {
             return ContentTranslationResponse.ready(
                     source.text(), source.sourceLanguage(), targetLanguage, true);
         }
@@ -143,7 +145,12 @@ public class ContentTranslationService {
         MachineTranslation translated;
         try {
             translated = translationClient.translate(
-                    source.text(), source.sourceLanguage(), targetLanguage, source.mimeType());
+                    source.text(), mixed ? MixedLanguageSupport.sourceHint(source.text(), targetLanguage, source.sourceLanguage())
+                            : source.sourceLanguage(), targetLanguage, source.mimeType());
+            if (mixed && (translated.translatedText() == null || translated.translatedText().isBlank()
+                    || unchangedMixed(source,targetLanguage,translated.translatedText()))) {
+                throw new MachineTranslationException("혼합 문장의 번역 결과를 확인할 수 없습니다.");
+            }
         } catch (RuntimeException e) {
             Instant failedAt = clock.instant();
             markBothFailed(source, targetLanguage, sourceHash, contentLeaseToken,
@@ -152,9 +159,10 @@ public class ContentTranslationService {
         }
 
         Timestamp completedAt = Timestamp.from(clock.instant());
+        var sharedKey = SharedTranslationKey.forSource(source,sourceHash,providerMetadata);
         int sharedReady = sharedCacheMapper.markReady(
-                sourceHash, source.sourceLanguage(), targetLanguage,
-                providerMetadata.provider(), providerMetadata.profileFor(source.mimeType()), sharedLeaseToken,
+                sharedKey.hash(), source.sourceLanguage(), targetLanguage,
+                providerMetadata.provider(), sharedKey.profile(), sharedLeaseToken,
                 translated.translatedText(), translated.detectedSourceLanguage(), completedAt);
         if (sharedReady != 1) {
             SharedTranslationCache current = findSharedCache(source, targetLanguage, sourceHash);
@@ -185,16 +193,63 @@ public class ContentTranslationService {
 
     private ContentTranslationCache findContentCache(TranslationSourceSnapshot source,
                                                      String targetLanguage) {
-        return cacheMapper.find(source.contentType().name(), source.contentId(),
+        var cached = cacheMapper.find(source.contentType().name(), source.contentId(),
                 source.sourceField(), targetLanguage);
+        if (cached != null && "READY".equals(cached.getStatus()) && unchangedMixed(source, targetLanguage, cached.getTranslatedText())) {
+            cacheMapper.invalidateUnchangedReady(source.contentType().name(),source.contentId(),source.sourceField(),
+                    targetLanguage,sourceHash(source.text()),cached.getTranslatedText());
+            return null;
+        }
+        return cached;
     }
 
     private SharedTranslationCache findSharedCache(TranslationSourceSnapshot source,
                                                    String targetLanguage,
                                                    byte[] sourceHash) {
-        return sharedCacheMapper.find(
-                sourceHash, source.sourceLanguage(), targetLanguage,
-                providerMetadata.provider(), providerMetadata.profileFor(source.mimeType()));
+        var key = SharedTranslationKey.forSource(source,sourceHash,providerMetadata);
+        var cached = readSharedCache(source,targetLanguage,key);
+        if (cached != null || !key.normalized()) return cached;
+        // 기존 캐시는 삭제하지 않는다. 완전 일치 READY는 정규화 키의 별칭으로도 재사용한다.
+        var legacy = readSharedCache(source,targetLanguage,
+                new SharedTranslationKey(sourceHash,providerMetadata.profileFor(source.mimeType()),false));
+        if (legacy == null && !Arrays.equals(sourceHash,key.hash())) {
+            // 이전 버전에 공백이 정리된 원문으로 저장된 캐시도 정확한 hash 조회로 찾는다.
+            legacy = readSharedCache(source,targetLanguage,
+                    new SharedTranslationKey(key.hash(),providerMetadata.profileFor(source.mimeType()),false));
+        }
+        if (!isSharedReady(legacy)) return legacy;
+        var alias = new SharedTranslationCache();
+        alias.setSourceHash(key.hash()); alias.setSourceLanguage(source.sourceLanguage());
+        alias.setTargetLanguage(targetLanguage); alias.setProvider(providerMetadata.provider());
+        alias.setTranslationProfile(key.profile()); alias.setTranslatedText(legacy.getTranslatedText());
+        alias.setDetectedSourceLanguage(legacy.getDetectedSourceLanguage());
+        alias.setCreatedAt(Timestamp.from(clock.instant())); alias.setUpdatedAt(alias.getCreatedAt());
+        sharedCacheMapper.insertReadyIfAbsent(alias);
+        // INSERT IGNORE는 다른 요청의 활성 lease를 덮어쓰지 않는다.
+        var current = readSharedCache(source,targetLanguage,key);
+        return current == null ? legacy : current;
+    }
+
+    private SharedTranslationCache readSharedCache(TranslationSourceSnapshot source,
+                                                   String targetLanguage, SharedTranslationKey key) {
+        var cached = sharedCacheMapper.find(
+                key.hash(), source.sourceLanguage(), targetLanguage,
+                providerMetadata.provider(), key.profile());
+        if (cached != null && "READY".equals(cached.getStatus()) && unchangedMixed(source,targetLanguage,cached.getTranslatedText())) {
+            sharedCacheMapper.invalidateUnchangedReady(key.hash(),source.sourceLanguage(),targetLanguage,
+                    providerMetadata.provider(),key.profile(),cached.getTranslatedText());
+            return null;
+        }
+        return cached;
+    }
+
+    private boolean unchangedMixed(TranslationSourceSnapshot source, String targetLanguage, String translatedText) {
+        if ("text/html".equals(source.mimeType()) || translatedText == null
+                || !MixedLanguageSupport.shouldTranslate(source.text(),targetLanguage)) return false;
+        var original = SharedTranslationTextNormalizer.normalize(source.text(),source.mimeType());
+        var translated = SharedTranslationTextNormalizer.normalize(translatedText,source.mimeType());
+        return source.text().strip().equals(translatedText.strip())
+                || (original.isPresent() && original.equals(translated));
     }
 
     private ContentTranslationResponse contentCacheResponse(
@@ -264,20 +319,21 @@ public class ContentTranslationService {
                                           byte[] sourceHash,
                                           String leaseToken,
                                           Instant now) {
+        var key = SharedTranslationKey.forSource(source,sourceHash,providerMetadata);
         SharedTranslationCache cache = new SharedTranslationCache();
-        cache.setSourceHash(sourceHash);
+        cache.setSourceHash(key.hash());
         cache.setSourceLanguage(source.sourceLanguage());
         cache.setTargetLanguage(targetLanguage);
         cache.setProvider(providerMetadata.provider());
-        cache.setTranslationProfile(providerMetadata.profileFor(source.mimeType()));
+        cache.setTranslationProfile(key.profile());
         cache.setLeaseToken(leaseToken);
         cache.setLeaseExpiresAt(Timestamp.from(now.plus(properties.leaseDuration())));
         cache.setCreatedAt(Timestamp.from(now));
         cache.setUpdatedAt(Timestamp.from(now));
         if (sharedCacheMapper.insertProcessing(cache) == 1) return true;
         return sharedCacheMapper.tryClaim(
-                sourceHash, source.sourceLanguage(), targetLanguage,
-                providerMetadata.provider(), providerMetadata.profileFor(source.mimeType()), leaseToken,
+                key.hash(), source.sourceLanguage(), targetLanguage,
+                providerMetadata.provider(), key.profile(), leaseToken,
                 Timestamp.from(now), Timestamp.from(now.plus(properties.leaseDuration()))) == 1;
     }
 
@@ -288,9 +344,10 @@ public class ContentTranslationService {
                                 String sharedLeaseToken,
                                 Instant retryAfter,
                                 Instant now) {
+        var key = SharedTranslationKey.forSource(source,sourceHash,providerMetadata);
         sharedCacheMapper.markFailed(
-                sourceHash, source.sourceLanguage(), targetLanguage,
-                providerMetadata.provider(), providerMetadata.profileFor(source.mimeType()), sharedLeaseToken,
+                key.hash(), source.sourceLanguage(), targetLanguage,
+                providerMetadata.provider(), key.profile(), sharedLeaseToken,
                 Timestamp.from(retryAfter), Timestamp.from(now));
         markContentFailed(source, targetLanguage, sourceHash, contentLeaseToken, retryAfter, now);
     }
@@ -310,9 +367,10 @@ public class ContentTranslationService {
                                     String targetLanguage,
                                     byte[] sourceHash,
                                     String sharedLeaseToken) {
+        var key = SharedTranslationKey.forSource(source,sourceHash,providerMetadata);
         sharedCacheMapper.deleteProcessing(
-                sourceHash, source.sourceLanguage(), targetLanguage,
-                providerMetadata.provider(), providerMetadata.profileFor(source.mimeType()), sharedLeaseToken);
+                key.hash(), source.sourceLanguage(), targetLanguage,
+                providerMetadata.provider(), key.profile(), sharedLeaseToken);
     }
 
     private boolean isReadyFor(ContentTranslationCache cache, byte[] sourceHash) {

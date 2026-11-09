@@ -43,6 +43,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(I18nConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
 class SocialSignupPageI18nContractTest {
+    @Test
+    void snapshotIncludesEveryShownPolicyWithoutCheckingOptionalConsents() throws Exception {
+        Document page=render("ko");
+        var policies=com.tripbora.service.policy.SignupPolicyFixtures.activeSignupPolicies();
+        assertThat(page.select("input[type=hidden][name=shownPolicyVersionIds]").eachAttr("value"))
+                .containsExactlyElementsOf(policies.policies().stream().map(p->p.policyVersionId().toString()).toList());
+        assertThat(page.select("input[name=agreedPolicyVersionIds][checked]")).isEmpty();
+    }
 
     @Autowired
     private MockMvc mockMvc;
